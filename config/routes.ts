@@ -1,14 +1,5 @@
 ﻿/**
  * @name umi 的路由配置
- * @description 只支持 path,component,routes,redirect,wrappers,name,icon 的配置
- * @param path  path 只支持两种占位符配置，第一种是动态参数 :id 的形式，第二种是 * 通配符，通配符只能出现路由字符串的最后。
- * @param component 配置 location 和 path 匹配后用于渲染的 React 组件路径。可以是绝对路径，也可以是相对路径，如果是相对路径，会从 src/pages 开始找起。
- * @param routes 配置子路由，通常在需要为多个路径增加 layout 组件时使用。
- * @param redirect 配置路由跳转
- * @param wrappers 配置路由组件的包装组件，通过包装组件可以为当前的路由组件组合进更多的功能。 比如，可以用于路由级别的权限校验
- * @param name 配置路由的标题，默认读取国际化文件 menu.ts 中 menu.xxxx 的值，如配置 name 为 login，则读取 menu.ts 中 menu.login 的取值作为标题
- * @param icon 配置路由的图标，取值参考 https://ant.design/components/icon-cn， 注意去除风格后缀和大小写，如想要配置图标为 <StepBackwardOutlined /> 则取值应为 stepBackward 或 StepBackward，如想要配置图标为 <UserOutlined /> 则取值应为 user 或者 User
- * @doc https://umijs.org/docs/guides/routes
  */
 export default [
   {
@@ -23,41 +14,137 @@ export default [
     ],
   },
   {
-    path: '/welcome',
-    name: 'welcome',
-    icon: 'smile',
-    component: './Welcome',
-  },
-  {
-    path: '/admin',
-    name: 'admin',
-    icon: 'crown',
-    access: 'canAdmin',
+    path: '/',
     routes: [
       {
-        path: '/admin',
-        redirect: '/admin/sub-page',
+        path: '/',
+        redirect: '/manage/stock',
       },
       {
-        path: '/admin/sub-page',
-        name: 'sub-page',
-        component: './Admin',
+        path: '/manage',
+        name: '后台管理',
+        icon: 'appstore',
+        routes: [
+          { path: '/manage', redirect: '/manage/stock' },
+          {
+            name: '基础资料',
+            routes: [
+              { path: '/manage/brand', name: '品牌管理', component: './Crud' },
+              { path: '/manage/series', name: '系列管理', component: './Crud' },
+              { path: '/manage/maker', name: '产地管理', component: './Crud' },
+              {
+                path: '/manage/goodsType',
+                name: '商品类型',
+                component: './Crud',
+              },
+              { path: '/manage/goods', name: '商品管理', component: './Crud' },
+              {
+                path: '/manage/warehouse',
+                name: '仓库管理',
+                component: './Crud',
+              },
+              {
+                path: '/manage/customerLevel',
+                name: '客户等级',
+                component: './Crud',
+              },
+              {
+                path: '/manage/customer',
+                name: '客户管理',
+                component: './Crud',
+              },
+              { path: '/manage/dept', name: '部门管理', component: './Crud' },
+            ],
+          },
+          {
+            name: '库存业务',
+            routes: [
+              { path: '/manage/stock', name: '库存管理', component: './Crud' },
+              {
+                path: '/manage/stockRecord',
+                name: '库存流水',
+                component: './Crud',
+              },
+              {
+                path: '/manage/stockOrder',
+                name: '出入库单',
+                component: './Crud',
+              },
+              {
+                path: '/manage/stockOrderItem',
+                name: '出入库明细',
+                component: './Crud',
+              },
+              {
+                path: '/manage/priceRecord',
+                name: '价格记录',
+                component: './Crud',
+              },
+              {
+                path: '/manage/requestForm',
+                name: '请领单',
+                component: './Crud',
+              },
+              {
+                path: '/manage/requestItem',
+                name: '请领明细',
+                component: './Crud',
+              },
+              {
+                path: '/manage/message',
+                name: '消息管理',
+                component: './Crud',
+              },
+            ],
+          },
+          {
+            name: '系统管理',
+            routes: [
+              { path: '/manage/user', name: '用户管理', component: './Crud' },
+              { path: '/manage/role', name: '角色管理', component: './Crud' },
+              {
+                path: '/manage/permission',
+                name: '权限管理',
+                component: './Crud',
+              },
+              {
+                path: '/manage/userRole',
+                name: '用户角色',
+                component: './Crud',
+              },
+              {
+                path: '/manage/rolePermission',
+                name: '角色权限',
+                component: './Crud',
+              },
+              {
+                path: '/manage/userToken',
+                name: '登录令牌',
+                component: './Crud',
+              },
+              { path: '/manage/config', name: '系统配置', component: './Crud' },
+              {
+                path: '/manage/operateLog',
+                name: '操作日志',
+                component: './Crud',
+              },
+            ],
+          },
+        ],
+      },
+      {
+        path: '/manage/:resource',
+        component: './Crud',
+        hideInMenu: true,
+      },
+      {
+        path: '/stock',
+        redirect: '/manage/stock',
+      },
+      {
+        path: '*',
+        component: './404',
       },
     ],
-  },
-  {
-    name: 'list.table-list',
-    icon: 'table',
-    path: '/list',
-    component: './table-list',
-  },
-  {
-    path: '/',
-    redirect: '/welcome',
-  },
-  {
-    component: '404',
-    layout: false,
-    path: './*',
   },
 ];
