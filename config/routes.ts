@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @name umi 的路由配置
  */
 export default [
