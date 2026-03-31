@@ -4,6 +4,7 @@ import { message, Popconfirm } from 'antd';
 import type { CrudModule } from '@/config/crudModules';
 import { deleteOne, updateOne } from '@/services/crud';
 import { getErrorMessage } from '@/services/http';
+import { t } from '@/utils/i18n';
 import type { CrudRecord } from '../types';
 import { normalizePayload } from '../utils';
 import { CrudFormFields } from './CrudFormFields';
@@ -24,14 +25,14 @@ export const CrudActionCell: React.FC<CrudActionCellProps> = ({
   return (
     <>
       <ModalForm
-        title={`编辑${module.name}`}
-        trigger={<a>编辑</a>}
+        title={`${t('crud.edit')}${module.name}`}
+        trigger={<a>{t('crud.edit')}</a>}
         initialValues={record}
         onFinish={async (values) => {
           try {
             const payload = normalizePayload(values, module.fields);
             await updateOne(resource, payload);
-            message.success('更新成功');
+            message.success(t('crud.updateSuccess'));
             action?.reload?.();
             return true;
           } catch (e) {
@@ -43,18 +44,18 @@ export const CrudActionCell: React.FC<CrudActionCellProps> = ({
         <CrudFormFields fields={module.fields} isEdit />
       </ModalForm>
       <Popconfirm
-        title="确认删除该记录吗？"
+        title={t('crud.deleteConfirm')}
         onConfirm={async () => {
           try {
             await deleteOne(resource, record.id);
-            message.success('删除成功');
+            message.success(t('crud.deleteSuccess'));
             action?.reload?.();
           } catch (e) {
             message.error(getErrorMessage(e));
           }
         }}
       >
-        <a>删除</a>
+        <a>{t('crud.delete')}</a>
       </Popconfirm>
     </>
   );

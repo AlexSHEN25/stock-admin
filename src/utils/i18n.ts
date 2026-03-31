@@ -1,0 +1,144 @@
+export type AppLang = 'zh-CN' | 'en-US' | 'ja-JP';
+
+type Dict = Record<string, string>;
+
+const MESSAGES: Record<AppLang, Dict> = {
+  'zh-CN': {
+    'app.title': '库存管理系统',
+    'common.requestFailed': '请求失败',
+    'login.username': '用户名',
+    'login.password': '密码',
+    'login.requiredUsername': '请输入用户名',
+    'login.requiredPassword': '请输入密码',
+    'login.success': '登录成功',
+    'login.failed': '登录失败',
+    'login.exception': '请求异常',
+    'home.welcomeTitle': '欢迎使用库存管理系统',
+    'home.welcomeDesc': '请从左侧菜单进入基础资料、库存业务和系统管理模块。',
+    'home.card.basic': '基础资料',
+    'home.card.basicDesc': '维护品牌、商品、仓库、客户等主数据。',
+    'home.card.business': '库存业务',
+    'home.card.businessDesc': '处理库存、出入库单、请领单与价格记录。',
+    'home.card.system': '系统管理',
+    'home.card.systemDesc': '管理用户、角色、权限与系统配置。',
+    'crud.new': '新增',
+    'crud.edit': '编辑',
+    'crud.delete': '删除',
+    'crud.createSuccess': '新增成功',
+    'crud.updateSuccess': '更新成功',
+    'crud.deleteSuccess': '删除成功',
+    'crud.deleteConfirm': '确认删除该记录吗？',
+    'crud.invalidResource': '无效资源',
+    'error.404.subtitle': '页面不存在',
+    'error.404.backHome': '返回首页',
+    'right.logout': '退出登录',
+    'right.theme.light': '浅色主题',
+    'right.theme.dark': '深色主题',
+    'right.lang.zh-CN': '中文',
+    'right.lang.en-US': 'English',
+    'right.lang.ja-JP': '日本語',
+  },
+  'en-US': {
+    'app.title': 'Stock Management System',
+    'common.requestFailed': 'Request failed',
+    'login.username': 'Username',
+    'login.password': 'Password',
+    'login.requiredUsername': 'Please enter username',
+    'login.requiredPassword': 'Please enter password',
+    'login.success': 'Login succeeded',
+    'login.failed': 'Login failed',
+    'login.exception': 'Request exception',
+    'home.welcomeTitle': 'Welcome to Stock Management System',
+    'home.welcomeDesc':
+      'Use the left menu to access master data, inventory operations, and system settings.',
+    'home.card.basic': 'Master Data',
+    'home.card.basicDesc':
+      'Maintain brands, products, warehouses, customers, and other master data.',
+    'home.card.business': 'Inventory Operations',
+    'home.card.businessDesc':
+      'Handle stock, stock orders, request forms, and price records.',
+    'home.card.system': 'System Management',
+    'home.card.systemDesc':
+      'Manage users, roles, permissions, and system configs.',
+    'crud.new': 'New',
+    'crud.edit': 'Edit',
+    'crud.delete': 'Delete',
+    'crud.createSuccess': 'Created successfully',
+    'crud.updateSuccess': 'Updated successfully',
+    'crud.deleteSuccess': 'Deleted successfully',
+    'crud.deleteConfirm': 'Confirm delete this record?',
+    'crud.invalidResource': 'Invalid resource',
+    'error.404.subtitle': 'Page not found',
+    'error.404.backHome': 'Back Home',
+    'right.logout': 'Logout',
+    'right.theme.light': 'Light theme',
+    'right.theme.dark': 'Dark theme',
+    'right.lang.zh-CN': '中文',
+    'right.lang.en-US': 'English',
+    'right.lang.ja-JP': '日本語',
+  },
+  'ja-JP': {
+    'app.title': '在庫管理システム',
+    'common.requestFailed': 'リクエストに失敗しました',
+    'login.username': 'ユーザー名',
+    'login.password': 'パスワード',
+    'login.requiredUsername': 'ユーザー名を入力してください',
+    'login.requiredPassword': 'パスワードを入力してください',
+    'login.success': 'ログインに成功しました',
+    'login.failed': 'ログインに失敗しました',
+    'login.exception': 'リクエスト例外',
+    'home.welcomeTitle': '在庫管理システムへようこそ',
+    'home.welcomeDesc':
+      '左側メニューから基礎マスタ、在庫業務、システム管理を利用できます。',
+    'home.card.basic': '基礎マスタ',
+    'home.card.basicDesc':
+      'ブランド、商品、倉庫、顧客などのマスタデータを管理します。',
+    'home.card.business': '在庫業務',
+    'home.card.businessDesc':
+      '在庫、入出庫伝票、申請伝票、価格履歴を処理します。',
+    'home.card.system': 'システム管理',
+    'home.card.systemDesc':
+      'ユーザー、ロール、権限、システム設定を管理します。',
+    'crud.new': '新規作成',
+    'crud.edit': '編集',
+    'crud.delete': '削除',
+    'crud.createSuccess': '作成に成功しました',
+    'crud.updateSuccess': '更新に成功しました',
+    'crud.deleteSuccess': '削除に成功しました',
+    'crud.deleteConfirm': 'このレコードを削除しますか？',
+    'crud.invalidResource': '無効なリソースです',
+    'error.404.subtitle': 'ページが見つかりません',
+    'error.404.backHome': 'ホームへ戻る',
+    'right.logout': 'ログアウト',
+    'right.theme.light': 'ライトテーマ',
+    'right.theme.dark': 'ダークテーマ',
+    'right.lang.zh-CN': '中文',
+    'right.lang.en-US': 'English',
+    'right.lang.ja-JP': '日本語',
+  },
+};
+
+export const getCurrentLang = (): AppLang => {
+  const raw =
+    localStorage.getItem('umi_locale') ||
+    localStorage.getItem('locale') ||
+    navigator.language;
+
+  if ((raw || '').toLowerCase().startsWith('ja')) {
+    return 'ja-JP';
+  }
+  if ((raw || '').toLowerCase().startsWith('en')) {
+    return 'en-US';
+  }
+  return 'ja-JP';
+};
+
+export const setCurrentLang = (lang: AppLang) => {
+  localStorage.setItem('umi_locale', lang);
+  localStorage.setItem('locale', lang);
+};
+
+export const t = (key: string) => {
+  const lang = getCurrentLang();
+  return MESSAGES[lang][key] || MESSAGES['ja-JP'][key] || key;
+};

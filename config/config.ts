@@ -7,13 +7,24 @@ import routes from './routes';
 
 const { UMI_ENV = 'dev' } = process.env;
 
+const normalizePathPrefix = (rawPath?: string) => {
+  if (!rawPath) return '/';
+  const trimmed = rawPath.trim();
+  if (!trimmed || trimmed === '/') return '/';
+  const withoutSlash = trimmed.replace(/^\/+|\/+$/g, '');
+  return `/${withoutSlash}/`;
+};
+
+const BASE_PATH = normalizePathPrefix(process.env.APP_BASE);
+const PUBLIC_PATH: string = normalizePathPrefix(
+  process.env.PUBLIC_PATH || BASE_PATH,
+);
+
 /**
  * @name 使用公共路径
  * @description 部署时的路径，如果部署在非根目录下，需要配置这个变量
  * @doc https://umijs.org/docs/api/config#publicpath
  */
-const PUBLIC_PATH: string = '/';
-
 export default defineConfig({
   /**
    * @name 开启 hash 模式
@@ -22,6 +33,7 @@ export default defineConfig({
    */
   hash: true,
 
+  base: BASE_PATH,
   publicPath: PUBLIC_PATH,
 
   /**
@@ -83,7 +95,7 @@ export default defineConfig({
    */
   title: 'Ant Design Pro',
   layout: {
-    locale: true,
+    locale: false,
     ...defaultSettings,
   },
   /**
@@ -100,11 +112,11 @@ export default defineConfig({
    * @doc https://umijs.org/docs/max/i18n
    */
   locale: {
-    // default zh-CN
-    default: 'zh-CN',
+    // default ja-JP
+    default: 'ja-JP',
     antd: true,
-    // default true, when it is true, will use `navigator.language` overwrite default
-    baseNavigator: true,
+    // keep app default locale, do not override by browser language
+    baseNavigator: false,
   },
   /**
    * @name antd 插件
@@ -133,9 +145,7 @@ export default defineConfig({
    * @doc https://umijs.org/docs/max/access
    */
   access: {},
-  //================ pro 插件配置 =================
-  presets: ['umi-presets-pro'],
-  utoopack: {},
+  // utoopack: {},
   define: {
     'process.env.CI': process.env.CI,
   },

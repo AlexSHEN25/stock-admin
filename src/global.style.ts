@@ -9,7 +9,8 @@ const useStyles = createStyles(() => {
       minHeight: '100vh',
     },
     'ant-pro-sider.ant-layout-sider.ant-pro-sider-fixed': {
-      left: 'unset',
+      left: '0',
+      right: 'auto',
     },
     canvas: {
       display: 'block',

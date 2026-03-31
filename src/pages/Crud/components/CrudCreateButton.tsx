@@ -3,6 +3,7 @@ import { Button, message, Space } from 'antd';
 import type { CrudModule } from '@/config/crudModules';
 import { createOne } from '@/services/crud';
 import { getErrorMessage } from '@/services/http';
+import { t } from '@/utils/i18n';
 import { normalizePayload } from '../utils';
 import { CrudFormFields } from './CrudFormFields';
 
@@ -19,13 +20,13 @@ export const CrudCreateButton: React.FC<CrudCreateButtonProps> = ({
 }) => {
   return (
     <ModalForm
-      title={`新增${module.name}`}
-      trigger={<Button type="primary">新增</Button>}
+      title={`${t('crud.new')}${module.name}`}
+      trigger={<Button type="primary">{t('crud.new')}</Button>}
       onFinish={async (values) => {
         try {
           const payload = normalizePayload(values, module.fields);
           await createOne(resource, payload);
-          message.success('新增成功');
+          message.success(t('crud.createSuccess'));
           reload?.();
           return true;
         } catch (e) {

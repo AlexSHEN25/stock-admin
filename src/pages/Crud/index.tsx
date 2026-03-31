@@ -1,4 +1,5 @@
 import { PageContainer, ProTable } from '@ant-design/pro-components';
+import { t } from '@/utils/i18n';
 import { buildCrudColumns } from './columns';
 import { CrudCreateButton } from './components/CrudCreateButton';
 import { useCrudResource } from './hooks/useCrudResource';
@@ -10,7 +11,9 @@ export default () => {
 
   if (!module) {
     return (
-      <PageContainer title="未找到资源">无效资源：{resource}</PageContainer>
+      <PageContainer title={t('crud.invalidResource')}>
+        {t('crud.invalidResource')}：{resource}
+      </PageContainer>
     );
   }
 
