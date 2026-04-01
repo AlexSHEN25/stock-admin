@@ -11,73 +11,73 @@ const resolveBasePrefix = () => {
   if (loginIndex >= 0) {
     return window.location.pathname.slice(0, loginIndex);
   }
-  return window.location.pathname.startsWith('/stock/') ? '/stock' : '';
+  return '';
 };
 const redirectToLogin = () => {
   const basePrefix = resolveBasePrefix();
   window.location.href = `${basePrefix}${LOGIN_ROUTE}`;
 };
 
-const MANAGE_MENU_GROUPS = [
+const buildManageMenuGroups = () => [
+  {
+    path: '/manage/user',
+    name: t('menu.user'),
+    children: [
+      { path: '/manage/user', name: t('menu.user.user') },
+      { path: '/manage/role', name: t('menu.user.role') },
+      { path: '/manage/permission', name: t('menu.user.permission') },
+      { path: '/manage/userRole', name: t('menu.user.userRole') },
+      { path: '/manage/rolePermission', name: t('menu.user.rolePermission') },
+      { path: '/manage/dept', name: t('menu.user.dept') },
+      { path: '/manage/userToken', name: t('menu.user.userToken') },
+    ],
+  },
   {
     path: '/manage/goods',
-    name: '商品管理',
+    name: t('menu.goods'),
     children: [
-      { path: '/manage/goods', name: '商品管理' },
-      { path: '/manage/brand', name: '品牌管理' },
-      { path: '/manage/series', name: '系列管理' },
-      { path: '/manage/maker', name: '产地管理' },
-      { path: '/manage/goodsType', name: '商品类型' },
+      { path: '/manage/goods', name: t('menu.goods.goods') },
+      { path: '/manage/brand', name: t('menu.goods.brand') },
+      { path: '/manage/series', name: t('menu.goods.series') },
+      { path: '/manage/goodsType', name: t('menu.goods.goodsType') },
+      { path: '/manage/maker', name: t('menu.goods.maker') },
     ],
   },
   {
     path: '/manage/stock',
-    name: '库存管理',
+    name: t('menu.stock'),
     children: [
-      { path: '/manage/stock', name: '库存管理' },
-      { path: '/manage/stockOrder', name: '出入库单' },
-      { path: '/manage/stockOrderItem', name: '出入库明细' },
-      { path: '/manage/stockRecord', name: '库存流水' },
-      { path: '/manage/priceRecord', name: '价格记录' },
-      { path: '/manage/warehouse', name: '仓库管理' },
-    ],
-  },
-  {
-    path: '/manage/customer',
-    name: '客户管理',
-    children: [
-      { path: '/manage/customer', name: '客户管理' },
-      { path: '/manage/customerLevel', name: '客户等级' },
-    ],
-  },
-  {
-    path: '/manage/user',
-    name: '用户管理',
-    children: [
-      { path: '/manage/user', name: '用户管理' },
-      { path: '/manage/role', name: '角色管理' },
-      { path: '/manage/permission', name: '权限管理' },
-      { path: '/manage/userRole', name: '用户角色' },
-      { path: '/manage/rolePermission', name: '角色权限' },
-      { path: '/manage/dept', name: '部门管理' },
-      { path: '/manage/userToken', name: '登录令牌' },
+      { path: '/manage/stock', name: t('menu.stock.stock') },
+      { path: '/manage/stockOrder', name: t('menu.stock.stockOrder') },
+      { path: '/manage/stockOrderItem', name: t('menu.stock.stockOrderItem') },
+      { path: '/manage/stockRecord', name: t('menu.stock.stockRecord') },
+      { path: '/manage/priceRecord', name: t('menu.stock.priceRecord') },
+      { path: '/manage/warehouse', name: t('menu.stock.warehouse') },
     ],
   },
   {
     path: '/manage/requestForm',
-    name: '请求书管理',
+    name: t('menu.request'),
     children: [
-      { path: '/manage/requestForm', name: '请领单' },
-      { path: '/manage/requestItem', name: '请领明细' },
+      { path: '/manage/requestForm', name: t('menu.request.requestForm') },
+      { path: '/manage/requestItem', name: t('menu.request.requestItem') },
+    ],
+  },
+  {
+    path: '/manage/customer',
+    name: t('menu.customer'),
+    children: [
+      { path: '/manage/customer', name: t('menu.customer.customer') },
+      { path: '/manage/customerLevel', name: t('menu.customer.customerLevel') },
     ],
   },
   {
     path: '/manage/config',
-    name: '系统配置',
+    name: t('menu.system'),
     children: [
-      { path: '/manage/config', name: '系统配置' },
-      { path: '/manage/message', name: '消息管理' },
-      { path: '/manage/operateLog', name: '操作日志' },
+      { path: '/manage/config', name: t('menu.system.config') },
+      { path: '/manage/message', name: t('menu.system.message') },
+      { path: '/manage/operateLog', name: t('menu.system.operateLog') },
     ],
   },
 ];
@@ -109,8 +109,8 @@ export const layout = () => {
     menuDataRender: () => [
       {
         path: '/manage',
-        name: '后台管理',
-        children: MANAGE_MENU_GROUPS,
+        name: t('menu.manage'),
+        children: buildManageMenuGroups(),
       },
     ],
     headerRender: false,
