@@ -1,6 +1,8 @@
 import type { ProColumns } from '@ant-design/pro-components';
+import { CRUD_COLUMN_LABELS } from '@/config/crudColumnLabels';
 import type { CrudModule } from '@/config/crudModules';
-import { t } from '@/utils/i18n';
+import { translateSqlCommentLabel } from '@/config/sqlCommentI18n';
+import { getCurrentLang, t } from '@/utils/i18n';
 import { CrudActionCell } from './components/CrudActionCell';
 import type { CrudRecord } from './types';
 import { isLongTextField, toTitle } from './utils';
@@ -9,8 +11,13 @@ export const buildCrudColumns = (
   module: CrudModule,
   resource: string,
 ): ProColumns<CrudRecord>[] => {
+  const labelMap = CRUD_COLUMN_LABELS[resource] || {};
+  const currentLang = getCurrentLang();
   const columns: ProColumns<CrudRecord>[] = module.fields.map((field) => ({
-    title: toTitle(field.name),
+    title: translateSqlCommentLabel(
+      labelMap[field.name] || toTitle(field.name),
+      currentLang,
+    ),
     dataIndex: field.name,
     editable: field.name === 'id' ? false : undefined,
     ellipsis: true,

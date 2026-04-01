@@ -19,7 +19,7 @@ export default () => {
       } else {
         message.error(res.message);
       }
-    } catch (e) {
+    } catch (_e) {
       message.error('请求异常');
     }
   };

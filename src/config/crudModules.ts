@@ -20,7 +20,7 @@ export interface CrudModule {
 export const CRUD_MODULES: CrudModule[] = [
   {
     resource: 'brand',
-    name: '品牌管理',
+    name: '品牌表',
     group: '基础资料',
     fields: [
       { name: 'id', type: 'Long' },
@@ -33,7 +33,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'series',
-    name: '系列管理',
+    name: '商品系列表',
     group: '基础资料',
     fields: [
       { name: 'id', type: 'Long' },
@@ -45,7 +45,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'maker',
-    name: '产地管理',
+    name: 'メーカー表',
     group: '基础资料',
     fields: [
       { name: 'id', type: 'Long' },
@@ -55,7 +55,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'goodsType',
-    name: '商品类型',
+    name: '商品分类表',
     group: '基础资料',
     fields: [
       { name: 'id', type: 'Long' },
@@ -65,7 +65,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'goods',
-    name: '商品管理',
+    name: '商品表',
     group: '基础资料',
     fields: [
       { name: 'id', type: 'Long' },
@@ -89,7 +89,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'warehouse',
-    name: '仓库管理',
+    name: '仓库表',
     group: '基础资料',
     fields: [
       { name: 'id', type: 'Long' },
@@ -102,7 +102,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'customerLevel',
-    name: '客户等级',
+    name: '客户等级表',
     group: '基础资料',
     fields: [
       { name: 'id', type: 'Long' },
@@ -114,7 +114,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'customer',
-    name: '客户管理',
+    name: '客户表',
     group: '基础资料',
     fields: [
       { name: 'id', type: 'Long' },
@@ -134,7 +134,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'dept',
-    name: '部门管理',
+    name: '部门表',
     group: '基础资料',
     fields: [
       { name: 'id', type: 'Long' },
@@ -148,7 +148,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'stock',
-    name: '库存管理',
+    name: '商品库存表',
     group: '库存业务',
     fields: [
       { name: 'id', type: 'Long' },
@@ -166,7 +166,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'stockRecord',
-    name: '库存流水',
+    name: '库存流水表',
     group: '库存业务',
     fields: [
       { name: 'id', type: 'Long' },
@@ -205,7 +205,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'stockOrder',
-    name: '出入库单',
+    name: '库存业务单',
     group: '库存业务',
     fields: [
       { name: 'id', type: 'Long' },
@@ -229,7 +229,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'stockOrderItem',
-    name: '出入库明细',
+    name: '库存单明细',
     group: '库存业务',
     fields: [
       { name: 'id', type: 'Long' },
@@ -255,7 +255,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'priceRecord',
-    name: '价格记录',
+    name: '价格记录表',
     group: '库存业务',
     fields: [
       { name: 'id', type: 'Long' },
@@ -273,7 +273,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'requestForm',
-    name: '请领单',
+    name: '请求书表',
     group: '库存业务',
     fields: [
       { name: 'id', type: 'Long' },
@@ -296,7 +296,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'requestItem',
-    name: '请领明细',
+    name: '请求书商品明细表',
     group: '库存业务',
     fields: [
       { name: 'id', type: 'Long' },
@@ -325,7 +325,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'message',
-    name: '消息管理',
+    name: '消息通知表',
     group: '库存业务',
     fields: [
       { name: 'id', type: 'Long' },
@@ -339,7 +339,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'user',
-    name: '用户管理',
+    name: '用户表',
     group: '系统管理',
     fields: [
       { name: 'id', type: 'Long' },
@@ -355,7 +355,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'role',
-    name: '角色管理',
+    name: '角色表',
     group: '系统管理',
     fields: [
       { name: 'id', type: 'Long' },
@@ -367,7 +367,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'permission',
-    name: '权限管理',
+    name: '权限表',
     group: '系统管理',
     fields: [
       { name: 'id', type: 'Long' },
@@ -385,7 +385,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'userRole',
-    name: '用户角色',
+    name: '用户角色关系表',
     group: '系统管理',
     fields: [
       { name: 'id', type: 'Long' },
@@ -395,7 +395,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'rolePermission',
-    name: '角色权限',
+    name: '角色权限关系表',
     group: '系统管理',
     fields: [
       { name: 'id', type: 'Long' },
@@ -405,7 +405,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'userToken',
-    name: '登录令牌',
+    name: '用户登录状态表',
     group: '系统管理',
     fields: [
       { name: 'id', type: 'Long' },
@@ -419,7 +419,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'config',
-    name: '系统配置',
+    name: '系统配置表',
     group: '系统管理',
     fields: [
       { name: 'id', type: 'Long' },
@@ -434,7 +434,7 @@ export const CRUD_MODULES: CrudModule[] = [
   },
   {
     resource: 'operateLog',
-    name: '操作日志',
+    name: '操作日志表',
     group: '系统管理',
     fields: [
       { name: 'id', type: 'Long' },

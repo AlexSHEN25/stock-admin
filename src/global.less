@@ -129,11 +129,19 @@ html[data-theme='dark'] body {
 
 html[data-theme='dark'] .content-top-bar,
 html[data-theme='dark'] .ant-pro-sider,
+html[data-theme='dark'] .ant-pro-layout,
+html[data-theme='dark'] .ant-pro-basicLayout,
+html[data-theme='dark'] .ant-pro-basicLayout-content,
+html[data-theme='dark'] .ant-pro-layout-bg-list,
 html[data-theme='dark'] .ant-layout,
 html[data-theme='dark'] .ant-layout-content,
 html[data-theme='dark'] .ant-pro-page-container,
 html[data-theme='dark'] .ant-pro-page-container-children-container {
   background: #141414 !important;
+}
+
+html[data-theme='dark'] .ant-pro-layout .ant-layout-content {
+  min-height: calc(100vh - var(--app-top-bar-height)) !important;
 }
 
 html[data-theme='dark'] .content-top-bar,
@@ -162,11 +170,14 @@ html[data-theme='dark'] .ant-pro-sider.ant-layout-sider.ant-pro-sider-fixed .ant
 }
 
 html[data-theme='dark'] .ant-table,
+html[data-theme='dark'] .ant-table-wrapper,
 html[data-theme='dark'] .ant-table-container,
 html[data-theme='dark'] .ant-table-thead > tr > th,
 html[data-theme='dark'] .ant-table-tbody > tr > td,
 html[data-theme='dark'] .ant-card,
-html[data-theme='dark'] .ant-pro-card {
+html[data-theme='dark'] .ant-pro-card,
+html[data-theme='dark'] .ant-pro-card-body,
+html[data-theme='dark'] .ant-table-pagination {
   background: #1f1f1f !important;
   color: #fff !important;
   border-color: #303030 !important;
