@@ -73,7 +73,7 @@ export default () => {
           showLessItems: true,
         }}
         columns={columns}
-        request={(params) => queryCrudTable(resource, params)}
+        request={(params, sorter) => queryCrudTable(resource, params, sorter)}
         rowSelection={{
           selectedRowKeys,
           onChange: (keys) => setSelectedRowKeys(keys),

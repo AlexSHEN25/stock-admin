@@ -22,6 +22,12 @@ export const CrudCreateButton: React.FC<CrudCreateButtonProps> = ({
     <ModalForm
       title={`${t('crud.new')}${module.name}`}
       trigger={<Button type="primary">{t('crud.new')}</Button>}
+      modalProps={{
+        className: 'crud-dialog',
+        centered: true,
+        destroyOnHidden: true,
+        width: 760,
+      }}
       onFinish={async (values) => {
         try {
           const payload = normalizePayload(values, module.fields);

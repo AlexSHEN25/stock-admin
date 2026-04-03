@@ -28,6 +28,12 @@ export const CrudActionCell: React.FC<CrudActionCellProps> = ({
         title={`${t('crud.edit')}${module.name}`}
         trigger={<a>{t('crud.edit')}</a>}
         initialValues={record}
+        modalProps={{
+          className: 'crud-dialog',
+          centered: true,
+          destroyOnHidden: true,
+          width: 760,
+        }}
         onFinish={async (values) => {
           try {
             const payload = normalizePayload(values, module.fields);

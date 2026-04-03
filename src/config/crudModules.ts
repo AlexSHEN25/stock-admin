@@ -1,3 +1,5 @@
+import { CRUD_RESOURCE_SCHEMA_MAP } from './crudResourceSchema';
+
 export type JavaFieldType =
   | 'String'
   | 'Integer'
@@ -15,6 +17,8 @@ export interface CrudModule {
   name: string;
   group: '基础资料' | '库存业务' | '系统管理';
   fields: CrudField[];
+  tableFields?: CrudField[];
+  searchFields?: CrudField[];
 }
 
 export const CRUD_MODULES: CrudModule[] = [
@@ -456,7 +460,12 @@ export const CRUD_MODULES: CrudModule[] = [
 
 export const CRUD_MODULE_MAP = CRUD_MODULES.reduce(
   (acc, module) => {
-    acc[module.resource] = module;
+    const schema = CRUD_RESOURCE_SCHEMA_MAP[module.resource];
+    acc[module.resource] = {
+      ...module,
+      tableFields: schema?.tableFields || module.fields,
+      searchFields: schema?.searchFields || module.fields,
+    };
     return acc;
   },
   {} as Record<string, CrudModule>,

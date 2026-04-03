@@ -18,7 +18,7 @@ const redirectToLogin = () => {
 
 const buildManageMenuGroups = () => [
   {
-    path: '/manage/user',
+    path: '/manage/group-user',
     name: t('menu.user'),
     children: [
       { path: '/manage/user', name: t('menu.user.user') },
@@ -31,7 +31,7 @@ const buildManageMenuGroups = () => [
     ],
   },
   {
-    path: '/manage/goods',
+    path: '/manage/group-goods',
     name: t('menu.goods'),
     children: [
       { path: '/manage/goods', name: t('menu.goods.goods') },
@@ -42,7 +42,7 @@ const buildManageMenuGroups = () => [
     ],
   },
   {
-    path: '/manage/stock',
+    path: '/manage/group-stock',
     name: t('menu.stock'),
     children: [
       { path: '/manage/stock', name: t('menu.stock.stock') },
@@ -54,7 +54,7 @@ const buildManageMenuGroups = () => [
     ],
   },
   {
-    path: '/manage/requestForm',
+    path: '/manage/group-request',
     name: t('menu.request'),
     children: [
       { path: '/manage/requestForm', name: t('menu.request.requestForm') },
@@ -62,7 +62,7 @@ const buildManageMenuGroups = () => [
     ],
   },
   {
-    path: '/manage/customer',
+    path: '/manage/group-customer',
     name: t('menu.customer'),
     children: [
       { path: '/manage/customer', name: t('menu.customer.customer') },
@@ -70,7 +70,7 @@ const buildManageMenuGroups = () => [
     ],
   },
   {
-    path: '/manage/config',
+    path: '/manage/group-system',
     name: t('menu.system'),
     children: [
       { path: '/manage/config', name: t('menu.system.config') },
