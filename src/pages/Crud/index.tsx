@@ -66,6 +66,12 @@ export default () => {
         rowKey="id"
         headerTitle={module.name}
         scroll={{ x: 1600 }}
+        pagination={{
+          defaultPageSize: 10,
+          showSizeChanger: true,
+          pageSizeOptions: [10, 20, 50],
+          showLessItems: true,
+        }}
         columns={columns}
         request={(params) => queryCrudTable(resource, params)}
         rowSelection={{

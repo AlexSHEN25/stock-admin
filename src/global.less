@@ -104,6 +104,24 @@ ol {
   border-bottom: 1px solid #f0f0f0;
 }
 
+// Table header visual refresh:
+// remove vertical separators and use a cleaner card-like header row.
+.ant-pro-table .ant-table-thead > tr > th {
+  background: linear-gradient(180deg, #fafcff 0%, #f5f8ff 100%) !important;
+  border-inline-end: none !important;
+  border-bottom: 1px solid #e6ebf5 !important;
+  color: rgba(0, 0, 0, 0.88) !important;
+  font-weight: 600;
+}
+
+.ant-pro-table .ant-table-thead > tr > th:first-child {
+  border-top-left-radius: 10px;
+}
+
+.ant-pro-table .ant-table-thead > tr > th:last-child {
+  border-top-right-radius: 10px;
+}
+
 .ant-pro-layout .ant-pro-sider-logo {
   height: var(--app-top-bar-height) !important;
   line-height: var(--app-top-bar-height) !important;
@@ -167,6 +185,13 @@ html[data-theme='dark'] .ant-pro-sider.ant-layout-sider.ant-pro-sider-fixed .ant
 
 html[data-theme='dark'] .ant-pro-sider.ant-layout-sider.ant-pro-sider-fixed .ant-menu-item-selected {
   background: #1677ff !important;
+}
+
+html[data-theme='dark'] .ant-pro-table .ant-table-thead > tr > th {
+  background: linear-gradient(180deg, #1b2230 0%, #171d29 100%) !important;
+  border-inline-end: none !important;
+  border-bottom: 1px solid #303747 !important;
+  color: #fff !important;
 }
 
 html[data-theme='dark'] .ant-table,

@@ -1,6 +1,4 @@
-import { message } from 'antd';
 import ContentTopBar from '@/components/ContentTopBar';
-import type { ApiResult } from '@/services/http';
 import { t } from '@/utils/i18n';
 import { initTheme } from '@/utils/theme';
 
@@ -129,17 +127,4 @@ export const layout = () => {
       }
     },
   };
-};
-
-export const request = {
-  responseInterceptors: [
-    (response: any) => {
-      const res = response?.data as ApiResult<any> | undefined;
-      if (res && typeof res.code === 'number' && res.code !== 200) {
-        message.error(res.message || t('common.requestFailed'));
-        throw new Error(res.message || 'Request failed');
-      }
-      return response;
-    },
-  ],
 };

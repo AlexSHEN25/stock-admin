@@ -1,8 +1,3 @@
-export default function access(
-  initialState: { currentUser?: { access?: string } } | undefined,
-) {
-  const { currentUser } = initialState ?? {};
-  return {
-    canAdmin: currentUser?.access === 'admin',
-  };
+export default function access() {
+  return {};
 }

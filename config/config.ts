@@ -32,6 +32,7 @@ export default defineConfig({
    * @doc https://umijs.org/docs/api/config#hash
    */
   hash: true,
+  esbuildMinifyIIFE: true,
 
   base: BASE_PATH,
   publicPath: PUBLIC_PATH,
