@@ -1,10 +1,12 @@
 import {
   ProFormDateTimePicker,
   ProFormDigit,
+  ProFormSelect,
   ProFormText,
   ProFormTextArea,
 } from '@ant-design/pro-components';
 import type { CrudField } from '@/config/crudModules';
+import { t } from '@/utils/i18n';
 import { NUMBER_TYPES } from '../constants';
 import { isLongTextField, toTitle } from '../utils';
 
@@ -26,6 +28,20 @@ const renderFormItem = (field: CrudField, isEdit: boolean) => {
   if (field.type === 'LocalDateTime') {
     return (
       <ProFormDateTimePicker key={field.name} name={field.name} label={label} />
+    );
+  }
+
+  if (field.name === 'status') {
+    return (
+      <ProFormSelect
+        key={field.name}
+        name={field.name}
+        label={label}
+        options={[
+          { label: t('status.normal'), value: 1 },
+          { label: t('status.forbidden'), value: 0 },
+        ]}
+      />
     );
   }
 
