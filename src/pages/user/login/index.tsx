@@ -1,41 +1,94 @@
+import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { LoginForm, ProFormText } from '@ant-design/pro-components';
 import { message } from 'antd';
+import { getErrorMessage } from '@/services/http';
 import { login } from '@/services/user';
+import { t } from '@/utils/i18n';
+
+type LoginFormValues = {
+  username: string;
+  password: string;
+};
+
+const LOGIN_ROUTE = '/user/login';
+
+const resolveBasePrefix = () => {
+  const index = window.location.pathname.indexOf(LOGIN_ROUTE);
+  if (index >= 0) {
+    return window.location.pathname.slice(0, index);
+  }
+  return '';
+};
 
 export default () => {
-  const handleSubmit = async (values: any) => {
-    try {
-      const res = await login(values);
-
-      if (res.code === 200) {
-        const { token, username } = res.data;
-
-        localStorage.setItem('token', token);
-        localStorage.setItem('username', username);
-
-        message.success(res.message || '登录成功');
-
-        window.location.href = '/';
-      } else {
-        message.error(res.message);
-      }
-    } catch (e) {
-      message.error('请求异常');
-    }
-  };
-
   return (
-    <div style={{ marginTop: 120 }}>
-      <LoginForm onFinish={handleSubmit}>
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+      }}
+    >
+      <LoginForm<LoginFormValues>
+        logo={false}
+        title={t('app.title')}
+        submitter={{
+          searchConfig: {
+            submitText: t('login.submit'),
+          },
+        }}
+        onFinish={async (values) => {
+          try {
+            const res = await login(values);
+            const token = res?.data?.token;
+            const username = res?.data?.username || values.username;
+
+            if (!token) {
+              message.error(t('login.failed'));
+              return false;
+            }
+
+            localStorage.setItem('token', token);
+            localStorage.setItem('username', username);
+            message.success(t('login.success'));
+            const basePrefix = resolveBasePrefix();
+            window.location.href = `${basePrefix}/`;
+            return true;
+          } catch (error) {
+            message.error(getErrorMessage(error));
+            return false;
+          }
+        }}
+      >
         <ProFormText
           name="username"
-          placeholder="用户名"
-          rules={[{ required: true, message: '请输入用户名' }]}
+          fieldProps={{
+            size: 'large',
+            prefix: <UserOutlined />,
+          }}
+          placeholder={t('login.username')}
+          rules={[
+            {
+              required: true,
+              message: t('login.requiredUsername'),
+            },
+          ]}
         />
         <ProFormText.Password
           name="password"
-          placeholder="密码"
-          rules={[{ required: true, message: '请输入密码' }]}
+          fieldProps={{
+            size: 'large',
+            prefix: <LockOutlined />,
+          }}
+          placeholder={t('login.password')}
+          rules={[
+            {
+              required: true,
+              message: t('login.requiredPassword'),
+            },
+          ]}
         />
       </LoginForm>
     </div>
