@@ -1441,10 +1441,6 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'String',
       },
       {
-        name: 'deptId',
-        type: 'Long',
-      },
-      {
         name: 'deptName',
         type: 'String',
       },
