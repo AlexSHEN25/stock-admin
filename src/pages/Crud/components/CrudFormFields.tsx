@@ -22,6 +22,9 @@ const renderFormItem = (field: CrudField, isEdit: boolean) => {
     }
     return <ProFormText key={field.name} name={field.name} hidden />;
   }
+  if (field.name.endsWith('Id')) {
+    return null;
+  }
 
   const label = toTitle(field.name);
 

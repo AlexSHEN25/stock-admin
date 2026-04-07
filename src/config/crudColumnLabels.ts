@@ -4,6 +4,7 @@ export const CRUD_COLUMN_LABELS: Record<string, Record<string, string>> = {
     username: '用户名',
     password: '密码',
     deptId: '部门ID',
+    deptName: '部门名称',
     salt: '密码盐',
     email: '电子邮箱',
     phone: '联系方式',

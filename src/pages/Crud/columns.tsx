@@ -12,11 +12,16 @@ export const buildCrudColumns = (
   module: CrudModule,
   resource: string,
 ): ProColumns<CrudRecord>[] => {
+  const isNonPrimaryIdField = (fieldName: string) =>
+    fieldName !== 'id' && fieldName.endsWith('Id');
   const labelMap = CRUD_COLUMN_LABELS[resource] || {};
   const currentLang = getCurrentLang();
   const rawTableFields = module.tableFields || module.fields;
   const normalTableFields = rawTableFields.filter(
-    (field) => field.name !== 'createTime' && field.name !== 'updateTime',
+    (field) =>
+      field.name !== 'createTime' &&
+      field.name !== 'updateTime' &&
+      !isNonPrimaryIdField(field.name),
   );
   const createTimeField = rawTableFields.find(
     (field) => field.name === 'createTime',
@@ -119,7 +124,11 @@ export const buildCrudColumns = (
   });
 
   searchFields.forEach((field) => {
-    if (tableFieldNames.has(field.name) || field.name === 'id') {
+    if (
+      tableFieldNames.has(field.name) ||
+      field.name === 'id' ||
+      isNonPrimaryIdField(field.name)
+    ) {
       return;
     }
     columns.push({
