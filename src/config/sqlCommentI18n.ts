@@ -2,7 +2,6 @@ import type { AppLang } from '@/utils/i18n';
 
 const EN_SQL_COMMENT_LABELS: Record<string, string> = {
   ID: 'ID',
-  SKU: 'SKU',
   Token: 'Token',
   token过期时间: 'Token Expire Time',
   メーカーID: 'Maker ID',
@@ -41,7 +40,6 @@ const EN_SQL_COMMENT_LABELS: Record<string, string> = {
   品牌封面图: 'Brand Cover',
   品牌简介: 'Brand Description',
   商品ID: 'Goods ID',
-  商品SKU: 'Goods SKU',
   商品分类ID: 'Goods Category ID',
   商品名称: 'Goods Name',
   商品品番: 'Goods Item No.',
@@ -150,7 +148,6 @@ const EN_SQL_COMMENT_LABELS: Record<string, string> = {
 
 const JA_SQL_COMMENT_LABELS: Record<string, string> = {
   ID: 'ID',
-  SKU: 'SKU',
   Token: 'Token',
   token过期时间: 'トークン有効期限',
   メーカーID: 'メーカーID',
@@ -189,7 +186,6 @@ const JA_SQL_COMMENT_LABELS: Record<string, string> = {
   品牌封面图: 'ブランド画像',
   品牌简介: 'ブランド紹介',
   商品ID: '商品ID',
-  商品SKU: '商品SKU',
   商品分类ID: '商品分類ID',
   商品名称: '商品名',
   商品品番: '商品品番',
