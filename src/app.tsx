@@ -1,4 +1,5 @@
-import ContentTopBar from '@/components/ContentTopBar';
+﻿import ContentTopBar from '@/components/ContentTopBar';
+import { listSchemas } from '@/services/schema';
 import { t } from '@/utils/i18n';
 import { initTheme } from '@/utils/theme';
 
@@ -16,86 +17,85 @@ const redirectToLogin = () => {
   window.location.href = `${basePrefix}${LOGIN_ROUTE}`;
 };
 
-const buildManageMenuGroups = () => [
-  {
-    path: '/manage/group-user',
-    name: t('menu.user'),
-    children: [
-      { path: '/manage/user', name: t('menu.user.user') },
-      { path: '/manage/role', name: t('menu.user.role') },
-      { path: '/manage/permission', name: t('menu.user.permission') },
-      { path: '/manage/userRole', name: t('menu.user.userRole') },
-      { path: '/manage/rolePermission', name: t('menu.user.rolePermission') },
-      { path: '/manage/dept', name: t('menu.user.dept') },
-      { path: '/manage/userToken', name: t('menu.user.userToken') },
-    ],
-  },
-  {
-    path: '/manage/group-goods',
-    name: t('menu.goods'),
-    children: [
-      { path: '/manage/goods', name: t('menu.goods.goods') },
-      { path: '/manage/brand', name: t('menu.goods.brand') },
-      { path: '/manage/series', name: t('menu.goods.series') },
-      { path: '/manage/category', name: t('menu.goods.category') },
-      { path: '/manage/maker', name: t('menu.goods.maker') },
-    ],
-  },
-  {
-    path: '/manage/group-stock',
-    name: t('menu.stock'),
-    children: [
-      { path: '/manage/stock', name: t('menu.stock.stock') },
-      { path: '/manage/stockOrder', name: t('menu.stock.stockOrder') },
-      { path: '/manage/stockOrderItem', name: t('menu.stock.stockOrderItem') },
-      { path: '/manage/stockRecord', name: t('menu.stock.stockRecord') },
-      { path: '/manage/priceRecord', name: t('menu.stock.priceRecord') },
-      { path: '/manage/warehouse', name: t('menu.stock.warehouse') },
-    ],
-  },
-  {
-    path: '/manage/group-request',
-    name: t('menu.request'),
-    children: [
-      { path: '/manage/requestForm', name: t('menu.request.requestForm') },
-      { path: '/manage/requestItem', name: t('menu.request.requestItem') },
-    ],
-  },
-  {
-    path: '/manage/group-customer',
-    name: t('menu.customer'),
-    children: [
-      { path: '/manage/customer', name: t('menu.customer.customer') },
-      { path: '/manage/customerLevel', name: t('menu.customer.customerLevel') },
-    ],
-  },
-  {
-    path: '/manage/group-system',
-    name: t('menu.system'),
-    children: [
-      { path: '/manage/config', name: t('menu.system.config') },
-      { path: '/manage/message', name: t('menu.system.message') },
-      { path: '/manage/operateLog', name: t('menu.system.operateLog') },
-    ],
-  },
-];
+type SchemaMenuItem = {
+  resource: string;
+  name: string;
+  group?: string;
+};
+
+const buildManageMenuGroups = (schemas: SchemaMenuItem[]) => {
+  const root: Array<Record<string, any>> = [];
+
+  const findOrCreateGroupNode = (
+    nodes: Array<Record<string, any>>,
+    name: string,
+  ) => {
+    const existing = nodes.find(
+      (node) => node.name === name && Array.isArray(node.children),
+    );
+    if (existing) {
+      return existing;
+    }
+    const created = { name, children: [] as Array<Record<string, any>> };
+    nodes.push(created);
+    return created;
+  };
+
+  schemas.forEach((schema) => {
+    const segments = (schema.group || 'Default')
+      .split('/')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    let cursor = root;
+
+    segments.forEach((segment) => {
+      const groupNode = findOrCreateGroupNode(cursor, segment);
+      cursor = groupNode.children as Array<Record<string, any>>;
+    });
+
+    const leafPath = `/manage/${schema.resource}`;
+    const exists = cursor.some((node) => node.path === leafPath);
+    if (!exists) {
+      cursor.push({
+        path: leafPath,
+        name: schema.name || schema.resource,
+      });
+    }
+  });
+
+  return root;
+};
 
 export async function getInitialState() {
   initTheme();
+  localStorage.setItem('umi_locale', 'ja-JP');
+  localStorage.setItem('locale', 'ja-JP');
+
   const token = localStorage.getItem('token');
-  const username = localStorage.getItem('username') || '用户';
+  const username = localStorage.getItem('username') || 'ユーザー';
 
   if (!token && !isLoginPage()) {
     redirectToLogin();
   }
 
+  let schemaMenu: any[] = [];
+  if (token) {
+    try {
+      const schemas = await listSchemas();
+      schemaMenu = buildManageMenuGroups(schemas || []);
+    } catch (_e) {
+      schemaMenu = [];
+    }
+  }
+
   return {
     username,
     currentUser: token ? { name: username } : undefined,
+    schemaMenu,
   };
 }
 
-export const layout = () => {
+export const layout = ({ initialState }: { initialState?: any }) => {
   return {
     title: t('app.title'),
     menu: {
@@ -108,7 +108,7 @@ export const layout = () => {
       {
         path: '/manage',
         name: t('menu.manage'),
-        children: buildManageMenuGroups(),
+        children: initialState?.schemaMenu || [],
       },
     ],
     headerRender: false,

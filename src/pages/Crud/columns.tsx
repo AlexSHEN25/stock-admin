@@ -12,15 +12,10 @@ export const buildCrudColumns = (
   module: CrudModule,
   resource: string,
 ): ProColumns<CrudRecord>[] => {
-  const isNonPrimaryIdField = (fieldName: string) =>
-    fieldName !== 'id' && fieldName.endsWith('Id');
   const labelMap = CRUD_COLUMN_LABELS[resource] || {};
   const rawTableFields = module.tableFields || module.fields;
   const normalTableFields = rawTableFields.filter(
-    (field) =>
-      field.name !== 'createTime' &&
-      field.name !== 'updateTime' &&
-      !isNonPrimaryIdField(field.name),
+    (field) => field.name !== 'createTime' && field.name !== 'updateTime',
   );
   const createTimeField = rawTableFields.find(
     (field) => field.name === 'createTime',
@@ -48,7 +43,7 @@ export const buildCrudColumns = (
     const isStatusField = field.name === 'status';
     return {
       title: translateSqlCommentLabel(
-        labelMap[field.name] || toTitle(field.name),
+        field.label || labelMap[field.name] || toTitle(field.name),
       ),
       dataIndex: field.name,
       editable: field.name === 'id' || isTimeField ? false : undefined,
@@ -122,16 +117,12 @@ export const buildCrudColumns = (
   });
 
   searchFields.forEach((field) => {
-    if (
-      tableFieldNames.has(field.name) ||
-      field.name === 'id' ||
-      isNonPrimaryIdField(field.name)
-    ) {
+    if (tableFieldNames.has(field.name) || field.name === 'id') {
       return;
     }
     columns.push({
       title: translateSqlCommentLabel(
-        labelMap[field.name] || toTitle(field.name),
+        field.label || labelMap[field.name] || toTitle(field.name),
       ),
       dataIndex: field.name,
       hideInTable: true,

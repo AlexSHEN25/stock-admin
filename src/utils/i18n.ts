@@ -239,27 +239,12 @@ const MESSAGES: Record<AppLang, Dict> = {
 };
 
 export const getCurrentLang = (): AppLang => {
-  const raw =
-    localStorage.getItem('umi_locale') ||
-    localStorage.getItem('locale') ||
-    navigator.language;
-  const normalized = (raw || '').toLowerCase();
-
-  if (normalized.startsWith('zh')) {
-    return 'zh-CN';
-  }
-  if (normalized.startsWith('ja')) {
-    return 'ja-JP';
-  }
-  if (normalized.startsWith('en')) {
-    return 'en-US';
-  }
   return 'ja-JP';
 };
 
-export const setCurrentLang = (lang: AppLang) => {
-  localStorage.setItem('umi_locale', lang);
-  localStorage.setItem('locale', lang);
+export const setCurrentLang = (_lang: AppLang) => {
+  localStorage.setItem('umi_locale', 'ja-JP');
+  localStorage.setItem('locale', 'ja-JP');
 };
 
 export const t = (key: string) => {

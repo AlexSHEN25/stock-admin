@@ -10,7 +10,6 @@ import { Badge, Dropdown, Space, Tooltip, Typography } from 'antd';
 import { logout } from '@/services/user';
 import { t } from '@/utils/i18n';
 import { getCurrentTheme, toggleCurrentTheme } from '@/utils/theme';
-import LocaleSwitcher from '../LocaleSwitcher';
 
 const { Text } = Typography;
 
@@ -42,7 +41,6 @@ const ContentTopBar = () => {
   return (
     <div className="content-top-bar">
       <Space size={16} align="center">
-        <LocaleSwitcher />
         <Tooltip
           title={
             currentTheme === 'dark'

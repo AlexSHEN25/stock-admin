@@ -1,6 +1,6 @@
-import type { ActionType } from '@ant-design/pro-components';
+﻿import type { ActionType } from '@ant-design/pro-components';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
-import { Button, message, Popconfirm, Space } from 'antd';
+import { Button, message, Popconfirm, Space, Spin } from 'antd';
 import type { Key } from 'react';
 import { useRef, useState } from 'react';
 import { deleteOne, updateOne } from '@/services/crud';
@@ -14,14 +14,22 @@ import type { CrudRecord } from './types';
 import { normalizePayload } from './utils';
 
 export default () => {
-  const { resource, module } = useCrudResource();
+  const { resource, module, loading, error } = useCrudResource();
   const actionRef = useRef<ActionType | undefined>(undefined);
   const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
+
+  if (loading) {
+    return (
+      <PageContainer>
+        <Spin />
+      </PageContainer>
+    );
+  }
 
   if (!module) {
     return (
       <PageContainer title={t('crud.invalidResource')}>
-        {t('crud.invalidResource')}：{resource}
+        {error || `${t('crud.invalidResource')}：${resource}`}
       </PageContainer>
     );
   }
@@ -85,9 +93,9 @@ export default () => {
               const payload = normalizePayload(row, module.fields);
               await updateOne(resource, payload);
               message.success(t('crud.updateSuccess'));
-            } catch (error) {
-              message.error(getErrorMessage(error));
-              throw error;
+            } catch (saveError) {
+              message.error(getErrorMessage(saveError));
+              throw saveError;
             }
           },
         }}

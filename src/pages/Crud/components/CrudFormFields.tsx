@@ -1,4 +1,4 @@
-import {
+﻿import {
   ProFormDateTimePicker,
   ProFormDigit,
   ProFormSelect,
@@ -14,7 +14,7 @@ import { isLongTextField, toTitle } from '../utils';
 interface CrudFormFieldsProps {
   fields: CrudField[];
   isEdit: boolean;
-  resource: string; // ✅ 必须传
+  resource: string;
 }
 
 const renderFormItem = (
@@ -22,31 +22,24 @@ const renderFormItem = (
   isEdit: boolean,
   resource: string,
 ) => {
-  // ID 处理
   if (field.name === 'id') {
-    if (!isEdit) return null;
+    if (!isEdit) {
+      return null;
+    }
     return <ProFormText key={field.name} name={field.name} hidden />;
   }
 
-  // 外键暂时隐藏
-  if (field.name.endsWith('Id')) {
-    return null;
-  }
-
-  // ✅ label 获取逻辑（核心）
   const label =
-    CRUD_COLUMN_LABELS?.[resource]?.[field.name] || // 优先配置
-    field.label || // 其次字段自带
-    toTitle(field.name); // 最后兜底英文
+    field.label ||
+    CRUD_COLUMN_LABELS?.[resource]?.[field.name] ||
+    toTitle(field.name);
 
-  // 时间类型
   if (field.type === 'LocalDateTime') {
     return (
       <ProFormDateTimePicker key={field.name} name={field.name} label={label} />
     );
   }
 
-  // 状态
   if (field.name === 'status') {
     return (
       <ProFormSelect
@@ -61,7 +54,6 @@ const renderFormItem = (
     );
   }
 
-  // 数字
   if (NUMBER_TYPES.has(field.type)) {
     return (
       <ProFormDigit
@@ -73,12 +65,10 @@ const renderFormItem = (
     );
   }
 
-  // 长文本
   if (isLongTextField(field.name)) {
     return <ProFormTextArea key={field.name} name={field.name} label={label} />;
   }
 
-  // 默认
   return <ProFormText key={field.name} name={field.name} label={label} />;
 };
 
