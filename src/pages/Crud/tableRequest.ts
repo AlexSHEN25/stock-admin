@@ -74,8 +74,8 @@ export const queryCrudTable = async (
     const timeSorter = resolveTimeSorter(sorter);
 
     const res = await pageList(resource, {
-      pageNum: current,
-      pageSize,
+      page: current,
+      size: pageSize,
       sortBy: timeSorter?.sortBy || 'updateTime',
       sortOrder: timeSorter?.sortOrder || 'desc',
       ...cleanParams,

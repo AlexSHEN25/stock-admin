@@ -13,7 +13,7 @@ const resources = [
   'brand',
   'series',
   'maker',
-  'goodsType',
+  'category',
   'goods',
   'warehouse',
   'customerLevel',

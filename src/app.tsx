@@ -37,7 +37,7 @@ const buildManageMenuGroups = () => [
       { path: '/manage/goods', name: t('menu.goods.goods') },
       { path: '/manage/brand', name: t('menu.goods.brand') },
       { path: '/manage/series', name: t('menu.goods.series') },
-      { path: '/manage/goodsType', name: t('menu.goods.goodsType') },
+      { path: '/manage/category', name: t('menu.goods.category') },
       { path: '/manage/maker', name: t('menu.goods.maker') },
     ],
   },

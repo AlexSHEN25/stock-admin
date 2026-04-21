@@ -42,7 +42,11 @@ export const CrudCreateButton: React.FC<CrudCreateButtonProps> = ({
       }}
     >
       <Space direction="vertical" style={{ width: '100%' }} size={0}>
-        <CrudFormFields fields={module.fields} isEdit={false} />
+        <CrudFormFields
+          fields={module.fields}
+          isEdit={false}
+          resource={resource}
+        />
       </Space>
     </ModalForm>
   );

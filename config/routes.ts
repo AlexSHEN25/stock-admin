@@ -34,7 +34,7 @@ export default [
           { path: '/manage/goods', component: './Crud' },
           { path: '/manage/brand', component: './Crud' },
           { path: '/manage/series', component: './Crud' },
-          { path: '/manage/goodsType', component: './Crud' },
+          { path: '/manage/category', component: './Crud' },
           { path: '/manage/maker', component: './Crud' },
           { path: '/manage/stock', component: './Crud' },
           { path: '/manage/stockOrder', component: './Crud' },

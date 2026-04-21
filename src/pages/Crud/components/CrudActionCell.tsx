@@ -47,7 +47,7 @@ export const CrudActionCell: React.FC<CrudActionCellProps> = ({
           }
         }}
       >
-        <CrudFormFields fields={module.fields} isEdit />
+        <CrudFormFields fields={module.fields} isEdit resource={resource} />
       </ModalForm>
       <Popconfirm
         title={t('crud.deleteConfirm')}

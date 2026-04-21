@@ -221,6 +221,10 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'String',
       },
       {
+        name: 'skuCode',
+        type: 'String',
+      },
+      {
         name: 'seriesId',
         type: 'Long',
       },
@@ -229,16 +233,12 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'Long',
       },
       {
-        name: 'categoryId',
+        name: 'typeId',
         type: 'Long',
       },
       {
         name: 'makerId',
         type: 'Long',
-      },
-      {
-        name: 'status',
-        type: 'Integer',
       },
       {
         name: 'description',
@@ -249,7 +249,7 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'Integer',
       },
       {
-        name: 'sort',
+        name: 'status',
         type: 'Integer',
       },
     ],
@@ -267,6 +267,10 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'String',
       },
       {
+        name: 'skuCode',
+        type: 'String',
+      },
+      {
         name: 'seriesId',
         type: 'Long',
       },
@@ -283,8 +287,28 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'Long',
       },
       {
+        name: 'price',
+        type: 'BigDecimal',
+      },
+      {
+        name: 'discount',
+        type: 'BigDecimal',
+      },
+      {
         name: 'status',
         type: 'Integer',
+      },
+      {
+        name: 'newPrice',
+        type: 'BigDecimal',
+      },
+      {
+        name: 'priceUpdateTime',
+        type: 'LocalDateTime',
+      },
+      {
+        name: 'images',
+        type: 'String',
       },
       {
         name: 'description',
@@ -295,8 +319,8 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'Integer',
       },
       {
-        name: 'sort',
-        type: 'Integer',
+        name: 'version',
+        type: 'Long',
       },
     ],
   },
@@ -471,6 +495,14 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'Integer',
       },
       {
+        name: 'ownerUserId',
+        type: 'Long',
+      },
+      {
+        name: 'ownerDeptId',
+        type: 'Long',
+      },
+      {
         name: 'remark',
         type: 'String',
       },
@@ -525,6 +557,14 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'Integer',
       },
       {
+        name: 'ownerUserId',
+        type: 'Long',
+      },
+      {
+        name: 'ownerDeptId',
+        type: 'Long',
+      },
+      {
         name: 'remark',
         type: 'String',
       },
@@ -549,20 +589,12 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'LocalDateTime',
       },
       {
-        name: 'parentId',
-        type: 'Long',
-      },
-      {
         name: 'name',
         type: 'String',
       },
       {
         name: 'code',
         type: 'String',
-      },
-      {
-        name: 'leaderId',
-        type: 'Long',
       },
       {
         name: 'sort',
@@ -620,19 +652,27 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
       },
       {
         name: 'goodsId',
-        type: 'Long',
+        type: 'Integer',
       },
       {
         name: 'goodsName',
         type: 'String',
       },
       {
+        name: 'skuId',
+        type: 'Long',
+      },
+      {
         name: 'skuCode',
         type: 'String',
       },
       {
+        name: 'typeId',
+        type: 'Integer',
+      },
+      {
         name: 'warehouseId',
-        type: 'Long',
+        type: 'Integer',
       },
       {
         name: 'currentQty',
@@ -651,6 +691,10 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'BigDecimal',
       },
       {
+        name: 'currency',
+        type: 'String',
+      },
+      {
         name: 'priceUpdateTime',
         type: 'LocalDateTime',
       },
@@ -665,7 +709,19 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'String',
       },
       {
-        name: 'sku',
+        name: 'skuCode',
+        type: 'String',
+      },
+      {
+        name: 'skuId',
+        type: 'Long',
+      },
+      {
+        name: 'typeId',
+        type: 'Integer',
+      },
+      {
+        name: 'currency',
         type: 'String',
       },
       {
@@ -713,7 +769,11 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'Long',
       },
       {
-        name: 'sku',
+        name: 'skuId',
+        type: 'Long',
+      },
+      {
+        name: 'skuCode',
         type: 'String',
       },
       {
@@ -783,6 +843,10 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
       {
         name: 'price',
         type: 'BigDecimal',
+      },
+      {
+        name: 'currency',
+        type: 'String',
       },
       {
         name: 'priceUpdateTime',
@@ -843,7 +907,11 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'Long',
       },
       {
-        name: 'sku',
+        name: 'skuId',
+        type: 'Long',
+      },
+      {
+        name: 'skuCode',
         type: 'String',
       },
       {
@@ -903,16 +971,16 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'Integer',
       },
       {
-        name: 'type',
-        type: 'Integer',
-      },
-      {
         name: 'sourceType',
         type: 'Integer',
       },
       {
         name: 'price',
         type: 'BigDecimal',
+      },
+      {
+        name: 'currency',
+        type: 'String',
       },
       {
         name: 'priceUpdateTime',
@@ -971,6 +1039,10 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'Integer',
       },
       {
+        name: 'typeId',
+        type: 'Integer',
+      },
+      {
         name: 'warehouseId',
         type: 'Long',
       },
@@ -1021,6 +1093,10 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
       {
         name: 'approveTime',
         type: 'LocalDateTime',
+      },
+      {
+        name: 'version',
+        type: 'Long',
       },
       {
         name: 'finishTime',
@@ -1041,6 +1117,10 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'Integer',
       },
       {
+        name: 'typeId',
+        type: 'Integer',
+      },
+      {
         name: 'warehouseId',
         type: 'Long',
       },
@@ -1091,6 +1171,10 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
       {
         name: 'approveTime',
         type: 'LocalDateTime',
+      },
+      {
+        name: 'version',
+        type: 'Long',
       },
       {
         name: 'finishTime',
@@ -1121,7 +1205,11 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'Long',
       },
       {
-        name: 'sku',
+        name: 'skuId',
+        type: 'Long',
+      },
+      {
+        name: 'skuCode',
         type: 'String',
       },
       {
@@ -1179,6 +1267,10 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
       {
         name: 'price',
         type: 'BigDecimal',
+      },
+      {
+        name: 'currency',
+        type: 'String',
       },
       {
         name: 'remark',
@@ -1199,7 +1291,11 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'Long',
       },
       {
-        name: 'sku',
+        name: 'skuId',
+        type: 'Long',
+      },
+      {
+        name: 'skuCode',
         type: 'String',
       },
       {
@@ -1257,6 +1353,10 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
       {
         name: 'price',
         type: 'BigDecimal',
+      },
+      {
+        name: 'currency',
+        type: 'String',
       },
       {
         name: 'remark',
@@ -1291,7 +1391,11 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'String',
       },
       {
-        name: 'sku',
+        name: 'skuId',
+        type: 'Long',
+      },
+      {
+        name: 'skuCode',
         type: 'String',
       },
       {
@@ -1301,6 +1405,10 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
       {
         name: 'newPrice',
         type: 'BigDecimal',
+      },
+      {
+        name: 'currency',
+        type: 'String',
       },
       {
         name: 'discount',
@@ -1337,7 +1445,11 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'String',
       },
       {
-        name: 'sku',
+        name: 'skuId',
+        type: 'Long',
+      },
+      {
+        name: 'skuCode',
         type: 'String',
       },
       {
@@ -1347,6 +1459,10 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
       {
         name: 'newPrice',
         type: 'BigDecimal',
+      },
+      {
+        name: 'currency',
+        type: 'String',
       },
       {
         name: 'discount',
@@ -1391,6 +1507,10 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
       {
         name: 'username',
         type: 'String',
+      },
+      {
+        name: 'deptId',
+        type: 'Long',
       },
       {
         name: 'deptName',
@@ -1527,7 +1647,11 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'Long',
       },
       {
-        name: 'sku',
+        name: 'skuId',
+        type: 'Long',
+      },
+      {
+        name: 'skuCode',
         type: 'String',
       },
       {
@@ -1577,6 +1701,10 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
       {
         name: 'price',
         type: 'BigDecimal',
+      },
+      {
+        name: 'currency',
+        type: 'String',
       },
       {
         name: 'discount',
@@ -1617,7 +1745,11 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'Long',
       },
       {
-        name: 'sku',
+        name: 'skuId',
+        type: 'Long',
+      },
+      {
+        name: 'skuCode',
         type: 'String',
       },
       {
@@ -1653,6 +1785,14 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'String',
       },
       {
+        name: 'categoryId',
+        type: 'Long',
+      },
+      {
+        name: 'categoryName',
+        type: 'String',
+      },
+      {
         name: 'makerId',
         type: 'Long',
       },
@@ -1667,6 +1807,10 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
       {
         name: 'price',
         type: 'BigDecimal',
+      },
+      {
+        name: 'currency',
+        type: 'String',
       },
       {
         name: 'discount',
@@ -1722,7 +1866,7 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
       },
       {
         name: 'sourceId',
-        type: 'Long',
+        type: 'Integer',
       },
       {
         name: 'isRead',
@@ -1752,7 +1896,7 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
       },
       {
         name: 'sourceId',
-        type: 'Long',
+        type: 'Integer',
       },
       {
         name: 'isRead',
@@ -1783,14 +1927,6 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'String',
       },
       {
-        name: 'deptId',
-        type: 'Long',
-      },
-      {
-        name: 'deptName',
-        type: 'String',
-      },
-      {
         name: 'email',
         type: 'String',
       },
@@ -1799,7 +1935,11 @@ export const CRUD_RESOURCE_SCHEMA_MAP: Record<string, CrudResourceSchema> = {
         type: 'String',
       },
       {
-        name: 'avatar',
+        name: 'deptId',
+        type: 'Long',
+      },
+      {
+        name: 'deptName',
         type: 'String',
       },
       {

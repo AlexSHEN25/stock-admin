@@ -3,7 +3,7 @@ import { Select } from 'antd';
 import { CRUD_COLUMN_LABELS } from '@/config/crudColumnLabels';
 import type { CrudModule } from '@/config/crudModules';
 import { translateSqlCommentLabel } from '@/config/sqlCommentI18n';
-import { getCurrentLang, t } from '@/utils/i18n';
+import { t } from '@/utils/i18n';
 import { CrudActionCell } from './components/CrudActionCell';
 import type { CrudRecord } from './types';
 import { isLongTextField, toTitle } from './utils';
@@ -15,7 +15,6 @@ export const buildCrudColumns = (
   const isNonPrimaryIdField = (fieldName: string) =>
     fieldName !== 'id' && fieldName.endsWith('Id');
   const labelMap = CRUD_COLUMN_LABELS[resource] || {};
-  const currentLang = getCurrentLang();
   const rawTableFields = module.tableFields || module.fields;
   const normalTableFields = rawTableFields.filter(
     (field) =>
@@ -50,7 +49,6 @@ export const buildCrudColumns = (
     return {
       title: translateSqlCommentLabel(
         labelMap[field.name] || toTitle(field.name),
-        currentLang,
       ),
       dataIndex: field.name,
       editable: field.name === 'id' || isTimeField ? false : undefined,
@@ -134,7 +132,6 @@ export const buildCrudColumns = (
     columns.push({
       title: translateSqlCommentLabel(
         labelMap[field.name] || toTitle(field.name),
-        currentLang,
       ),
       dataIndex: field.name,
       hideInTable: true,
