@@ -44,6 +44,7 @@ const activeModule = ref(firstModule);
 const selectedKeys = ref([firstModule]);
 const openKeys = ref([MODULE_GROUPS[0].key]);
 const nodeMap = ref(new Map());
+const allowedModules = new Set(MODULE_GROUPS.flatMap((g) => g.children.map((c) => c.key)));
 
 onMounted(async () => {
   await loadSchemaMenu();
@@ -54,17 +55,23 @@ async function loadSchemaMenu() {
     const menu = await fetchSchemaMenu();
     const source = Array.isArray(menu) ? menu : [];
     const mapped = source.length > 0 ? toSchemaMenuItems(source) : toMenuItems();
-    menuItems.value = mapped;
-    rebuildMap(mapped);
-    const firstLeaf = findFirstLeaf(mapped);
+    menuItems.value = mapped.length > 0 ? mapped : toMenuItems();
+    rebuildMap(menuItems.value);
+    const firstLeaf = findFirstValidLeaf(menuItems.value);
     if (firstLeaf) {
-      activeModule.value = normalizeModuleKey(firstLeaf);
+      const mk = normalizeModuleKey(firstLeaf);
+      if (isValidModule(mk)) activeModule.value = mk;
       selectedKeys.value = [firstLeaf];
+    } else {
+      activeModule.value = firstModule;
+      selectedKeys.value = [firstModule];
     }
   } catch {
     const fallback = toMenuItems();
     menuItems.value = fallback;
     rebuildMap(fallback);
+    activeModule.value = firstModule;
+    selectedKeys.value = [firstModule];
   }
 }
 
@@ -99,13 +106,14 @@ function walk(items, map) {
   });
 }
 
-function findFirstLeaf(items) {
+function findFirstValidLeaf(items) {
   for (const item of items) {
     if (item.children?.length) {
-      const k = findFirstLeaf(item.children);
+      const k = findFirstValidLeaf(item.children);
       if (k) return k;
     } else {
-      return item.key;
+      const mk = normalizeModuleKey(item.key);
+      if (isValidModule(mk)) return item.key;
     }
   }
   return null;
@@ -125,9 +133,13 @@ function onMenuClick({ key, keyPath }) {
   const node = nodeMap.value.get(key);
   if (node?.children?.length) return;
   const moduleKey = normalizeModuleKey(key);
-  if (!moduleKey) return;
+  if (!isValidModule(moduleKey)) return;
   activeModule.value = moduleKey;
   selectedKeys.value = [key];
   if (keyPath?.[1]) openKeys.value = [keyPath[1]];
+}
+
+function isValidModule(moduleKey) {
+  return Boolean(moduleKey) && allowedModules.has(moduleKey);
 }
 </script>
