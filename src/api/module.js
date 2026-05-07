@@ -28,10 +28,6 @@ export async function fetchModuleOptions(modulePath) {
   return page.records || [];
 }
 
-export async function fetchSchemaMenu() {
-  return http.get('/api/schema/menu');
-}
-
 function normalizePage(data) {
   const records = data?.records || data?.list || data?.rows || [];
   const total = Number(data?.total ?? records.length ?? 0);

@@ -27,9 +27,8 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { ref } from 'vue';
 import ModuleTable from './ModuleTable.vue';
-import { fetchSchemaMenu } from '../api/module';
 import { MODULE_GROUPS, toMenuItems } from '../utils/module';
 
 defineProps({
@@ -46,52 +45,7 @@ const openKeys = ref([MODULE_GROUPS[0].key]);
 const nodeMap = ref(new Map());
 const allowedModules = new Set(MODULE_GROUPS.flatMap((g) => g.children.map((c) => c.key)));
 
-onMounted(async () => {
-  await loadSchemaMenu();
-});
-
-async function loadSchemaMenu() {
-  try {
-    const menu = await fetchSchemaMenu();
-    const source = Array.isArray(menu) ? menu : [];
-    const mapped = source.length > 0 ? toSchemaMenuItems(source) : toMenuItems();
-    menuItems.value = mapped.length > 0 ? mapped : toMenuItems();
-    rebuildMap(menuItems.value);
-    const firstLeaf = findFirstValidLeaf(menuItems.value);
-    if (firstLeaf) {
-      const mk = normalizeModuleKey(firstLeaf);
-      if (isValidModule(mk)) activeModule.value = mk;
-      selectedKeys.value = [firstLeaf];
-    } else {
-      activeModule.value = firstModule;
-      selectedKeys.value = [firstModule];
-    }
-  } catch {
-    const fallback = toMenuItems();
-    menuItems.value = fallback;
-    rebuildMap(fallback);
-    activeModule.value = firstModule;
-    selectedKeys.value = [firstModule];
-  }
-}
-
-function toSchemaMenuItems(list) {
-  const sorted = [...list].sort((a, b) => Number(a.sort || 0) - Number(b.sort || 0));
-  return sorted.map((item) => {
-    const key = normalizePath(item.path, item.menuId);
-    const children = Array.isArray(item.children) ? toSchemaMenuItems(item.children) : undefined;
-    return {
-      key,
-      label: item.name || key,
-      children: children && children.length > 0 ? children : undefined,
-    };
-  });
-}
-
-function normalizePath(path, id) {
-  if (path && String(path).trim()) return String(path).replace(/^\//, '');
-  return `menu_${id || Math.random()}`;
-}
+rebuildMap(menuItems.value);
 
 function rebuildMap(items) {
   const m = new Map();
@@ -104,19 +58,6 @@ function walk(items, map) {
     map.set(item.key, item);
     if (item.children?.length) walk(item.children, map);
   });
-}
-
-function findFirstValidLeaf(items) {
-  for (const item of items) {
-    if (item.children?.length) {
-      const k = findFirstValidLeaf(item.children);
-      if (k) return k;
-    } else {
-      const mk = normalizeModuleKey(item.key);
-      if (isValidModule(mk)) return item.key;
-    }
-  }
-  return null;
 }
 
 function normalizeModuleKey(key) {
@@ -136,7 +77,6 @@ function onMenuClick({ key, keyPath }) {
   if (!isValidModule(moduleKey)) return;
   activeModule.value = moduleKey;
   selectedKeys.value = [key];
-  if (keyPath?.[1]) openKeys.value = [keyPath[1]];
 }
 
 function isValidModule(moduleKey) {

@@ -1,10 +1,10 @@
 ﻿export const MODULE_GROUPS = [
   {
     key: 'base',
-    label: '基礎データ',
+    label: '基礎マスタ',
     children: [
       { key: 'user', label: 'ユーザー管理' },
-      { key: 'dept', label: '部門管理' },
+      { key: 'dept', label: '部署管理' },
       { key: 'warehouse', label: '倉庫管理' },
       { key: 'role', label: 'ロール管理' },
       { key: 'permission', label: '権限管理' },
@@ -12,32 +12,31 @@
       { key: 'brand', label: 'ブランド管理' },
       { key: 'category', label: 'カテゴリ管理' },
       { key: 'series', label: 'シリーズ管理' },
-      { key: 'config', label: '設定管理' }
+      { key: 'config', label: 'システム設定' }
     ]
   },
   {
     key: 'goods',
     label: '商品管理',
     children: [
-      { key: 'goods', label: '商品' },
-      { key: 'goodsType', label: '商品タイプ' },
-      { key: 'goodsSku', label: 'SKU' },
-      { key: 'goodsSkuSpec', label: 'SKU仕様' },
-      { key: 'goodsImage', label: '商品画像' },
-      { key: 'goodsLevelPrice', label: '会員価格' },
-      { key: 'brandMakerRelation', label: 'ブランド-メーカー関連' }
+      { key: 'goods', label: '商品管理' },
+      { key: 'goodsSku', label: 'SKU管理' },
+      { key: 'goodsType', label: '商品種別' },
+      { key: 'goodsSkuSpec', label: 'SKU仕様管理' },
+      { key: 'goodsImage', label: '商品画像管理' },
+      { key: 'goodsLevelPrice', label: '会員価格管理' }
     ]
   },
   {
     key: 'stock',
     label: '在庫管理',
     children: [
-      { key: 'stock', label: '在庫' },
-      { key: 'stockType', label: '在庫種別' },
+      { key: 'stock', label: '在庫一覧' },
+      { key: 'stockType', label: '在庫区分' },
       { key: 'stockRecord', label: '在庫履歴' },
-      { key: 'stockOrder', label: '在庫注文' },
-      { key: 'stockOrderItem', label: '在庫注文明細' },
-      { key: 'requestForm', label: '申請フォーム' },
+      { key: 'stockOrder', label: '入出庫伝票' },
+      { key: 'stockOrderItem', label: '入出庫明細' },
+      { key: 'requestForm', label: '申請管理' },
       { key: 'requestItem', label: '申請明細' },
       { key: 'priceRecord', label: '価格履歴' }
     ]
@@ -46,59 +45,107 @@
     key: 'customer',
     label: '顧客管理',
     children: [
-      { key: 'customer', label: '顧客' },
-      { key: 'customerLevel', label: '顧客ランク' }
+      { key: 'customer', label: '顧客管理' },
+      { key: 'customerLevel', label: '顧客ランク管理' }
     ]
   },
   {
     key: 'system',
-    label: 'システム',
+    label: 'システム管理',
     children: [
-      { key: 'message', label: 'メッセージ' },
-      { key: 'operateLog', label: '操作ログ' },
-      { key: 'userRole', label: 'ユーザーロール関連' },
-      { key: 'rolePermission', label: 'ロール権限関連' },
-      { key: 'userToken', label: 'ユーザートークン' }
+      { key: 'message', label: 'メッセージ管理' },
+      { key: 'operateLog', label: '操作ログ' }
     ]
   }
 ];
 
+/**
+ * 模块默认配置
+ */
 export const MODULE_PRESETS = {
   user: {
-    queryFields: ['username', 'email', 'phone', 'status'],
-    formFields: ['username', 'password', 'nickname', 'deptId', 'email', 'phone', 'status'],
-    fieldTypes: { deptId: 'number', status: 'select' }
+    queryFields: ['username', 'deptId', 'email', 'phone', 'status'],
+    formFields: ['username', 'password', 'deptId', 'email', 'phone', 'status'],
+    fieldTypes: {
+      deptId: 'relation',
+      status: 'select'
+    }
   },
+
   dept: {
     queryFields: ['name', 'code', 'status'],
     formFields: ['parentId', 'name', 'code', 'leaderId', 'sort', 'status'],
-    fieldTypes: { parentId: 'number', leaderId: 'number', sort: 'number', status: 'select' }
-  },
-  goods: {
-    queryFields: ['name', 'englishName', 'skuCode', 'status'],
-    formFields: ['name', 'englishName', 'skuCode', 'seriesId', 'brandId', 'categoryId', 'makerId', 'price', 'discount', 'newPrice', 'status', 'isHot', 'description'],
     fieldTypes: {
-      seriesId: 'number', brandId: 'number', categoryId: 'number', makerId: 'number',
-      price: 'decimal', discount: 'decimal', newPrice: 'decimal', status: 'select', isHot: 'switch', description: 'textarea'
+      parentId: 'relation',
+      leaderId: 'relation',
+      sort: 'number',
+      status: 'select'
     }
   },
-  stock: {
-    queryFields: ['goodsName', 'skuCode', 'warehouseId', 'status'],
-    formFields: ['goodsId', 'skuId', 'warehouseId', 'typeId', 'currency', 'quantity', 'status'],
-    fieldTypes: { goodsId: 'number', skuId: 'number', warehouseId: 'number', typeId: 'number', quantity: 'number', status: 'select' }
+
+  goods: {
+    queryFields: ['name', 'skuCode', 'status'],
+    formFields: [
+      'name',
+      'skuCode',
+      'seriesId',
+      'brandId',
+      'categoryId',
+      'makerId',
+      'price',
+      'status',
+      'description'
+    ],
+    fieldTypes: {
+      seriesId: 'relation',
+      brandId: 'relation',
+      categoryId: 'relation',
+      makerId: 'relation',
+      price: 'decimal',
+      status: 'select',
+      description: 'textarea'
+    }
   },
+
+  stock: {
+    queryFields: ['goodsName', 'warehouseId', 'status'],
+    formFields: [
+      'goodsId',
+      'skuId',
+      'warehouseId',
+      'quantity',
+      'status'
+    ],
+    fieldTypes: {
+      goodsId: 'relation',
+      skuId: 'relation',
+      warehouseId: 'relation',
+      quantity: 'number',
+      status: 'select'
+    }
+  },
+
   warehouse: {
-    queryFields: ['name', 'code', 'address', 'status'],
+    queryFields: ['name', 'code', 'status'],
     formFields: ['name', 'code', 'address', 'managerId', 'status'],
-    fieldTypes: { managerId: 'number', status: 'select' }
+    fieldTypes: {
+      managerId: 'relation',
+      status: 'select'
+    }
   }
 };
 
+/**
+ * 状态选项
+ */
 export const STATUS_OPTIONS = [
-  { label: '有効', value: 'ENABLE' },
-  { label: '無効', value: 'DISABLE' },
+  { label: '有効', value: 1 },
+  { label: '無効', value: 0 }
 ];
 
+/**
+ * 关联模块
+ */
 export const RELATION_FIELD_MODULE = {
   deptId: 'dept',
   managerId: 'user',
@@ -109,71 +156,302 @@ export const RELATION_FIELD_MODULE = {
   makerId: 'maker',
   goodsId: 'goods',
   skuId: 'goodsSku',
-  warehouseId: 'warehouse',
-  typeId: 'stockType',
+  warehouseId: 'warehouse'
 };
 
+const NAME_TO_ID_FIELD = {
+  deptName: 'deptId',
+  managerName: 'managerId',
+  leaderName: 'leaderId',
+  seriesName: 'seriesId',
+  brandName: 'brandId',
+  categoryName: 'categoryId',
+  makerName: 'makerId',
+  goodsName: 'goodsId',
+  skuName: 'skuId',
+  warehouseName: 'warehouseId',
+  userName: 'userId'
+};
+
+/**
+ * 字段日语标题
+ */
+export const FIELD_LABELS = {
+  id: 'ID',
+
+  username: 'ユーザー名',
+  password: 'パスワード',
+  deptId: '部署',
+  deptName: '部署名',
+  roleId: 'ロール',
+  roleName: 'ロール名',
+
+  name: '名称',
+  englishName: '英語名',
+  code: 'コード',
+
+  email: 'メールアドレス',
+  phone: '電話番号',
+  avatar: 'アバター',
+
+  warehouseId: '倉庫',
+  warehouseName: '倉庫名',
+
+  goodsId: '商品',
+  goodsName: '商品名',
+
+  skuId: 'SKU',
+  skuCode: 'SKUコード',
+
+  categoryId: 'カテゴリ',
+  categoryName: 'カテゴリ名',
+
+  brandId: 'ブランド',
+  brandName: 'ブランド名',
+
+  makerId: 'メーカー',
+  makerName: 'メーカー名',
+
+  seriesId: 'シリーズ',
+  seriesName: 'シリーズ名',
+
+  quantity: '数量',
+  stock: '在庫数',
+
+  price: '価格',
+  amount: '金額',
+  discount: '割引率',
+
+  status: '状態',
+  statusDesc: '状態',
+
+  sort: '表示順',
+
+  address: '住所',
+  remark: '備考',
+  description: '説明',
+
+  createTime: '作成日時',
+  updateTime: '更新日時',
+  createdBy: '作成者',
+  updatedBy: '更新者'
+  ,
+  parentId: '親ID',
+  leaderId: '責任者ID',
+  leaderName: '責任者名',
+  managerId: '管理者ID',
+  managerName: '管理者名',
+  userId: 'ユーザーID',
+  userName: 'ユーザー名',
+  typeId: '種別ID',
+  typeName: '種別名',
+  stockTypeId: '在庫区分ID',
+  stockTypeName: '在庫区分',
+  stockId: '在庫ID',
+  levelId: 'ランクID',
+  levelName: 'ランク名',
+  customerId: '顧客ID',
+  customerName: '顧客名',
+  customerCode: '顧客コード',
+  orderId: '伝票ID',
+  orderNo: '伝票番号',
+  orderType: '伝票種別',
+  orderItemId: '伝票明細ID',
+  requestId: '申請ID',
+  requestNo: '申請番号',
+  requestType: '申請種別',
+  requestStatus: '申請状態',
+  itemId: '明細ID',
+  itemName: '明細名',
+  imageUrl: '画像URL',
+  avatarUrl: 'アバターURL',
+  icon: 'アイコン',
+  path: 'パス',
+  method: 'メソッド',
+  url: 'URL',
+  ip: 'IPアドレス',
+  loginIp: 'ログインIP',
+  token: 'トークン',
+  currency: '通貨',
+  beforeQty: '変更前数量',
+  afterQty: '変更後数量',
+  currentQty: '現在数量',
+  lockQty: 'ロック数量',
+  newPrice: '新価格',
+  oldPrice: '旧価格',
+  priceUpdateTime: '価格更新日時',
+  isHot: '人気商品',
+  title: 'タイトル',
+  content: '内容',
+  message: 'メッセージ',
+  remark: '備考',
+  deleted: '削除フラグ',
+  version: 'バージョン'
+};
+
+/**
+ * 左侧菜单
+ */
 export function toMenuItems() {
   return MODULE_GROUPS.map((group) => ({
     key: group.key,
     label: group.label,
-    children: group.children.map((item) => ({ key: item.key, label: item.label })),
+    children: group.children.map((item) => ({
+      key: item.key,
+      label: item.label
+    }))
   }));
 }
 
+/**
+ * 模块标题
+ */
 export function moduleTitle(moduleKey) {
   for (const group of MODULE_GROUPS) {
     const found = group.children.find((item) => item.key === moduleKey);
-    if (found) return found.label;
+    if (found) {
+      return found.label;
+    }
   }
   return moduleKey;
 }
 
+/**
+ * 模块配置
+ */
 export function getModulePreset(moduleKey) {
-  return MODULE_PRESETS[moduleKey] || { queryFields: [], formFields: [], fieldTypes: {} };
+  return MODULE_PRESETS[moduleKey] || {
+    queryFields: [],
+    formFields: [],
+    fieldTypes: {}
+  };
 }
 
+/**
+ * 字段标题（日语）
+ */
 export function normalizeTitle(key) {
   if (!key) return '';
-  const low = String(key).toLowerCase();
-  if (low === 'deptname' || key === 'Dept Name') return '部門名称';
-  if (low === 'statusdesc') return '状態';
-  if (low === 'status') return '状態';
-  return key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+
+  if (FIELD_LABELS[key]) {
+    return FIELD_LABELS[key];
+  }
+
+  return '項目';
 }
 
+/**
+ * 表格显示字段
+ */
 export function displayKeys(record) {
   if (!record) return [];
+
   return Object.keys(record).filter((key) => {
     const low = key.toLowerCase();
-    if (low === 'id') return true;
-    if (low.endsWith('id') || low.endsWith('_id')) return false;
+
+    // 隐藏敏感字段
+    if (
+      low === 'password' ||
+      low === 'salt' ||
+      low === 'deleted'
+    ) {
+      return false;
+    }
+
+    if (low.endsWith('id')) {
+      const nameKey = key.slice(0, -2) + 'Name';
+      if (Object.prototype.hasOwnProperty.call(record, nameKey)) {
+        return false;
+      }
+    }
+
     return true;
   });
 }
 
+/**
+ * 自动推断字段类型
+ */
 export function guessFieldType(field, moduleKey) {
   const preset = MODULE_PRESETS[moduleKey];
+
   const byPreset = preset?.fieldTypes?.[field];
-  if (byPreset) return byPreset;
+  if (byPreset) {
+    return byPreset;
+  }
+
   const low = String(field || '').toLowerCase();
-  if (low.includes('time') || low.includes('date')) return 'datetime';
-  if (low === 'status') return 'select';
-  if (low.startsWith('is') || low.startsWith('has')) return 'switch';
-  if (RELATION_FIELD_MODULE[field]) return 'relation';
-  if (low.endsWith('id') || low.endsWith('_id')) return 'number';
-  if (low.includes('price') || low.includes('amount') || low.includes('discount')) return 'decimal';
-  if (low.includes('count') || low.includes('num') || low.includes('sort') || low.includes('quantity')) return 'number';
-  if (low.includes('description') || low.includes('remark') || low.includes('content')) return 'textarea';
+
+  if (low.includes('time') || low.includes('date')) {
+    return 'datetime';
+  }
+
+  if (low === 'status') {
+    return 'select';
+  }
+
+  if (low.startsWith('is') || low.startsWith('has')) {
+    return 'switch';
+  }
+
+  if (RELATION_FIELD_MODULE[field]) {
+    return 'relation';
+  }
+
+  if (low.endsWith('id')) {
+    return 'number';
+  }
+
+  if (
+    low.includes('price') ||
+    low.includes('amount') ||
+    low.includes('discount')
+  ) {
+    return 'decimal';
+  }
+
+  if (
+    low.includes('count') ||
+    low.includes('num') ||
+    low.includes('sort') ||
+    low.includes('quantity')
+  ) {
+    return 'number';
+  }
+
+  if (
+    low.includes('description') ||
+    low.includes('remark') ||
+    low.includes('content')
+  ) {
+    return 'textarea';
+  }
+
   return 'text';
 }
 
+/**
+ * 获取关联模块
+ */
 export function relationModuleByField(field) {
   return RELATION_FIELD_MODULE[field];
 }
 
+export function mapNameFieldToIdField(field) {
+  return NAME_TO_ID_FIELD[field] || '';
+}
+
+/**
+ * 关联显示文本
+ */
 export function relationLabel(record) {
   if (!record) return '';
-  const text = record.name || record.username || record.code || record.title || record.englishName;
-  return text ? `${text}` : `ID:${record.id}`;
+
+  return (
+    record.name ||
+    record.username ||
+    record.code ||
+    record.title ||
+    `ID:${record.id}`
+  );
 }

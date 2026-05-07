@@ -1,30 +1,31 @@
 ﻿<template>
   <a-card :title="moduleTitle(moduleKey)" :bordered="false">
     <template #extra>
-      <a-space>
+      <a-space wrap>
         <template v-for="field in queryFields" :key="field">
           <a-select
             v-if="queryInputType(field) === 'select'"
             v-model:value="queryState[field]"
-            :options="statusOptions"
-            :placeholder="`${normalizeTitle(field)}で検索`"
+            :options="queryOptions(field)"
+            :placeholder="queryPlaceholder(field)"
             style="width: 180px"
             allow-clear
           />
           <a-input
             v-else-if="queryInputType(field) === 'text'"
             v-model:value="queryState[field]"
-            :placeholder="`${normalizeTitle(field)}で検索`"
+            :placeholder="queryPlaceholder(field)"
             style="width: 180px"
             @pressEnter="reload"
           />
           <a-input-number
             v-else
             v-model:value="queryState[field]"
-            :placeholder="`${normalizeTitle(field)}で検索`"
+            :placeholder="queryPlaceholder(field)"
             style="width: 180px"
           />
         </template>
+        <a-button type="primary" @click="doSearch">検索</a-button>
         <a-button @click="resetQuery">リセット</a-button>
         <a-popconfirm title="選択行を削除しますか" ok-text="はい" cancel-text="いいえ" @confirm="onBatchDelete">
           <a-button danger :disabled="selectedRowKeys.length === 0">一括削除</a-button>
@@ -45,36 +46,36 @@
       <template #bodyCell="{ column, record }">
         <template v-if="isEditing(record) && column.key !== '__actions' && !isReadonlyField(column.key)">
           <a-select
-            v-if="inputType(column.key) === 'relation'"
-            v-model:value="editState[column.key]"
-            :options="relationOptions[column.key] || []"
+            v-if="inlineInputType(column.key) === 'relation'"
+            v-model:value="editState[inlineField(column.key)]"
+            :options="relationOptions[inlineField(column.key)] || []"
             show-search
             allow-clear
             option-filter-prop="label"
           />
           <a-input-number
-            v-else-if="inputType(column.key) === 'number' || inputType(column.key) === 'decimal'"
-            v-model:value="editState[column.key]"
+            v-else-if="inlineInputType(column.key) === 'number' || inlineInputType(column.key) === 'decimal'"
+            v-model:value="editState[inlineField(column.key)]"
             style="width: 100%"
           />
           <a-select
-            v-else-if="inputType(column.key) === 'select'"
-            v-model:value="editState[column.key]"
+            v-else-if="inlineInputType(column.key) === 'select'"
+            v-model:value="editState[inlineField(column.key)]"
             :options="statusOptions"
             allow-clear
           />
           <a-switch
-            v-else-if="inputType(column.key) === 'switch'"
-            v-model:checked="editState[column.key]"
+            v-else-if="inlineInputType(column.key) === 'switch'"
+            v-model:checked="editState[inlineField(column.key)]"
           />
           <a-date-picker
-            v-else-if="inputType(column.key) === 'datetime'"
-            v-model:value="editState[column.key]"
+            v-else-if="inlineInputType(column.key) === 'datetime'"
+            v-model:value="editState[inlineField(column.key)]"
             value-format="YYYY-MM-DD HH:mm:ss"
             show-time
             style="width: 100%"
           />
-          <a-input v-else v-model:value="editState[column.key]" />
+          <a-input v-else v-model:value="editState[inlineField(column.key)]" />
         </template>
         <template v-if="column.key === '__actions'">
           <a-space>
@@ -127,7 +128,7 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import { createItem, fetchModuleOptions, fetchPage, removeItem, updateItem } from '../api/module';
-import { STATUS_OPTIONS, displayKeys, getModulePreset, guessFieldType, moduleTitle, normalizeTitle, relationLabel, relationModuleByField } from '../utils/module';
+import { STATUS_OPTIONS, displayKeys, getModulePreset, guessFieldType, mapNameFieldToIdField, moduleTitle, normalizeTitle, relationLabel, relationModuleByField } from '../utils/module';
 
 const props = defineProps({ moduleKey: { type: String, required: true } });
 
@@ -140,12 +141,16 @@ const editingKey = ref(null);
 const formState = reactive({});
 const editState = reactive({});
 const queryState = reactive({});
+const queryRelationOptions = reactive({});
 const relationOptions = reactive({});
 const selectedRowKeys = ref([]);
 const pagination = reactive({ current: 1, pageSize: 10, total: 0 });
 
 const preset = computed(() => getModulePreset(props.moduleKey));
-const queryFields = computed(() => preset.value.queryFields || []);
+const queryFields = computed(() => (preset.value.queryFields || []).map((f) => {
+  if (String(f).endsWith('Id')) return `${String(f).slice(0, -2)}Name`;
+  return f;
+}));
 const statusOptions = STATUS_OPTIONS;
 const tablePagination = computed(() => ({
   current: pagination.current,
@@ -183,10 +188,10 @@ const columns = computed(() => {
 });
 
 const formKeys = computed(() => {
+  if (preset.value.formFields?.length) return preset.value.formFields.filter((k) => !isReadonlyField(k));
   const byRows = keys.value.filter((k) => !isReadonlyField(k));
   if (byRows.length > 0) return byRows;
   if (editingRaw.value) return Object.keys(editingRaw.value).filter((k) => !isReadonlyField(k));
-  if (preset.value.formFields?.length) return preset.value.formFields.filter((k) => !isReadonlyField(k));
   return [];
 });
 
@@ -196,6 +201,7 @@ watch(
     if (!props.moduleKey) return;
     pagination.current = 1;
     initQuery();
+    await loadQueryRelationOptions();
     await loadRelationOptions();
     await reload();
   },
@@ -205,7 +211,7 @@ watch(
 function initQuery() {
   Object.keys(queryState).forEach((k) => delete queryState[k]);
   queryFields.value.forEach((field) => {
-    queryState[field] = '';
+    queryState[field] = queryInputType(field) === 'select' ? undefined : '';
   });
 }
 
@@ -234,7 +240,8 @@ function buildQueryParams() {
   queryFields.value.forEach((field) => {
     const val = queryState[field];
     if (val !== undefined && val !== null && String(val).trim() !== '') {
-      out[field] = val;
+      const idField = mapNameFieldToIdField(field);
+      out[idField || field] = val;
     }
   });
   return out;
@@ -242,6 +249,11 @@ function buildQueryParams() {
 
 function resetQuery() {
   initQuery();
+  pagination.current = 1;
+  reload();
+}
+
+function doSearch() {
   pagination.current = 1;
   reload();
 }
@@ -325,14 +337,33 @@ async function onBatchDelete() {
 }
 
 function queryInputType(field) {
+  if (mapNameFieldToIdField(field)) return 'select';
   const t = inputType(field);
   if (t === 'select') return 'select';
   if (t === 'number' || t === 'decimal') return 'number';
   return 'text';
 }
 
+function queryOptions(field) {
+  if (field === 'status') return statusOptions;
+  return queryRelationOptions[field] || [];
+}
+
+function queryPlaceholder(field) {
+  if (field === 'deptName') return '部署名を選択';
+  return `${normalizeTitle(field)}で検索`;
+}
+
 function inputType(field) {
   return guessFieldType(field, props.moduleKey);
+}
+
+function inlineField(field) {
+  return mapNameFieldToIdField(field) || field;
+}
+
+function inlineInputType(field) {
+  return inputType(inlineField(field));
 }
 
 function isReadonlyField(field) {
@@ -342,6 +373,11 @@ function isReadonlyField(field) {
 
 function normalizePayload(payload) {
   const out = { ...payload };
+  Object.keys(out).forEach((key) => {
+    if (mapNameFieldToIdField(key)) {
+      delete out[key];
+    }
+  });
   Object.keys(out).forEach((key) => {
     const type = inputType(key);
     if (out[key] === '' || out[key] === undefined) {
@@ -361,13 +397,14 @@ function isEditing(record) {
 function startInlineEdit(record) {
   editingKey.value = record.id;
   Object.keys(editState).forEach((k) => delete editState[k]);
-  keys.value.forEach((key) => {
+  formKeys.value.forEach((key) => {
     if (isReadonlyField(key)) return;
-    if (inputType(key) === 'switch') {
-      editState[key] = Boolean(record[key]);
+    const targetKey = inlineField(key);
+    if (inputType(targetKey) === 'switch') {
+      editState[targetKey] = Boolean(record[targetKey]);
       return;
     }
-    editState[key] = record[key] ?? null;
+    editState[targetKey] = record[targetKey] ?? null;
   });
   loadRelationOptions();
 }
@@ -390,7 +427,7 @@ async function saveInlineEdit(record) {
 }
 
 async function loadRelationOptions() {
-  const relatedFields = [...new Set([...formKeys.value, ...keys.value])]
+  const relatedFields = [...new Set([...formKeys.value, ...keys.value.map((k) => inlineField(k))])]
     .filter((field) => !isReadonlyField(field) && inputType(field) === 'relation');
   relatedFields.forEach((field) => {
     relationOptions[field] = [];
@@ -406,6 +443,28 @@ async function loadRelationOptions() {
       }));
     } catch {
       relationOptions[field] = [];
+    }
+  }
+}
+
+async function loadQueryRelationOptions() {
+  queryFields.value.forEach((field) => {
+    queryRelationOptions[field] = [];
+  });
+
+  for (const field of queryFields.value) {
+    const idField = mapNameFieldToIdField(field);
+    if (!idField) continue;
+    const targetModule = relationModuleByField(idField);
+    if (!targetModule) continue;
+    try {
+      const list = await fetchModuleOptions(targetModule);
+      queryRelationOptions[field] = (list || []).map((item) => ({
+        label: relationLabel(item),
+        value: item.id,
+      }));
+    } catch {
+      queryRelationOptions[field] = [];
     }
   }
 }
