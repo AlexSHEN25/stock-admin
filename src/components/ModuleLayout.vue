@@ -13,7 +13,7 @@
     </a-layout-sider>
     <a-layout>
       <a-layout-header class="top-header">
-        <div></div>
+        <div class="top-header-title">{{ activeLabel }}</div>
         <a-space>
           <a-switch :checked="darkMode" checked-children="黒" un-checked-children="白" @change="(v) => $emit('toggle-theme', v)" />
           <a-button type="link" @click="$emit('logout')">ログアウト</a-button>
@@ -40,6 +40,7 @@ defineEmits(['logout', 'toggle-theme']);
 const menuItems = ref(toMenuItems());
 const firstModule = MODULE_GROUPS[0].children[0].key;
 const activeModule = ref(firstModule);
+const activeLabel = ref(findLabelByKey(firstModule));
 const selectedKeys = ref([firstModule]);
 const openKeys = ref([MODULE_GROUPS[0].key]);
 const nodeMap = ref(new Map());
@@ -76,10 +77,19 @@ function onMenuClick({ key, keyPath }) {
   const moduleKey = normalizeModuleKey(key);
   if (!isValidModule(moduleKey)) return;
   activeModule.value = moduleKey;
+  activeLabel.value = findLabelByKey(key);
   selectedKeys.value = [key];
 }
 
 function isValidModule(moduleKey) {
   return Boolean(moduleKey) && allowedModules.has(moduleKey);
+}
+
+function findLabelByKey(key) {
+  for (const group of MODULE_GROUPS) {
+    const hit = group.children.find((item) => item.key === key);
+    if (hit) return hit.label;
+  }
+  return '';
 }
 </script>

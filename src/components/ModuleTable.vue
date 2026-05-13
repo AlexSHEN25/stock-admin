@@ -1,38 +1,40 @@
 ﻿<template>
-  <a-card :title="moduleTitle(moduleKey)" :bordered="false">
-    <template #extra>
-      <a-space wrap>
-        <template v-for="field in queryFields" :key="field">
-          <a-select
-            v-if="queryInputType(field) === 'select'"
-            v-model:value="queryState[field]"
-            :options="queryOptions(field)"
-            :placeholder="queryPlaceholder(field)"
-            style="width: 180px"
-            allow-clear
-          />
-          <a-input
-            v-else-if="queryInputType(field) === 'text'"
-            v-model:value="queryState[field]"
-            :placeholder="queryPlaceholder(field)"
-            style="width: 180px"
-            @pressEnter="reload"
-          />
-          <a-input-number
-            v-else
-            v-model:value="queryState[field]"
-            :placeholder="queryPlaceholder(field)"
-            style="width: 180px"
-          />
-        </template>
-        <a-button type="primary" @click="doSearch">検索</a-button>
-        <a-button @click="resetQuery">リセット</a-button>
-        <a-popconfirm title="選択行を削除しますか" ok-text="はい" cancel-text="いいえ" @confirm="onBatchDelete">
-          <a-button danger :disabled="selectedRowKeys.length === 0">一括削除</a-button>
-        </a-popconfirm>
-        <a-button type="primary" @click="openCreate">新規作成</a-button>
-      </a-space>
-    </template>
+  <a-card :title="null" :bordered="false">
+    <div class="search-toolbar">
+        <div class="search-filters">
+          <template v-for="field in queryFields" :key="field">
+            <a-select
+              v-if="queryInputType(field) === 'select'"
+              v-model:value="queryState[field]"
+              :options="queryOptions(field)"
+              :placeholder="queryPlaceholder(field)"
+              class="search-control"
+              allow-clear
+            />
+            <a-input
+              v-else-if="queryInputType(field) === 'text'"
+              v-model:value="queryState[field]"
+              :placeholder="queryPlaceholder(field)"
+              class="search-control"
+              @pressEnter="reload"
+            />
+            <a-input-number
+              v-else
+              v-model:value="queryState[field]"
+              :placeholder="queryPlaceholder(field)"
+              class="search-control"
+            />
+          </template>
+        </div>
+        <div class="search-actions">
+          <a-button type="primary" class="search-btn search-btn-main" @click="doSearch">検索</a-button>
+          <a-button class="search-btn" @click="resetQuery">リセット</a-button>
+          <a-popconfirm title="選択行を削除しますか" ok-text="はい" cancel-text="いいえ" @confirm="onBatchDelete">
+            <a-button danger class="search-btn" :disabled="selectedRowKeys.length === 0">一括削除</a-button>
+          </a-popconfirm>
+          <a-button type="primary" class="search-btn search-btn-create" @click="openCreate">新規作成</a-button>
+        </div>
+      </div>
 
     <a-table
       :rowKey="(row) => row.id || row._id || JSON.stringify(row)"
@@ -128,7 +130,7 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import { createItem, fetchModuleOptions, fetchPage, removeItem, updateItem } from '../api/module';
-import { STATUS_OPTIONS, displayKeys, getModulePreset, guessFieldType, mapNameFieldToIdField, moduleTitle, normalizeTitle, relationLabel, relationModuleByField } from '../utils/module';
+import { STATUS_OPTIONS, buildAutoQueryFields, displayKeys, getModulePreset, guessFieldType, mapNameFieldToIdField, normalizeTitle, relationLabel, relationModuleByField } from '../utils/module';
 
 const props = defineProps({ moduleKey: { type: String, required: true } });
 
@@ -147,10 +149,14 @@ const selectedRowKeys = ref([]);
 const pagination = reactive({ current: 1, pageSize: 10, total: 0 });
 
 const preset = computed(() => getModulePreset(props.moduleKey));
-const queryFields = computed(() => (preset.value.queryFields || []).map((f) => {
-  if (String(f).endsWith('Id')) return `${String(f).slice(0, -2)}Name`;
-  return f;
-}));
+const queryFields = computed(() => {
+  const presetFields = preset.value.queryFields || [];
+  const source = presetFields.length > 0 ? presetFields : buildAutoQueryFields(keys.value);
+  return source.map((f) => {
+    if (String(f).endsWith('Id')) return `${String(f).slice(0, -2)}Name`;
+    return f;
+  });
+});
 const statusOptions = STATUS_OPTIONS;
 const tablePagination = computed(() => ({
   current: pagination.current,

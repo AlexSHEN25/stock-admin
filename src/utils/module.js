@@ -7,12 +7,7 @@
       { key: 'dept', label: '部署管理' },
       { key: 'warehouse', label: '倉庫管理' },
       { key: 'role', label: 'ロール管理' },
-      { key: 'permission', label: '権限管理' },
-      { key: 'maker', label: 'メーカー管理' },
-      { key: 'brand', label: 'ブランド管理' },
-      { key: 'category', label: 'カテゴリ管理' },
-      { key: 'series', label: 'シリーズ管理' },
-      { key: 'config', label: 'システム設定' }
+      { key: 'permission', label: '権限管理' }
     ]
   },
   {
@@ -24,7 +19,11 @@
       { key: 'goodsType', label: '商品種別' },
       { key: 'goodsSkuSpec', label: 'SKU仕様管理' },
       { key: 'goodsImage', label: '商品画像管理' },
-      { key: 'goodsLevelPrice', label: '会員価格管理' }
+      { key: 'goodsLevelPrice', label: '会員価格管理' },
+      { key: 'maker', label: 'メーカー管理' },
+      { key: 'brand', label: 'ブランド管理' },
+      { key: 'category', label: 'カテゴリ管理' },
+      { key: 'series', label: 'シリーズ管理' }
     ]
   },
   {
@@ -53,6 +52,7 @@
     key: 'system',
     label: 'システム管理',
     children: [
+      { key: 'config', label: 'システム設定' },
       { key: 'message', label: 'メッセージ管理' },
       { key: 'operateLog', label: '操作ログ' }
     ]
@@ -64,7 +64,7 @@
  */
 export const MODULE_PRESETS = {
   user: {
-    queryFields: ['username', 'deptId', 'email', 'phone', 'status'],
+    queryFields: ['username', 'deptName', 'email', 'phone', 'status'],
     formFields: ['username', 'password', 'deptId', 'email', 'phone', 'status'],
     fieldTypes: {
       deptId: 'relation',
@@ -73,7 +73,7 @@ export const MODULE_PRESETS = {
   },
 
   dept: {
-    queryFields: ['name', 'code', 'status'],
+    queryFields: ['id', 'name', 'code', 'leaderId', 'sort', 'status'],
     formFields: ['parentId', 'name', 'code', 'leaderId', 'sort', 'status'],
     fieldTypes: {
       parentId: 'relation',
@@ -84,7 +84,7 @@ export const MODULE_PRESETS = {
   },
 
   goods: {
-    queryFields: ['name', 'skuCode', 'status'],
+    queryFields: ['id', 'name', 'englishName', 'skuCode', 'seriesId', 'brandId', 'categoryId', 'makerId', 'price', 'discount', 'status', 'newPrice', 'priceUpdateTime', 'description', 'isHot', 'version'],
     formFields: [
       'name',
       'skuCode',
@@ -108,7 +108,7 @@ export const MODULE_PRESETS = {
   },
 
   stock: {
-    queryFields: ['goodsName', 'warehouseId', 'status'],
+    queryFields: ['goodsName', 'skuCode', 'skuId', 'typeId', 'currency', 'warehouseId', 'status'],
     formFields: [
       'goodsId',
       'skuId',
@@ -126,12 +126,119 @@ export const MODULE_PRESETS = {
   },
 
   warehouse: {
-    queryFields: ['name', 'code', 'status'],
+    queryFields: ['id', 'name', 'code', 'address', 'managerId', 'status'],
     formFields: ['name', 'code', 'address', 'managerId', 'status'],
     fieldTypes: {
       managerId: 'relation',
       status: 'select'
     }
+  },
+
+  role: {
+    queryFields: ['id', 'name', 'code', 'remark', 'status'],
+    formFields: ['name', 'code', 'remark', 'status'],
+    fieldTypes: { status: 'select' }
+  },
+  permission: {
+    queryFields: ['id', 'name', 'code', 'module', 'type', 'parentId', 'path', 'sort', 'icon', 'status'],
+    fieldTypes: { parentId: 'relation', sort: 'number', status: 'select' }
+  },
+  maker: {
+    queryFields: ['id', 'name', 'status'],
+    formFields: ['name', 'status'],
+    fieldTypes: { status: 'select' }
+  },
+  brand: {
+    queryFields: ['id', 'name', 'englishName', 'content', 'status'],
+    formFields: ['name', 'englishName', 'content', 'status'],
+    fieldTypes: { status: 'select' }
+  },
+  category: {
+    queryFields: ['id', 'name', 'status'],
+    formFields: ['name', 'status'],
+    fieldTypes: { status: 'select' }
+  },
+  series: {
+    queryFields: ['id', 'name', 'englishName', 'content', 'status'],
+    formFields: ['name', 'englishName', 'content', 'status'],
+    fieldTypes: { status: 'select' }
+  },
+  config: {
+    queryFields: ['id', 'name', 'group', 'title', 'tip', 'type', 'value', 'content']
+  },
+  goodsSku: {
+    queryFields: ['id', 'goodsId', 'skuCode', 'skuName', 'price', 'currency', 'costPrice', 'updatePrice', 'priceUpdateTime', 'barcode', 'weight', 'volume', 'status'],
+    fieldTypes: { goodsId: 'relation', status: 'select' }
+  },
+  goodsType: {
+    queryFields: ['id', 'name', 'status'],
+    fieldTypes: { status: 'select' }
+  },
+  goodsSkuSpec: {
+    queryFields: ['id', 'skuId', 'skuCode', 'specId', 'specName', 'specValue', 'sort'],
+    fieldTypes: { skuId: 'relation', specId: 'number', sort: 'number' }
+  },
+  goodsImage: {
+    queryFields: ['id', 'goodsId', 'skuId', 'skuCode', 'imageUrl', 'sort'],
+    fieldTypes: { goodsId: 'relation', skuId: 'relation', sort: 'number' }
+  },
+  goodsLevelPrice: {
+    queryFields: ['id', 'goodsId', 'skuId', 'skuCode', 'levelId', 'price', 'currency', 'discount', 'effectiveTime', 'expireTime', 'status'],
+    fieldTypes: { goodsId: 'relation', skuId: 'relation', levelId: 'number', status: 'select' }
+  },
+  stockType: {
+    queryFields: ['id', 'name', 'status'],
+    fieldTypes: { status: 'select' }
+  },
+  stockRecord: {
+    queryFields: ['id', 'bizNo', 'orderId', 'orderItemId', 'stockId', 'goodsName', 'skuCode', 'brandName', 'seriesName', 'categoryName', 'stockTypeName', 'makerName', 'warehouseId', 'beforeQty', 'changeQty', 'afterQty', 'price', 'currency', 'priceUpdateTime', 'customerName', 'requesterName', 'operatorName', 'remark'],
+    fieldTypes: { warehouseId: 'relation' }
+  },
+  stockOrder: {
+    queryFields: ['id', 'orderNo', 'orderType', 'stockTypeId', 'warehouseId', 'sourceType', 'sourceId', 'totalQty', 'state', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'remark', 'approverId', 'approverName', 'approveTime', 'version', 'finishTime'],
+    fieldTypes: { warehouseId: 'relation', requesterId: 'relation', operatorId: 'relation', approverId: 'relation' }
+  },
+  stockOrderItem: {
+    queryFields: ['id', 'orderId', 'goodsName', 'skuCode', 'brandName', 'seriesName', 'categoryName', 'stockTypeName', 'makerName', 'beforeQty', 'changeQty', 'afterQty', 'price', 'currency', 'remark']
+  },
+  requestForm: {
+    queryFields: ['id', 'bizNo', 'username', 'deptName', 'customerName', 'warehouseId', 'totalQty', 'requestQty', 'totalAmt', 'state', 'approverName', 'approveTime', 'approveRemark'],
+    fieldTypes: { deptId: 'relation', customerId: 'number', warehouseId: 'relation', approverId: 'relation' }
+  },
+  requestItem: {
+    queryFields: ['id', 'requestId', 'goodsName', 'skuCode', 'englishName', 'brandName', 'seriesName', 'typeName', 'categoryName', 'makerName', 'warehouseId', 'price', 'currency', 'discount', 'requestQty', 'approveQty', 'outQty', 'remark'],
+    fieldTypes: { requestId: 'number', warehouseId: 'relation' }
+  },
+  priceRecord: {
+    queryFields: ['id', 'goodsName', 'englishName', 'skuCode', 'oldPrice', 'newPrice', 'currency', 'discount', 'priceUpdateTime', 'operatorName']
+  },
+  customer: {
+    queryFields: ['id', 'customerCode', 'name', 'englishName', 'contactPerson', 'phone', 'email', 'country', 'city', 'address', 'levelId', 'ownerUserId', 'ownerDeptId', 'remark', 'status'],
+    fieldTypes: { levelId: 'number', ownerUserId: 'relation', ownerDeptId: 'relation', status: 'select' }
+  },
+  customerLevel: {
+    queryFields: ['id', 'name', 'discount', 'remark', 'status'],
+    fieldTypes: { status: 'select' }
+  },
+  message: {
+    queryFields: ['id', 'type', 'userId', 'message', 'sourceId', 'isRead', 'state'],
+    fieldTypes: { userId: 'relation' }
+  },
+  operateLog: {
+    queryFields: ['id', 'userId', 'username', 'module', 'operation', 'method', 'requestUrl', 'requestIp', 'status', 'errorMsg', 'costTime'],
+    fieldTypes: { userId: 'relation', status: 'select' }
+  },
+  userRole: {
+    queryFields: ['id', 'userId', 'roleId'],
+    fieldTypes: { userId: 'relation', roleId: 'relation' }
+  },
+  rolePermission: {
+    queryFields: ['id', 'roleId', 'permissionId'],
+    fieldTypes: { roleId: 'relation', permissionId: 'relation' }
+  },
+  userToken: {
+    queryFields: ['id', 'token', 'userId', 'loginTime', 'expireTime', 'loginIp', 'status'],
+    fieldTypes: { userId: 'relation', status: 'select' }
   }
 };
 
@@ -150,17 +257,26 @@ export const RELATION_FIELD_MODULE = {
   deptId: 'dept',
   managerId: 'user',
   leaderId: 'user',
+  roleId: 'role',
+  permissionId: 'permission',
   seriesId: 'series',
   brandId: 'brand',
   categoryId: 'category',
   makerId: 'maker',
   goodsId: 'goods',
   skuId: 'goodsSku',
-  warehouseId: 'warehouse'
+  warehouseId: 'warehouse',
+  requesterId: 'user',
+  operatorId: 'user',
+  approverId: 'user',
+  ownerUserId: 'user',
+  ownerDeptId: 'dept'
 };
 
 const NAME_TO_ID_FIELD = {
   deptName: 'deptId',
+  roleName: 'roleId',
+  permissionName: 'permissionId',
   managerName: 'managerId',
   leaderName: 'leaderId',
   seriesName: 'seriesId',
@@ -171,6 +287,10 @@ const NAME_TO_ID_FIELD = {
   skuName: 'skuId',
   warehouseName: 'warehouseId',
   userName: 'userId'
+  ,
+  requesterName: 'requesterId',
+  operatorName: 'operatorId',
+  approverName: 'approverId'
 };
 
 /**
@@ -234,8 +354,7 @@ export const FIELD_LABELS = {
   createTime: '作成日時',
   updateTime: '更新日時',
   createdBy: '作成者',
-  updatedBy: '更新者'
-  ,
+  updatedBy: '更新者',
   parentId: '親ID',
   leaderId: '責任者ID',
   leaderName: '責任者名',
@@ -284,7 +403,6 @@ export const FIELD_LABELS = {
   title: 'タイトル',
   content: '内容',
   message: 'メッセージ',
-  remark: '備考',
   deleted: '削除フラグ',
   version: 'バージョン'
 };
@@ -320,10 +438,15 @@ export function moduleTitle(moduleKey) {
  * 模块配置
  */
 export function getModulePreset(moduleKey) {
-  return MODULE_PRESETS[moduleKey] || {
+  const preset = MODULE_PRESETS[moduleKey] || {
     queryFields: [],
     formFields: [],
     fieldTypes: {}
+  };
+  const filtered = (preset.queryFields || []).filter((f) => String(f).toLowerCase() !== 'id');
+  return {
+    ...preset,
+    queryFields: filtered
   };
 }
 
@@ -337,7 +460,7 @@ export function normalizeTitle(key) {
     return FIELD_LABELS[key];
   }
 
-  return '項目';
+  return autoLabelFromField(String(key));
 }
 
 /**
@@ -441,6 +564,33 @@ export function mapNameFieldToIdField(field) {
   return NAME_TO_ID_FIELD[field] || '';
 }
 
+export function buildAutoQueryFields(fields) {
+  if (!Array.isArray(fields) || fields.length === 0) return [];
+  const list = fields.filter((f) => {
+    const low = String(f || '').toLowerCase();
+    if (!low) return false;
+    if (low === 'id' || low === 'createtime' || low === 'updatetime') return false;
+    if (low.endsWith('desc')) return false;
+    return true;
+  });
+
+  const priority = list.filter((f) => {
+    const low = String(f).toLowerCase();
+    return (
+      low === 'status' ||
+      low.endsWith('name') ||
+      low.endsWith('code') ||
+      low.includes('name') ||
+      low.includes('code') ||
+      low.includes('phone') ||
+      low.includes('email')
+    );
+  });
+
+  const uniq = [...new Set([...priority, ...list])];
+  return uniq.slice(0, 6);
+}
+
 /**
  * 关联显示文本
  */
@@ -448,10 +598,47 @@ export function relationLabel(record) {
   if (!record) return '';
 
   return (
+    record.leaderName ||
     record.name ||
     record.username ||
     record.code ||
     record.title ||
     `ID:${record.id}`
   );
+}
+
+function autoLabelFromField(field) {
+  const low = field.toLowerCase();
+  if (low === 'id') return 'ID';
+  if (low === 'createtime') return '作成日時';
+  if (low === 'updatetime') return '更新日時';
+  if (low === 'statusdesc' || low === 'status') return '状態';
+
+  if (field.endsWith('Name')) {
+    const base = field.slice(0, -4);
+    return `${toReadable(base)}名`;
+  }
+  if (field.endsWith('Id')) {
+    const base = field.slice(0, -2);
+    return `${toReadable(base)}ID`;
+  }
+  if (field.endsWith('Code')) {
+    const base = field.slice(0, -4);
+    return `${toReadable(base)}コード`;
+  }
+  if (field.endsWith('Time')) {
+    const base = field.slice(0, -4);
+    return `${toReadable(base)}日時`;
+  }
+
+  return toReadable(field);
+}
+
+function toReadable(value) {
+  const s = String(value || '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/_/g, ' ')
+    .trim();
+  if (!s) return '項目';
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
