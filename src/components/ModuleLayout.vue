@@ -3,6 +3,7 @@
     <a-layout-sider width="280" class="left-sider">
       <div class="logo">在庫管理</div>
       <a-menu
+        class="left-menu"
         mode="inline"
         :items="menuItems"
         :selectedKeys="selectedKeys"

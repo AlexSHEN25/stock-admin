@@ -37,12 +37,14 @@
       </div>
 
     <a-table
+      class="module-table"
       :rowKey="(row) => row.id || row._id || JSON.stringify(row)"
       :columns="columns"
       :data-source="rows"
       :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
       :loading="loading"
       :pagination="tablePagination"
+      :scroll="{ x: 'max-content' }"
       @change="onChange"
     >
       <template #bodyCell="{ column, record }">
@@ -149,13 +151,14 @@ const selectedRowKeys = ref([]);
 const pagination = reactive({ current: 1, pageSize: 10, total: 0 });
 
 const preset = computed(() => getModulePreset(props.moduleKey));
+const backendFieldSet = computed(() => {
+  const first = rows.value[0] || {};
+  return new Set(Object.keys(first));
+});
 const queryFields = computed(() => {
   const presetFields = preset.value.queryFields || [];
   const source = presetFields.length > 0 ? presetFields : buildAutoQueryFields(keys.value);
-  return source.map((f) => {
-    if (String(f).endsWith('Id')) return `${String(f).slice(0, -2)}Name`;
-    return f;
-  });
+  return source.map((field) => normalizeQueryField(field));
 });
 const statusOptions = STATUS_OPTIONS;
 const tablePagination = computed(() => ({
@@ -181,6 +184,7 @@ const columns = computed(() => {
     title: normalizeTitle(key),
     dataIndex: key,
     key,
+    fixed: String(key).toLowerCase() === 'id' ? 'left' : undefined,
     onCell: (record) => {
       if (isReadonlyField(key)) return {};
       return {
@@ -190,7 +194,7 @@ const columns = computed(() => {
       };
     },
   }));
-  return [...base, { title: '操作', key: '__actions', width: 180 }];
+  return [...base, { title: '操作', key: '__actions', width: 180, fixed: 'right' }];
 });
 
 const formKeys = computed(() => {
@@ -219,6 +223,14 @@ function initQuery() {
   queryFields.value.forEach((field) => {
     queryState[field] = queryInputType(field) === 'select' ? undefined : '';
   });
+}
+
+function normalizeQueryField(field) {
+  const key = String(field || '');
+  if (!key.endsWith('Id')) return key;
+  const nameField = `${key.slice(0, -2)}Name`;
+  if (backendFieldSet.value.has(nameField)) return nameField;
+  return key;
 }
 
 async function reload() {
@@ -466,19 +478,12 @@ async function loadQueryRelationOptions() {
     try {
       const list = await fetchModuleOptions(targetModule);
       queryRelationOptions[field] = (list || []).map((item) => ({
-        label: relationOptionLabel(field, item),
+        label: relationLabel(item),
         value: item.id,
       }));
     } catch {
       queryRelationOptions[field] = [];
     }
   }
-}
-
-function relationOptionLabel(field, item) {
-  if (field === 'deptName') {
-    return item?.name || relationLabel(item);
-  }
-  return relationLabel(item);
 }
 </script>

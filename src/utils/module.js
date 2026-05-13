@@ -438,15 +438,10 @@ export function moduleTitle(moduleKey) {
  * 模块配置
  */
 export function getModulePreset(moduleKey) {
-  const preset = MODULE_PRESETS[moduleKey] || {
+  return MODULE_PRESETS[moduleKey] || {
     queryFields: [],
     formFields: [],
     fieldTypes: {}
-  };
-  const filtered = (preset.queryFields || []).filter((f) => String(f).toLowerCase() !== 'id');
-  return {
-    ...preset,
-    queryFields: filtered
   };
 }
 
@@ -471,15 +466,6 @@ export function displayKeys(record) {
 
   return Object.keys(record).filter((key) => {
     const low = key.toLowerCase();
-
-    // 隐藏敏感字段
-    if (
-      low === 'password' ||
-      low === 'salt' ||
-      low === 'deleted'
-    ) {
-      return false;
-    }
 
     if (low.endsWith('id')) {
       const nameKey = key.slice(0, -2) + 'Name';
@@ -566,29 +552,12 @@ export function mapNameFieldToIdField(field) {
 
 export function buildAutoQueryFields(fields) {
   if (!Array.isArray(fields) || fields.length === 0) return [];
-  const list = fields.filter((f) => {
+  return fields.filter((f) => {
     const low = String(f || '').toLowerCase();
     if (!low) return false;
-    if (low === 'id' || low === 'createtime' || low === 'updatetime') return false;
     if (low.endsWith('desc')) return false;
     return true;
   });
-
-  const priority = list.filter((f) => {
-    const low = String(f).toLowerCase();
-    return (
-      low === 'status' ||
-      low.endsWith('name') ||
-      low.endsWith('code') ||
-      low.includes('name') ||
-      low.includes('code') ||
-      low.includes('phone') ||
-      low.includes('email')
-    );
-  });
-
-  const uniq = [...new Set([...priority, ...list])];
-  return uniq.slice(0, 6);
 }
 
 /**
@@ -598,8 +567,8 @@ export function relationLabel(record) {
   if (!record) return '';
 
   return (
-    record.leaderName ||
     record.name ||
+    record.leaderName ||
     record.username ||
     record.code ||
     record.title ||

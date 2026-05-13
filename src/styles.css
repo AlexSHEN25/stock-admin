@@ -15,6 +15,14 @@ body {
 .left-sider {
   background: linear-gradient(180deg, #0d2240, #132c56 38%, #1c3f75 100%);
   box-shadow: 4px 0 14px rgba(12, 30, 62, 0.22);
+  height: 100vh;
+  overflow: hidden;
+}
+
+.left-sider .ant-layout-sider-children {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .logo {
@@ -50,26 +58,32 @@ body {
 .search-toolbar {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: flex-start;
-  gap: 12px;
+  gap: 14px;
   width: 100%;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  border: 1px solid #d5e5ff;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(248, 252, 255, 0.96), rgba(240, 247, 255, 0.96));
+  box-shadow: 0 10px 20px rgba(21, 62, 116, 0.08);
 }
 
 .search-filters {
   display: flex;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   flex-wrap: wrap;
   justify-content: flex-start;
-  align-content: flex-start;
+  align-content: flex-end;
   gap: 10px;
   min-width: 0;
 }
 
 .search-control {
-  flex: 0 1 220px;
-  min-width: 160px;
-  max-width: 260px;
+  flex: 1 1 200px;
+  min-width: 170px;
+  max-width: 280px;
 }
 
 .search-control.ant-input,
@@ -83,29 +97,33 @@ body {
 .search-control.ant-input-number,
 .search-control .ant-select-selector {
   height: 36px !important;
-  border-radius: 10px !important;
+  border-radius: 9px !important;
+  border-color: #cfe1ff !important;
+  background: rgba(255, 255, 255, 0.92) !important;
 }
 
 .search-actions {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 8px;
   flex: 0 0 auto;
   margin-left: auto;
-  align-self: flex-start;
+  align-self: flex-end;
   text-align: right;
+  padding-left: 12px;
+  border-left: 1px solid rgba(170, 198, 236, 0.65);
 }
 
 .search-btn {
   flex: 0 0 auto;
   height: 36px;
-  border-radius: 10px;
+  border-radius: 9px;
 }
 
 .search-btn-main {
-  box-shadow: 0 6px 14px rgba(22, 119, 255, 0.22);
+  box-shadow: 0 6px 14px rgba(22, 119, 255, 0.2);
 }
 
 .search-btn-create {
@@ -114,8 +132,14 @@ body {
 }
 
 @media (max-width: 900px) {
+  .search-toolbar {
+    padding: 12px;
+  }
+
   .search-actions {
     margin-left: auto;
+    padding-left: 0;
+    border-left: 0;
   }
 }
 
@@ -127,6 +151,63 @@ body {
   background: transparent;
   color: #d6e7ff;
   border-inline-end: 0;
+}
+
+.left-menu {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(179, 210, 255, 0.45) transparent;
+}
+
+.left-menu::-webkit-scrollbar {
+  width: 8px;
+}
+
+.left-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.left-menu::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(168, 203, 255, 0.52), rgba(120, 170, 245, 0.45));
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.left-menu::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(194, 220, 255, 0.7), rgba(141, 188, 255, 0.62));
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.module-table .ant-table-content {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(179, 210, 255, 0.45) transparent;
+}
+
+.module-table .ant-table-content::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.module-table .ant-table-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.module-table .ant-table-content::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(168, 203, 255, 0.52), rgba(120, 170, 245, 0.45));
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.module-table .ant-table-content::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(194, 220, 255, 0.7), rgba(141, 188, 255, 0.62));
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 .ant-menu .ant-menu-submenu-title,
@@ -169,4 +250,53 @@ html[data-theme-mode='dark'] .top-header {
 html[data-theme-mode='dark'] .logo {
   color: #f5f5f5;
   background: linear-gradient(120deg, rgba(255, 255, 255, 0.15), rgba(180, 180, 180, 0.15));
+}
+
+html[data-theme-mode='dark'] .search-toolbar {
+  border: 1px solid #2e3642;
+  background: linear-gradient(180deg, rgba(33, 37, 45, 0.95), rgba(26, 30, 37, 0.95));
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.28);
+}
+
+html[data-theme-mode='dark'] .search-control.ant-input,
+html[data-theme-mode='dark'] .search-control.ant-input-number,
+html[data-theme-mode='dark'] .search-control .ant-select-selector {
+  border-color: #404a58 !important;
+  background: rgba(17, 20, 26, 0.92) !important;
+}
+
+html[data-theme-mode='dark'] .search-actions {
+  border-left: 1px solid rgba(87, 97, 112, 0.62);
+}
+
+html[data-theme-mode='dark'] .left-menu {
+  scrollbar-color: rgba(120, 120, 120, 0.55) transparent;
+}
+
+html[data-theme-mode='dark'] .left-menu::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(124, 124, 124, 0.58), rgba(92, 92, 92, 0.48));
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+html[data-theme-mode='dark'] .left-menu::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(152, 152, 152, 0.66), rgba(112, 112, 112, 0.56));
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+html[data-theme-mode='dark'] .module-table .ant-table-content {
+  scrollbar-color: rgba(120, 120, 120, 0.55) transparent;
+}
+
+html[data-theme-mode='dark'] .module-table .ant-table-content::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(124, 124, 124, 0.58), rgba(92, 92, 92, 0.48));
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+html[data-theme-mode='dark'] .module-table .ant-table-content::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(152, 152, 152, 0.66), rgba(112, 112, 112, 0.56));
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
