@@ -466,12 +466,19 @@ async function loadQueryRelationOptions() {
     try {
       const list = await fetchModuleOptions(targetModule);
       queryRelationOptions[field] = (list || []).map((item) => ({
-        label: relationLabel(item),
+        label: relationOptionLabel(field, item),
         value: item.id,
       }));
     } catch {
       queryRelationOptions[field] = [];
     }
   }
+}
+
+function relationOptionLabel(field, item) {
+  if (field === 'deptName') {
+    return item?.name || relationLabel(item);
+  }
+  return relationLabel(item);
 }
 </script>
