@@ -29,10 +29,10 @@
         <div class="search-actions">
           <a-button type="primary" class="search-btn search-btn-main" @click="doSearch">検索</a-button>
           <a-button class="search-btn" @click="resetQuery">リセット</a-button>
-          <a-popconfirm title="選択行を削除しますか" ok-text="はい" cancel-text="いいえ" @confirm="onBatchDelete">
+          <a-popconfirm v-if="canWrite" title="選択行を削除しますか" ok-text="はい" cancel-text="いいえ" @confirm="onBatchDelete">
             <a-button danger class="search-btn" :disabled="selectedRowKeys.length === 0">一括削除</a-button>
           </a-popconfirm>
-          <a-button type="primary" class="search-btn search-btn-create" @click="openCreate">新規作成</a-button>
+          <a-button v-if="canWrite" type="primary" class="search-btn search-btn-create" @click="openCreate">新規作成</a-button>
         </div>
       </div>
 
@@ -83,19 +83,20 @@
         </template>
         <template v-if="column.key === '__actions'">
           <a-space>
-            <a v-if="!isEditing(record)" @click="startInlineEdit(record)">行内編集</a>
-            <a v-if="isEditing(record)" @click="saveInlineEdit(record)">保存</a>
-            <a v-if="isEditing(record)" @click="cancelInlineEdit">取消</a>
-            <a @click="openEdit(record)">編集</a>
-            <a-popconfirm title="削除しますか" ok-text="はい" cancel-text="いいえ" @confirm="onDelete(record)">
+            <a v-if="canWrite && !isEditing(record)" @click="startInlineEdit(record)">行内編集</a>
+            <a v-if="canWrite && isEditing(record)" @click="saveInlineEdit(record)">保存</a>
+            <a v-if="canWrite && isEditing(record)" @click="cancelInlineEdit">取消</a>
+            <a v-if="canWrite" @click="openEdit(record)">編集</a>
+            <a-popconfirm v-if="canWrite" title="削除しますか" ok-text="はい" cancel-text="いいえ" @confirm="onDelete(record)">
               <a>削除</a>
             </a-popconfirm>
+            <span v-if="!canWrite">閲覧のみ</span>
           </a-space>
         </template>
       </template>
     </a-table>
 
-    <a-modal :open="modalOpen" :title="editing ? '編集' : '新規作成'" ok-text="保存" cancel-text="キャンセル" @ok="submit" @cancel="() => (modalOpen = false)">
+    <a-modal :open="modalOpen" :title="editing ? '編集' : '新規作成'" ok-text="保存" cancel-text="キャンセル" :okButtonProps="{ disabled: !canWrite }" @ok="submit" @cancel="() => (modalOpen = false)">
       <a-form layout="vertical">
         <a-form-item v-for="field in formKeys" :key="field" :label="normalizeTitle(field)">
           <a-input v-if="inputType(field) === 'text'" v-model:value="formState[field]" />
@@ -134,7 +135,11 @@ import { message } from 'ant-design-vue';
 import { createItem, fetchModuleOptions, fetchPage, removeItem, updateItem } from '../api/module';
 import { STATUS_OPTIONS, buildAutoQueryFields, displayKeys, getModulePreset, guessFieldType, mapNameFieldToIdField, normalizeTitle, relationLabel, relationModuleByField } from '../utils/module';
 
-const props = defineProps({ moduleKey: { type: String, required: true } });
+const props = defineProps({
+  moduleKey: { type: String, required: true },
+  permissionCodes: { type: Array, default: () => [] },
+  permissionReady: { type: Boolean, default: false },
+});
 
 const rows = ref([]);
 const loading = ref(false);
@@ -158,9 +163,15 @@ const backendFieldSet = computed(() => {
 const queryFields = computed(() => {
   const presetFields = preset.value.queryFields || [];
   const source = presetFields.length > 0 ? presetFields : buildAutoQueryFields(keys.value);
-  return source.map((field) => normalizeQueryField(field));
+  return [...new Set(source.map((field) => normalizeQueryField(field)))];
 });
 const statusOptions = STATUS_OPTIONS;
+const canWrite = computed(() => {
+  if (!props.permissionReady) return true;
+  const upper = moduleToUpperSnake(props.moduleKey);
+  const writeCode = `DATA_${upper}_WRITE`;
+  return (props.permissionCodes || []).includes(writeCode);
+});
 const tablePagination = computed(() => ({
   current: pagination.current,
   pageSize: pagination.pageSize,
@@ -184,18 +195,33 @@ const columns = computed(() => {
     title: normalizeTitle(key),
     dataIndex: key,
     key,
-    fixed: String(key).toLowerCase() === 'id' ? 'left' : undefined,
+    fixed: columnFixed(key),
+    width: columnWidth(key),
     onCell: (record) => {
       if (isReadonlyField(key)) return {};
       return {
         ondblclick: () => {
-          if (!isEditing(record)) startInlineEdit(record);
+          if (canWrite.value && !isEditing(record)) startInlineEdit(record);
         },
       };
     },
   }));
-  return [...base, { title: '操作', key: '__actions', width: 180, fixed: 'right' }];
+  return [...base, { title: '操作', key: '__actions', width: 140, fixed: 'right' }];
 });
+
+function columnFixed(key) {
+  const low = String(key || '').toLowerCase();
+  if (low === 'id') return 'left';
+  if (low === 'createtime' || low === 'updatetime') return 'right';
+  return undefined;
+}
+
+function columnWidth(key) {
+  const low = String(key || '').toLowerCase();
+  if (low === 'id') return 90;
+  if (low === 'createtime' || low === 'updatetime') return 160;
+  return undefined;
+}
 
 const formKeys = computed(() => {
   if (preset.value.formFields?.length) return preset.value.formFields.filter((k) => !isReadonlyField(k));
@@ -228,6 +254,7 @@ function initQuery() {
 function normalizeQueryField(field) {
   const key = String(field || '');
   if (!key.endsWith('Id')) return key;
+  if (relationModuleByField(key)) return `${key.slice(0, -2)}Name`;
   const nameField = `${key.slice(0, -2)}Name`;
   if (backendFieldSet.value.has(nameField)) return nameField;
   return key;
@@ -287,6 +314,7 @@ function onSelectChange(keys) {
 }
 
 function openCreate() {
+  if (!canWrite.value) return;
   editing.value = false;
   editingRaw.value = null;
   resetForm({});
@@ -295,6 +323,7 @@ function openCreate() {
 }
 
 function openEdit(record) {
+  if (!canWrite.value) return;
   editing.value = true;
   editingRaw.value = { ...record };
   resetForm(record);
@@ -314,6 +343,7 @@ function resetForm(record) {
 }
 
 async function submit() {
+  if (!canWrite.value) return;
   try {
     if (editing.value) {
       const payload = normalizePayload({ ...(editingRaw.value || {}), ...formState });
@@ -331,6 +361,7 @@ async function submit() {
 }
 
 async function onDelete(record) {
+  if (!canWrite.value) return;
   try {
     await removeItem(props.moduleKey, record.id);
     message.success('削除しました');
@@ -341,6 +372,7 @@ async function onDelete(record) {
 }
 
 async function onBatchDelete() {
+  if (!canWrite.value) return;
   if (selectedRowKeys.value.length === 0) return;
   try {
     for (const id of selectedRowKeys.value) {
@@ -385,6 +417,7 @@ function inlineInputType(field) {
 }
 
 function isReadonlyField(field) {
+  if (!canWrite.value) return true;
   const low = String(field || '').toLowerCase();
   return low === 'id' || low === 'createtime' || low === 'updatetime' || low === 'statusdesc';
 }
@@ -413,6 +446,7 @@ function isEditing(record) {
 }
 
 function startInlineEdit(record) {
+  if (!canWrite.value) return;
   editingKey.value = record.id;
   Object.keys(editState).forEach((k) => delete editState[k]);
   formKeys.value.forEach((key) => {
@@ -433,6 +467,7 @@ function cancelInlineEdit() {
 }
 
 async function saveInlineEdit(record) {
+  if (!canWrite.value) return;
   try {
     const payload = normalizePayload({ ...record, ...editState, id: record.id });
     await updateItem(props.moduleKey, payload);
@@ -485,5 +520,11 @@ async function loadQueryRelationOptions() {
       queryRelationOptions[field] = [];
     }
   }
+}
+
+function moduleToUpperSnake(moduleKey) {
+  return String(moduleKey || '')
+    .replace(/([a-z])([A-Z])/g, '$1_$2')
+    .toUpperCase();
 }
 </script>

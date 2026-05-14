@@ -20,10 +20,7 @@
       { key: 'goodsSkuSpec', label: 'SKU仕様管理' },
       { key: 'goodsImage', label: '商品画像管理' },
       { key: 'goodsLevelPrice', label: '会員価格管理' },
-      { key: 'maker', label: 'メーカー管理' },
-      { key: 'brand', label: 'ブランド管理' },
-      { key: 'category', label: 'カテゴリ管理' },
-      { key: 'series', label: 'シリーズ管理' }
+      { key: 'goodsMeta', label: '商品属性管理' }
     ]
   },
   {
@@ -64,7 +61,7 @@
  */
 export const MODULE_PRESETS = {
   user: {
-    queryFields: ['username', 'deptName', 'email', 'phone', 'status'],
+    queryFields: ['username', 'deptId', 'deptName', 'email', 'phone', 'status'],
     formFields: ['username', 'password', 'deptId', 'email', 'phone', 'status'],
     fieldTypes: {
       deptId: 'relation',
@@ -84,7 +81,7 @@ export const MODULE_PRESETS = {
   },
 
   goods: {
-    queryFields: ['id', 'name', 'englishName', 'skuCode', 'seriesId', 'brandId', 'categoryId', 'makerId', 'price', 'discount', 'status', 'newPrice', 'priceUpdateTime', 'description', 'isHot', 'version'],
+    queryFields: ['id', 'name', 'englishName', 'seriesId', 'brandId', 'categoryId', 'makerId', 'sort', 'status', 'isHot'],
     formFields: [
       'name',
       'skuCode',
@@ -108,7 +105,7 @@ export const MODULE_PRESETS = {
   },
 
   stock: {
-    queryFields: ['goodsName', 'skuCode', 'skuId', 'typeId', 'currency', 'warehouseId', 'status'],
+    queryFields: ['id', 'goodsId', 'goodsName', 'skuCode', 'skuId', 'stockTypeId', 'currentQty', 'lockQty', 'price', 'priceUpdateTime', 'currency', 'warehouseId', 'status'],
     formFields: [
       'goodsId',
       'skuId',
@@ -140,7 +137,7 @@ export const MODULE_PRESETS = {
     fieldTypes: { status: 'select' }
   },
   permission: {
-    queryFields: ['id', 'name', 'code', 'module', 'type', 'parentId', 'path', 'sort', 'icon', 'status'],
+    queryFields: ['id', 'name', 'code', 'module', 'type', 'parentId', 'path', 'sort', 'icon', 'component', 'status'],
     fieldTypes: { parentId: 'relation', sort: 'number', status: 'select' }
   },
   maker: {
@@ -149,7 +146,7 @@ export const MODULE_PRESETS = {
     fieldTypes: { status: 'select' }
   },
   brand: {
-    queryFields: ['id', 'name', 'englishName', 'content', 'status'],
+    queryFields: ['id', 'name', 'englishName', 'image', 'content', 'status'],
     formFields: ['name', 'englishName', 'content', 'status'],
     fieldTypes: { status: 'select' }
   },
@@ -159,7 +156,7 @@ export const MODULE_PRESETS = {
     fieldTypes: { status: 'select' }
   },
   series: {
-    queryFields: ['id', 'name', 'englishName', 'content', 'status'],
+    queryFields: ['id', 'name', 'englishName', 'brandId', 'content', 'status'],
     formFields: ['name', 'englishName', 'content', 'status'],
     fieldTypes: { status: 'select' }
   },
@@ -191,7 +188,7 @@ export const MODULE_PRESETS = {
     fieldTypes: { status: 'select' }
   },
   stockRecord: {
-    queryFields: ['id', 'bizNo', 'orderId', 'orderItemId', 'stockId', 'goodsName', 'skuCode', 'brandName', 'seriesName', 'categoryName', 'stockTypeName', 'makerName', 'warehouseId', 'beforeQty', 'changeQty', 'afterQty', 'price', 'currency', 'priceUpdateTime', 'customerName', 'requesterName', 'operatorName', 'remark'],
+    queryFields: ['id', 'bizNo', 'orderId', 'orderItemId', 'stockId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'stockTypeId', 'stockTypeName', 'makerId', 'makerName', 'warehouseId', 'beforeQty', 'changeQty', 'afterQty', 'sourceType', 'orderType', 'price', 'currency', 'priceUpdateTime', 'customerId', 'customerName', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'remark'],
     fieldTypes: { warehouseId: 'relation' }
   },
   stockOrder: {
@@ -202,15 +199,15 @@ export const MODULE_PRESETS = {
     queryFields: ['id', 'orderId', 'goodsName', 'skuCode', 'brandName', 'seriesName', 'categoryName', 'stockTypeName', 'makerName', 'beforeQty', 'changeQty', 'afterQty', 'price', 'currency', 'remark']
   },
   requestForm: {
-    queryFields: ['id', 'bizNo', 'username', 'deptName', 'customerName', 'warehouseId', 'totalQty', 'requestQty', 'totalAmt', 'state', 'approverName', 'approveTime', 'approveRemark'],
+    queryFields: ['id', 'bizNo', 'userId', 'username', 'deptId', 'deptName', 'customerId', 'customerName', 'warehouseId', 'totalQty', 'requestQty', 'totalAmt', 'state', 'approverId', 'approverName', 'approveTime', 'approveRemark'],
     fieldTypes: { deptId: 'relation', customerId: 'number', warehouseId: 'relation', approverId: 'relation' }
   },
   requestItem: {
-    queryFields: ['id', 'requestId', 'goodsName', 'skuCode', 'englishName', 'brandName', 'seriesName', 'typeName', 'categoryName', 'makerName', 'warehouseId', 'price', 'currency', 'discount', 'requestQty', 'approveQty', 'outQty', 'remark'],
+    queryFields: ['id', 'requestId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'makerId', 'makerName', 'stockTypeId', 'stockTypeName', 'warehouseId', 'price', 'currency', 'discount', 'requestQty', 'approveQty', 'outQty', 'stockRecordId', 'remark'],
     fieldTypes: { requestId: 'number', warehouseId: 'relation' }
   },
   priceRecord: {
-    queryFields: ['id', 'goodsName', 'englishName', 'skuCode', 'oldPrice', 'newPrice', 'currency', 'discount', 'priceUpdateTime', 'operatorName']
+    queryFields: ['id', 'goodsId', 'goodsName', 'englishName', 'skuId', 'skuCode', 'oldPrice', 'newPrice', 'currency', 'discount', 'priceUpdateTime', 'operatorId', 'operatorName']
   },
   customer: {
     queryFields: ['id', 'customerCode', 'name', 'englishName', 'contactPerson', 'phone', 'email', 'country', 'city', 'address', 'levelId', 'ownerUserId', 'ownerDeptId', 'remark', 'status'],
@@ -225,7 +222,7 @@ export const MODULE_PRESETS = {
     fieldTypes: { userId: 'relation' }
   },
   operateLog: {
-    queryFields: ['id', 'userId', 'username', 'module', 'operation', 'method', 'requestUrl', 'requestIp', 'status', 'errorMsg', 'costTime'],
+    queryFields: ['id', 'userId', 'username', 'module', 'operation', 'method', 'requestUrl', 'requestIp', 'requestParam', 'responseData', 'status', 'errorMsg', 'costTime'],
     fieldTypes: { userId: 'relation', status: 'select' }
   },
   userRole: {
