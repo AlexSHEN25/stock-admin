@@ -77,6 +77,31 @@ html[data-theme-mode='light'] .top-header .ant-btn-link {
   font-weight: 700;
 }
 
+.top-header-tools {
+  display: flex;
+  align-items: center;
+}
+
+.lang-switch {
+  width: 120px;
+}
+
+.user-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border: 1px solid #d7e5fb;
+  border-radius: 999px;
+  background: #f7fbff;
+}
+
+.user-badge-name {
+  font-size: 13px;
+  color: #111111;
+  font-weight: 600;
+}
+
 .search-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -293,6 +318,15 @@ html[data-theme-mode='dark'] .top-header .ant-btn-link:hover {
   color: #ffffff;
 }
 
+html[data-theme-mode='dark'] .user-badge {
+  border-color: #3a4350;
+  background: #1d222a;
+}
+
+html[data-theme-mode='dark'] .user-badge-name {
+  color: #f3f3f3;
+}
+
 html[data-theme-mode='dark'] .logo {
   color: #f5f5f5;
   background: linear-gradient(120deg, rgba(255, 255, 255, 0.15), rgba(180, 180, 180, 0.15));
@@ -361,4 +395,93 @@ html[data-theme-mode='dark'] .module-table .ant-table-content::-webkit-scrollbar
 
 html[data-theme-mode='dark'] .module-table .ant-table-content::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, rgba(152, 152, 152, 0.66), rgba(112, 112, 112, 0.56));
+}
+
+.goods-workbench {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.goods-topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.goods-topbar-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1 1 auto;
+}
+
+.goods-filter {
+  width: 180px;
+}
+
+.goods-topbar-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.goods-body {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 12px;
+  min-height: 560px;
+}
+
+.goods-left {
+  border: 1px solid #e4ebf7;
+  border-radius: 10px;
+  padding: 10px;
+  overflow: auto;
+}
+
+.goods-left-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.goods-center {
+  min-width: 0;
+}
+
+.goods-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #e5e5e5;
+}
+
+.goods-sku-summary {
+  color: #555;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.goods-tab-pane {
+  padding-top: 8px;
+}
+
+.goods-inline-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.goods-error {
+  color: #d4380d;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+@media (max-width: 1200px) {
+  .goods-body {
+    grid-template-columns: 1fr;
+  }
 }
