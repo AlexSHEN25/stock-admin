@@ -15,9 +15,6 @@
     label: '商品管理',
     children: [
       { key: 'goods', label: '商品管理' },
-      { key: 'goodsSku', label: 'SKU管理' },
-      { key: 'goodsSkuSpec', label: 'SKU仕様管理' },
-      { key: 'goodsImage', label: '商品画像管理' },
       { key: 'goodsLevelPrice', label: '会員価格管理' },
       { key: 'maker', label: 'メーカー管理' },
       { key: 'brand', label: 'ブランド管理' },
@@ -34,9 +31,15 @@
       { key: 'stockRecord', label: '在庫履歴' },
       { key: 'stockOrder', label: '入出庫伝票' },
       { key: 'stockOrderItem', label: '入出庫明細' },
-      { key: 'requestForm', label: '申請管理' },
-      { key: 'requestItem', label: '申請明細' },
       { key: 'priceRecord', label: '価格履歴' }
+    ]
+  },
+  {
+    key: 'request',
+    label: '請求書管理',
+    children: [
+      { key: 'requestForm', label: '申請管理' },
+      { key: 'requestItem', label: '申請明細' }
     ]
   },
   {
@@ -63,6 +66,7 @@ const MENU_I18N = {
     base: '基礎マスタ',
     goods: '商品管理',
     stock: '在庫管理',
+    request: '請求書管理',
     customer: '顧客管理',
     system: 'システム管理',
     user: 'ユーザー管理',
@@ -70,14 +74,6 @@ const MENU_I18N = {
     warehouse: '倉庫管理',
     role: 'ロール管理',
     permission: '権限管理',
-    goodsSku: 'SKU管理',
-    goodsSkuSpec: 'SKU仕様管理',
-    goodsImage: '商品画像管理',
-    goodsLevelPrice: '会員価格管理',
-    maker: 'メーカー管理',
-    brand: 'ブランド管理',
-    category: 'カテゴリ管理',
-    series: 'シリーズ管理',
     stockType: '在庫区分',
     stockRecord: '在庫履歴',
     stockOrder: '入出庫伝票',
@@ -94,6 +90,7 @@ const MENU_I18N = {
     base: '基础主数据',
     goods: '商品管理',
     stock: '库存管理',
+    request: '請求書管理',
     customer: '客户管理',
     system: '系统管理',
     user: '用户管理',
@@ -101,14 +98,6 @@ const MENU_I18N = {
     warehouse: '仓库管理',
     role: '角色管理',
     permission: '权限管理',
-    goodsSku: 'SKU管理',
-    goodsSkuSpec: 'SKU规格管理',
-    goodsImage: '商品图片管理',
-    goodsLevelPrice: '会员价格管理',
-    maker: '制造商管理',
-    brand: '品牌管理',
-    category: '分类管理',
-    series: '系列管理',
     stockType: '库存区分',
     stockRecord: '库存履历',
     stockOrder: '出入库单据',
@@ -125,6 +114,7 @@ const MENU_I18N = {
     base: 'Master Data',
     goods: 'Goods',
     stock: 'Inventory',
+    request: 'Request Management',
     customer: 'Customers',
     system: 'System',
     user: 'Users',
@@ -132,14 +122,6 @@ const MENU_I18N = {
     warehouse: 'Warehouses',
     role: 'Roles',
     permission: 'Permissions',
-    goodsSku: 'SKUs',
-    goodsSkuSpec: 'SKU Specs',
-    goodsImage: 'Goods Images',
-    goodsLevelPrice: 'Member Prices',
-    maker: 'Makers',
-    brand: 'Brands',
-    category: 'Categories',
-    series: 'Series',
     stockType: 'Stock Types',
     stockRecord: 'Stock Records',
     stockOrder: 'Stock Orders',
@@ -220,16 +202,20 @@ export const MODULE_PRESETS = {
     queryFields: ['id', 'goodsId', 'goodsName', 'skuCode', 'skuId', 'stockTypeId', 'currentQty', 'lockQty', 'price', 'priceUpdateTime', 'currency', 'warehouseId', 'status'],
     formFields: [
       'goodsId',
-      'skuId',
+      'sourceType',
       'warehouseId',
+      'stockTypeId',
       'quantity',
+      'remark',
       'status'
     ],
     fieldTypes: {
       goodsId: 'relation',
-      skuId: 'relation',
+      sourceType: 'select',
       warehouseId: 'relation',
+      stockTypeId: 'relation',
       quantity: 'number',
+      remark: 'textarea',
       status: 'select'
     }
   },
@@ -347,6 +333,19 @@ export const MODULE_PRESETS = {
   }
 };
 
+export const REQUIRED_FORM_FIELDS = {
+  user: ['username', 'password', 'deptId', 'status'],
+  dept: ['name', 'code', 'status'],
+  goods: ['name', 'englishName', 'brandId', 'seriesId', 'categoryId', 'makerId', 'skuCode', 'skuName'],
+  stock: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity'],
+  warehouse: ['name', 'code', 'status'],
+  role: ['name', 'code', 'status'],
+  maker: ['name', 'status'],
+  brand: ['name', 'status'],
+  category: ['name', 'status'],
+  series: ['name', 'brandId', 'status'],
+};
+
 /**
  * 状态选项
  */
@@ -370,6 +369,7 @@ export const RELATION_FIELD_MODULE = {
   makerId: 'maker',
   goodsId: 'goods',
   skuId: 'goodsSku',
+  stockTypeId: 'stockType',
   warehouseId: 'warehouse',
   requesterId: 'user',
   operatorId: 'user',
@@ -390,9 +390,9 @@ const NAME_TO_ID_FIELD = {
   makerName: 'makerId',
   goodsName: 'goodsId',
   skuName: 'skuId',
+  stockTypeName: 'stockTypeId',
   warehouseName: 'warehouseId',
-  userName: 'userId'
-  ,
+  userName: 'userId',
   requesterName: 'requesterId',
   operatorName: 'operatorId',
   approverName: 'approverId'
@@ -427,6 +427,16 @@ export const FIELD_LABELS = {
 
   skuId: 'SKU',
   skuCode: 'SKUコード',
+  skuName: 'SKU名',
+  barcode: 'バーコード',
+  weight: '重量',
+  volume: '体積',
+  costPrice: '原価',
+  updatePrice: '改定価格',
+  currentQty: '現在数量',
+  lockQty: 'ロック数量',
+  specSummary: '仕様摘要',
+  mainImage: 'メイン画像',
 
   categoryId: 'カテゴリ',
   categoryName: 'カテゴリ名',
@@ -469,7 +479,7 @@ export const FIELD_LABELS = {
   userName: 'ユーザー名',
   typeId: '在庫区分ID',
   typeName: '在庫区分',
-  stockTypeId: '在庫区分ID',
+  stockTypeId: '在庫区分',
   stockTypeName: '在庫区分',
   stockId: '在庫ID',
   levelId: 'ランクID',
@@ -480,6 +490,7 @@ export const FIELD_LABELS = {
   orderId: '伝票ID',
   orderNo: '伝票番号',
   orderType: '伝票種別',
+  sourceType: '入庫区分',
   orderItemId: '伝票明細ID',
   requestId: '申請ID',
   requestNo: '申請番号',
@@ -499,8 +510,6 @@ export const FIELD_LABELS = {
   currency: '通貨',
   beforeQty: '変更前数量',
   afterQty: '変更後数量',
-  currentQty: '現在数量',
-  lockQty: 'ロック数量',
   newPrice: '新価格',
   oldPrice: '旧価格',
   priceUpdateTime: '価格更新日時',
@@ -561,8 +570,15 @@ const FIELD_LABELS_ZH = {
   skuId: 'SKU',
   skuCode: 'SKU编码',
   skuName: 'SKU名称',
+  barcode: '条码',
+  weight: '重量',
+  volume: '体积',
+  costPrice: '成本价',
+  updatePrice: '调整价',
+  specSummary: '规格摘要',
+  mainImage: '主图',
   imageUrl: '图片URL',
-  stockTypeId: '库存分类ID',
+  stockTypeId: '库存区分',
   stockTypeName: '库存分类',
   quantity: '数量',
   currentQty: '当前数量',
@@ -578,6 +594,7 @@ const FIELD_LABELS_ZH = {
   orderId: '单据ID',
   orderNo: '单据编号',
   orderType: '单据类型',
+  sourceType: '入库类型',
   requestId: '申请ID',
   requestType: '申请类型',
   requestStatus: '申请状态',
@@ -591,6 +608,7 @@ const FIELD_LABELS_ZH = {
   version: '版本',
   price: '价格',
   discount: '折扣',
+  isHot: '人气是否',
 };
 
 const FIELD_LABELS_EN = {
@@ -642,8 +660,15 @@ const FIELD_LABELS_EN = {
   skuId: 'SKU',
   skuCode: 'SKU Code',
   skuName: 'SKU Name',
+  barcode: 'Barcode',
+  weight: 'Weight',
+  volume: 'Volume',
+  costPrice: 'Cost Price',
+  updatePrice: 'Adjusted Price',
+  specSummary: 'Spec Summary',
+  mainImage: 'Main Image',
   imageUrl: 'Image URL',
-  stockTypeId: 'Stock Type ID',
+  stockTypeId: 'Stock Type',
   stockTypeName: 'Stock Type',
   quantity: 'Quantity',
   currentQty: 'Current Qty',
@@ -659,6 +684,7 @@ const FIELD_LABELS_EN = {
   orderId: 'Order ID',
   orderNo: 'Order No',
   orderType: 'Order Type',
+  sourceType: 'Inbound Type',
   requestId: 'Request ID',
   requestType: 'Request Type',
   requestStatus: 'Request Status',
@@ -672,6 +698,7 @@ const FIELD_LABELS_EN = {
   version: 'Version',
   price: 'Price',
   discount: 'Discount',
+  isHot: 'Popular',
 };
 
 function resolveLocale(lang = 'ja-JP') {
@@ -697,6 +724,11 @@ export function getModulePreset(moduleKey) {
     formFields: [],
     fieldTypes: {}
   };
+}
+
+export function isRequiredFormField(moduleKey, field) {
+  const list = REQUIRED_FORM_FIELDS[moduleKey] || [];
+  return list.includes(field);
 }
 
 /**

@@ -35,8 +35,7 @@
         </a-space>
       </a-layout-header>
       <a-layout-content class="content-wrap">
-        <goods-workbench v-if="activeModule === 'goods'" :permissionCodes="permissionCodes" :permissionReady="permissionReady" :currentLang="currentLang" />
-        <module-table v-else :moduleKey="activeModule" :permissionCodes="permissionCodes" :permissionReady="permissionReady" :currentLang="currentLang" />
+        <module-table :moduleKey="activeModule" :permissionCodes="permissionCodes" :permissionReady="permissionReady" :currentLang="currentLang" />
       </a-layout-content>
     </a-layout>
   </a-layout>
@@ -45,7 +44,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import ModuleTable from './ModuleTable.vue';
-import GoodsWorkbench from './GoodsWorkbench.vue';
 import { MODULE_GROUPS, getLocalizedModuleGroups } from '../utils/module';
 
 const props = defineProps({
@@ -179,6 +177,15 @@ function buildAllowedModulesByCodes() {
   const allowed = new Set();
 
   allModules.forEach((moduleKey) => {
+    if (moduleKey === 'goods') {
+      const menuCandidates = ['GOODS_MANAGEMENT', 'GOODS_BUNDLE'];
+      const dataCandidates = ['GOODS_MANAGEMENT', 'GOODS_BUNDLE'];
+      const hasMenu = menuCandidates.some((x) => menuCodes.has(`MENU_${x}`));
+      const hasData = dataCandidates.some((x) => permCodes.has(`DATA_${x}_READ`) || permCodes.has(`DATA_${x}_WRITE`));
+      if (hasMenu && hasData) allowed.add(moduleKey);
+      return;
+    }
+
     const upper = moduleToUpperSnake(moduleKey);
     const menuCode = `MENU_${upper}`;
     const readCode = `DATA_${upper}_READ`;

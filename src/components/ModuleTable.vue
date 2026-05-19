@@ -38,7 +38,7 @@
 
     <a-table
       class="module-table"
-      :rowKey="(row) => row.id || row._id || JSON.stringify(row)"
+      :rowKey="(row) => getRecordId(row) || JSON.stringify(row)"
       :columns="columns"
       :data-source="rows"
       :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
@@ -65,7 +65,7 @@
           <a-select
             v-else-if="inlineInputType(column.key) === 'select'"
             v-model:value="editState[inlineField(column.key)]"
-            :options="statusOptions"
+            :options="selectOptionsForField(inlineField(column.key))"
             allow-clear
           />
           <a-switch
@@ -80,6 +80,22 @@
             style="width: 100%"
           />
           <a-input v-else v-model:value="editState[inlineField(column.key)]" />
+        </template>
+        <template v-if="!isEditing(record) && String(column.key) === 'skuId'">
+          {{ record.skuId ?? '-' }}
+        </template>
+        <template v-else-if="!isEditing(record) && column.key === 'mainImage'">
+          <img v-if="record.mainImage || record.imageUrl" :src="record.mainImage || record.imageUrl" class="goods-thumb" />
+          <span v-else>-</span>
+        </template>
+        <template v-else-if="!isEditing(record) && column.key === 'statusDesc'">
+          <a-tag :color="Number(record.status) === 1 ? 'success' : 'default'">{{ record.statusDesc || (Number(record.status) === 1 ? 'ON' : 'OFF') }}</a-tag>
+        </template>
+        <template v-else-if="!isEditing(record) && column.key === 'updateTime'">
+          {{ formatTime(record.updateTime) }}
+        </template>
+        <template v-else-if="!isEditing(record) && String(column.key) === 'isHot'">
+          {{ Number(record.isHot) === 1 ? i18n.hotYes : i18n.hotNo }}
         </template>
         <template v-if="column.key === '__actions'">
           <a-space>
@@ -98,7 +114,10 @@
 
     <a-modal :open="modalOpen" :title="editing ? i18n.edit : i18n.create" :ok-text="i18n.save" :cancel-text="i18n.cancel" :okButtonProps="{ disabled: !canWrite }" @ok="submit" @cancel="() => (modalOpen = false)">
       <a-form layout="vertical">
-        <a-form-item v-for="field in formKeys" :key="field" :label="normalizeTitle(field, props.currentLang)">
+        <a-form-item v-for="field in formKeys" :key="field" :required="requiredForForm(field)">
+          <template #label>
+            {{ normalizeTitle(field, props.currentLang) }}
+          </template>
           <a-input v-if="inputType(field) === 'text'" v-model:value="formState[field]" />
           <a-select
             v-else-if="inputType(field) === 'relation'"
@@ -113,7 +132,7 @@
             v-model:value="formState[field]"
             style="width: 100%"
           />
-          <a-select v-else-if="inputType(field) === 'select'" v-model:value="formState[field]" :options="statusOptions" allow-clear />
+          <a-select v-else-if="inputType(field) === 'select'" v-model:value="formState[field]" :options="selectOptionsForField(field)" allow-clear />
           <a-switch v-else-if="inputType(field) === 'switch'" v-model:checked="formState[field]" />
           <a-date-picker
             v-else-if="inputType(field) === 'datetime'"
@@ -133,7 +152,7 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import { createItem, fetchModuleOptions, fetchPage, removeItem, updateItem } from '../api/module';
-import { STATUS_OPTIONS, buildAutoQueryFields, displayKeys, getModulePreset, guessFieldType, mapNameFieldToIdField, normalizeTitle, relationLabel, relationModuleByField } from '../utils/module';
+import { STATUS_OPTIONS, buildAutoQueryFields, displayKeys, getModulePreset, guessFieldType, isRequiredFormField, mapNameFieldToIdField, normalizeTitle, relationLabel, relationModuleByField } from '../utils/module';
 
 const props = defineProps({
   moduleKey: { type: String, required: true },
@@ -155,6 +174,70 @@ const queryRelationOptions = reactive({});
 const relationOptions = reactive({});
 const selectedRowKeys = ref([]);
 const pagination = reactive({ current: 1, pageSize: 10, total: 0 });
+const isGoodsManagement = computed(() => props.moduleKey === 'goods');
+const listModulePath = computed(() => (isGoodsManagement.value ? 'goods' : props.moduleKey));
+const writeModulePath = computed(() => (isGoodsManagement.value ? 'goods' : props.moduleKey));
+const goodsManagementQueryFields = ['keyword', 'englishName', 'skuCode', 'skuName', 'brandName', 'categoryName', 'status'];
+const goodsManagementFormFields = [
+  'name',
+  'englishName',
+  'brandId',
+  'seriesId',
+  'categoryId',
+  'makerId',
+  'description',
+  'isHot',
+  'skuCode',
+  'skuName',
+  'price',
+  'status',
+];
+const goodsManagementPreferredFields = [
+  'skuId',
+  'goodsName',
+  'name',
+  'goodsId',
+  'englishName',
+  'customerCode',
+  'brandName',
+  'seriesName',
+  'categoryName',
+  'makerName',
+  'stockTypeName',
+  'skuCode',
+  'skuName',
+  'specSummary',
+  'barcode',
+  'weight',
+  'volume',
+  'price',
+  'costPrice',
+  'updatePrice',
+  'oldPrice',
+  'newPrice',
+  'discount',
+  'currency',
+  'currentQty',
+  'lockQty',
+  'beforeQty',
+  'changeQty',
+  'afterQty',
+  'statusDesc',
+  'status',
+  'mainImage',
+  'imageUrl',
+  'priceUpdateTime',
+  'effectiveTime',
+  'expireTime',
+  'remark',
+  'description',
+  'sort',
+  'version',
+  'createdBy',
+  'updatedBy',
+  'createTime',
+  'updateTime',
+];
 
 const preset = computed(() => getModulePreset(props.moduleKey));
 const backendFieldSet = computed(() => {
@@ -162,14 +245,38 @@ const backendFieldSet = computed(() => {
   return new Set(Object.keys(first));
 });
 const queryFields = computed(() => {
+  if (isGoodsManagement.value) return goodsManagementQueryFields;
   const presetFields = preset.value.queryFields || [];
   const source = presetFields.length > 0 ? presetFields : buildAutoQueryFields(keys.value);
   return [...new Set(source.map((field) => normalizeQueryField(field)))]
     .filter((field) => String(field || '').toLowerCase() !== 'id');
 });
 const statusOptions = STATUS_OPTIONS;
+const stockSourceTypeOptions = computed(() => {
+  const low = String(props.currentLang || '').toLowerCase();
+  if (low.startsWith('zh')) {
+    return [
+      { label: '自社入库（需审批）', value: 1 },
+      { label: '再贩卖入库（直接入库）', value: 2 },
+    ];
+  }
+  if (low.startsWith('en')) {
+    return [
+      { label: 'Internal Inbound (Approval Required)', value: 1 },
+      { label: 'Resale Inbound (Direct)', value: 2 },
+    ];
+  }
+  return [
+    { label: '自社入庫（承認必須）', value: 1 },
+    { label: '再販売入庫（即時入庫）', value: 2 },
+  ];
+});
 const canWrite = computed(() => {
   if (!props.permissionReady) return true;
+  if (isGoodsManagement.value) {
+    return (props.permissionCodes || []).includes('DATA_GOODS_MANAGEMENT_WRITE')
+      || (props.permissionCodes || []).includes('DATA_GOODS_BUNDLE_WRITE');
+  }
   const upper = moduleToUpperSnake(props.moduleKey);
   const writeCode = `DATA_${upper}_WRITE`;
   return (props.permissionCodes || []).includes(writeCode);
@@ -209,9 +316,13 @@ const i18n = computed(() => {
       batchDeleteSuccess: '批量删除成功',
       batchDeleteFail: '批量删除失败',
       updateFail: '更新失败',
+      requiredField: '请填写必填项',
+      stockFlowSuccess: '库存业务已提交',
       selectDept: '请选择部门',
       searchBy: '按',
       searchSuffix: '搜索',
+      hotYes: '是',
+      hotNo: '否',
     };
   }
   if (low.startsWith('en')) {
@@ -240,9 +351,13 @@ const i18n = computed(() => {
       batchDeleteSuccess: 'Batch deleted',
       batchDeleteFail: 'Batch delete failed',
       updateFail: 'Update failed',
+      requiredField: 'Please fill required fields',
+      stockFlowSuccess: 'Stock flow submitted',
       selectDept: 'Select department',
       searchBy: 'Search by',
       searchSuffix: '',
+      hotYes: 'Yes',
+      hotNo: 'No',
     };
   }
   return {
@@ -255,7 +370,7 @@ const i18n = computed(() => {
     create: '新規作成',
     inlineEdit: '行内編集',
     save: '保存',
-    cancel: '取消',
+    cancel: 'キャンセル',
     edit: '編集',
     confirmDelete: '削除しますか',
     delete: '削除',
@@ -270,13 +385,34 @@ const i18n = computed(() => {
     batchDeleteSuccess: '一括削除しました',
     batchDeleteFail: '一括削除失敗',
     updateFail: '更新失敗',
+    requiredField: '必須項目を入力してください',
+    stockFlowSuccess: '在庫業務を登録しました',
     selectDept: '部署名を選択',
     searchBy: '',
     searchSuffix: 'で検索',
+    hotYes: 'はい',
+    hotNo: 'いいえ',
   };
 });
 
 const keys = computed(() => {
+  if (isGoodsManagement.value) {
+    const first = rows.value[0];
+    if (!first) return goodsManagementPreferredFields;
+    const raw = Object.keys(first || {});
+    const noStatus = raw.includes('statusDesc') ? raw.filter((k) => k !== 'status') : raw;
+    const timeTail = ['createTime', 'updateTime'];
+    const withoutTail = noStatus.filter((k) => {
+      const low = String(k || '').toLowerCase();
+      if (timeTail.includes(k)) return false;
+      if (low === 'id' || low === 'imageid') return false;
+      return true;
+    });
+    const preferred = goodsManagementPreferredFields.filter((k) => withoutTail.includes(k) && !timeTail.includes(k));
+    const rest = withoutTail.filter((k) => !goodsManagementPreferredFields.includes(k));
+    const tail = timeTail.filter((k) => noStatus.includes(k));
+    return [...preferred, ...rest, ...tail];
+  }
   const first = rows.value[0];
   if (!first) return [];
   const raw = displayKeys(first);
@@ -288,7 +424,7 @@ const keys = computed(() => {
 
 const columns = computed(() => {
   const base = keys.value.map((key) => ({
-    title: normalizeTitle(key, props.currentLang),
+    title: isGoodsManagement.value && key === 'skuId' ? 'ID' : normalizeTitle(key, props.currentLang),
     dataIndex: key,
     key,
     fixed: columnFixed(key),
@@ -308,6 +444,7 @@ const columns = computed(() => {
 
 function columnFixed(key) {
   const low = String(key || '').toLowerCase();
+  if (isGoodsManagement.value && low === 'skuid') return 'left';
   if (low === 'id') return 'left';
   if (low === 'createtime' || low === 'updatetime') return 'right';
   return undefined;
@@ -315,12 +452,14 @@ function columnFixed(key) {
 
 function columnWidth(key) {
   const low = String(key || '').toLowerCase();
+  if (isGoodsManagement.value && low === 'skuid') return 120;
   if (low === 'id') return 90;
   if (low === 'createtime' || low === 'updatetime') return 160;
   return undefined;
 }
 
 const formKeys = computed(() => {
+  if (isGoodsManagement.value) return goodsManagementFormFields;
   if (preset.value.formFields?.length) return preset.value.formFields.filter((k) => !isReadonlyField(k));
   const byRows = keys.value.filter((k) => !isReadonlyField(k));
   if (byRows.length > 0) return byRows;
@@ -367,7 +506,7 @@ async function reload() {
       sortOrder: 'desc',
       ...buildQueryParams(),
     };
-    const page = await fetchPage(props.moduleKey, params);
+    const page = await fetchPage(listModulePath.value, params);
     rows.value = page.records;
     pagination.total = page.total;
   } catch (error) {
@@ -422,7 +561,7 @@ function openCreate() {
 function openEdit(record) {
   if (!canWrite.value) return;
   editing.value = true;
-  editingRaw.value = { ...record };
+  editingRaw.value = { ...record, id: getRecordId(record) };
   resetForm(record);
   loadRelationOptions();
   modalOpen.value = true;
@@ -441,13 +580,18 @@ function resetForm(record) {
 
 async function submit() {
   if (!canWrite.value) return;
+  if (validateRequiredFields()) return;
+  if (props.moduleKey === 'stock') {
+    await submitStockFlow();
+    return;
+  }
   try {
     if (editing.value) {
       const payload = normalizePayload({ ...(editingRaw.value || {}), ...formState });
-      await updateItem(props.moduleKey, payload);
+      await updateItem(writeModulePath.value, payload);
       message.success(i18n.value.updateSuccess);
     } else {
-      await createItem(props.moduleKey, normalizePayload({ ...formState }));
+      await createItem(writeModulePath.value, normalizePayload({ ...formState }));
       message.success(i18n.value.createSuccess);
     }
     modalOpen.value = false;
@@ -457,10 +601,107 @@ async function submit() {
   }
 }
 
+function validateRequiredFields() {
+  const requiredFields = formKeys.value.filter((field) => requiredForForm(field));
+  const missing = requiredFields.some((field) => {
+    const val = formState[field];
+    return val === undefined || val === null || String(val).trim() === '';
+  });
+  if (missing) {
+    message.warning(i18n.value.requiredField);
+    return true;
+  }
+  return false;
+}
+
+async function submitStockFlow() {
+  const requiredFields = ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity'];
+  const missing = requiredFields.some((field) => {
+    const val = formState[field];
+    return val === undefined || val === null || String(val).trim() === '';
+  });
+  if (missing) {
+    message.warning(i18n.value.requiredField);
+    return;
+  }
+
+  const goodsId = Number(formState.goodsId);
+  const sourceType = Number(formState.sourceType);
+  const warehouseId = Number(formState.warehouseId);
+  const stockTypeId = Number(formState.stockTypeId);
+  const quantity = Number(formState.quantity);
+  const remark = formState.remark || null;
+
+  try {
+    if (sourceType === 1) {
+      const requestForm = await createItem('requestForm', {
+        goodsId,
+        warehouseId,
+        stockTypeId,
+        totalQty: quantity,
+        requestQty: quantity,
+        state: 0,
+        remark,
+      });
+      const requestId = requestForm?.id || requestForm?.data?.id || requestForm?.requestId || null;
+      if (requestId) {
+        await createItem('requestItem', {
+          requestId,
+          goodsId,
+          warehouseId,
+          stockTypeId,
+          requestQty: quantity,
+          remark,
+        });
+      }
+    } else {
+      const stockOrder = await createItem('stockOrder', {
+        orderType: 1,
+        sourceType,
+        warehouseId,
+        stockTypeId,
+        totalQty: quantity,
+        state: 1,
+        remark,
+      });
+      const orderId = stockOrder?.id || stockOrder?.data?.id || stockOrder?.orderId || null;
+      let orderItemId = null;
+      if (orderId) {
+        const stockOrderItem = await createItem('stockOrderItem', {
+          orderId,
+          goodsId,
+          warehouseId,
+          stockTypeId,
+          changeQty: quantity,
+          remark,
+        });
+        orderItemId = stockOrderItem?.id || stockOrderItem?.data?.id || stockOrderItem?.orderItemId || null;
+      }
+      await createItem('stockRecord', {
+        orderId,
+        orderItemId,
+        goodsId,
+        warehouseId,
+        stockTypeId,
+        sourceType,
+        orderType: 1,
+        changeQty: quantity,
+        remark,
+      });
+    }
+
+    modalOpen.value = false;
+    message.success(i18n.value.stockFlowSuccess);
+    reload();
+  } catch (error) {
+    message.error(error.message || i18n.value.saveFail);
+  }
+}
+
 async function onDelete(record) {
   if (!canWrite.value) return;
   try {
-    await removeItem(props.moduleKey, record.id);
+    await removeItem(writeModulePath.value, getRecordId(record));
     message.success(i18n.value.deleteSuccess);
     reload();
   } catch (error) {
@@ -473,7 +714,7 @@ async function onBatchDelete() {
   if (selectedRowKeys.value.length === 0) return;
   try {
     for (const id of selectedRowKeys.value) {
-      await removeItem(props.moduleKey, id);
+      await removeItem(writeModulePath.value, id);
     }
     message.success(i18n.value.batchDeleteSuccess);
     selectedRowKeys.value = [];
@@ -484,6 +725,8 @@ async function onBatchDelete() {
 }
 
 function queryInputType(field) {
+  if (isGoodsManagement.value && field === 'keyword') return 'text';
+  if (isGoodsManagement.value && (field === 'englishName' || field === 'skuCode' || field === 'skuName')) return 'text';
   if (mapNameFieldToIdField(field)) return 'select';
   const t = inputType(field);
   if (t === 'select') return 'select';
@@ -493,10 +736,12 @@ function queryInputType(field) {
 
 function queryOptions(field) {
   if (field === 'status') return statusOptions;
+  if (field === 'sourceType') return stockSourceTypeOptions.value;
   return queryRelationOptions[field] || [];
 }
 
 function queryPlaceholder(field) {
+  if (isGoodsManagement.value && field === 'keyword') return String(props.currentLang || '').toLowerCase().startsWith('en') ? 'Goods/SKU keyword' : String(props.currentLang || '').toLowerCase().startsWith('zh') ? '商品/SKU关键字' : '商品/SKUキーワード';
   if (field === 'deptName') return i18n.value.selectDept;
   if (String(props.currentLang || '').toLowerCase().startsWith('en')) {
     return `${i18n.value.searchBy} ${normalizeTitle(field, props.currentLang)}`.trim();
@@ -506,6 +751,16 @@ function queryPlaceholder(field) {
 
 function inputType(field) {
   return guessFieldType(field, props.moduleKey);
+}
+
+function requiredForForm(field) {
+  return isRequiredFormField(props.moduleKey, field);
+}
+
+function selectOptionsForField(field) {
+  if (field === 'status') return statusOptions;
+  if (field === 'sourceType') return stockSourceTypeOptions.value;
+  return [];
 }
 
 function inlineField(field) {
@@ -542,12 +797,12 @@ function normalizePayload(payload) {
 }
 
 function isEditing(record) {
-  return editingKey.value !== null && String(record.id) === String(editingKey.value);
+  return editingKey.value !== null && String(getRecordId(record)) === String(editingKey.value);
 }
 
 function startInlineEdit(record) {
   if (!canWrite.value) return;
-  editingKey.value = record.id;
+  editingKey.value = getRecordId(record);
   Object.keys(editState).forEach((k) => delete editState[k]);
   formKeys.value.forEach((key) => {
     if (isReadonlyField(key)) return;
@@ -569,8 +824,8 @@ function cancelInlineEdit() {
 async function saveInlineEdit(record) {
   if (!canWrite.value) return;
   try {
-    const payload = normalizePayload({ ...record, ...editState, id: record.id });
-    await updateItem(props.moduleKey, payload);
+    const payload = normalizePayload({ ...record, ...editState, id: getRecordId(record) });
+    await updateItem(writeModulePath.value, payload);
     message.success(i18n.value.updateSuccess);
     cancelInlineEdit();
     reload();
@@ -607,8 +862,7 @@ async function loadQueryRelationOptions() {
 
   for (const field of queryFields.value) {
     const idField = mapNameFieldToIdField(field);
-    if (!idField) continue;
-    const targetModule = relationModuleByField(idField);
+    const targetModule = relationModuleByField(idField || field);
     if (!targetModule) continue;
     try {
       const list = await fetchModuleOptions(targetModule);
@@ -620,6 +874,23 @@ async function loadQueryRelationOptions() {
       queryRelationOptions[field] = [];
     }
   }
+}
+
+function getRecordId(record) {
+  return record?.id ?? record?.skuId ?? record?._id ?? null;
+}
+
+function formatTime(v) {
+  if (!v) return '-';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return String(v);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${y}-${m}-${day} ${hh}:${mm}:${ss}`;
 }
 
 function moduleToUpperSnake(moduleKey) {

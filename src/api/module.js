@@ -28,6 +28,18 @@ export async function fetchModuleOptions(modulePath) {
   return page.records || [];
 }
 
+export async function fetchGoodsWorkbench(goodsId) {
+  return http.get(`/api/goods/workbench/${goodsId}`);
+}
+
+export async function batchUpdateGoodsSkuPrice(payload) {
+  return http.post('/api/goods/workbench/sku/price', payload || {});
+}
+
+export async function batchUpdateGoodsSkuStatus(payload) {
+  return http.post('/api/goods/workbench/sku/status', payload || {});
+}
+
 function normalizePage(data) {
   const records = data?.records || data?.list || data?.rows || [];
   const total = Number(data?.total ?? records.length ?? 0);

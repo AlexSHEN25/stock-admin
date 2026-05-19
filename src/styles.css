@@ -485,3 +485,6 @@ html[data-theme-mode='dark'] .module-table .ant-table-content::-webkit-scrollbar
     grid-template-columns: 1fr;
   }
 }
+
+.goods-row-active > td { background: rgba(89, 152, 235, 0.12) !important; }
+html[data-theme-mode='dark'] .goods-row-active > td { background: rgba(111, 175, 255, 0.2) !important; }
