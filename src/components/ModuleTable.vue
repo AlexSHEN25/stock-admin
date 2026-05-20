@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <a-card :title="null" :bordered="false">
     <div class="search-toolbar">
         <div class="search-filters">
@@ -104,6 +104,7 @@
           <a-space>
             <a v-if="props.moduleKey === 'stockOrder'" @click="goOrderItems(record)">明細</a>
             <a v-if="props.moduleKey === 'requestForm'" @click="goRequestItems(record)">明細</a>
+            <a v-if="props.moduleKey === 'requestForm'" @click="downloadRequestForm(record)">ダウンロード</a>
             <a v-if="canWrite && !isEditing(record)" @click="startInlineEdit(record)">{{ i18n.inlineEdit }}</a>
             <a v-if="canWrite && isEditing(record)" @click="saveInlineEdit(record)">{{ i18n.save }}</a>
             <a v-if="canWrite && isEditing(record)" @click="cancelInlineEdit">{{ i18n.cancel }}</a>
@@ -157,6 +158,7 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import { createItem, fetchModuleOptions, fetchPage, removeItem, updateItem } from '../api/module';
+import { TOKEN_KEY } from '../api/http';
 import { STATUS_OPTIONS, buildAutoQueryFields, displayKeys, getModulePreset, guessFieldType, isRequiredFormField, mapNameFieldToIdField, normalizeTitle, relationLabel, relationModuleByField } from '../utils/module';
 
 const props = defineProps({
@@ -264,23 +266,23 @@ const stockSourceTypeOptions = computed(() => {
   ];
 });
 const stockOrderTypeOptions = computed(() => ([
-  { label: '入库', value: 1 },
-  { label: '出库', value: 2 },
-  { label: '调整', value: 3 },
-  { label: '盘点', value: 4 },
-  { label: '调拨', value: 5 },
-  { label: '退货', value: 6 },
+  { label: '入庫', value: 1 },
+  { label: '出庫', value: 2 },
+  { label: '調整', value: 3 },
+  { label: '棚卸', value: 4 },
+  { label: '移動', value: 5 },
+  { label: '返品', value: 6 },
 ]));
 const stockOrderSourceTypeOptions = computed(() => ([
-  { label: '订单', value: 1 },
-  { label: '退货', value: 2 },
-  { label: '请求单', value: 3 },
-  { label: '手动', value: 4 },
+  { label: '注文', value: 1 },
+  { label: '返品', value: 2 },
+  { label: '申請書', value: 3 },
+  { label: '手動', value: 4 },
 ]));
 const stockOrderStateOptions = computed(() => ([
   { label: '草稿', value: 0 },
-  { label: '审核中', value: 1 },
-  { label: '完成', value: 2 },
+  { label: '審査中', value: 1 },
+  { label: '完了', value: 2 },
   { label: '取消', value: 3 },
 ]));
 const canWrite = computed(() => {
@@ -847,6 +849,104 @@ function goRequestItems(record) {
   emit('navigate-module', 'requestItem');
 }
 
+async function downloadRequestForm(record) {
+  const id = getRecordId(record);
+  if (!id) return;
+  try {
+    const token = localStorage.getItem(TOKEN_KEY) || '';
+    let response = await fetch(`/api/requestForm/download/${id}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Accept-Language': 'ja-JP',
+        'X-Lang': 'ja-JP',
+      },
+    });
+    if (!response.ok) {
+      response = await fetch(`/api/requestForm/${id}/download`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Accept-Language': 'ja-JP',
+          'X-Lang': 'ja-JP',
+        },
+      });
+    }
+    if (!response.ok) {
+      throw new Error(`ダウンロード失敗(${response.status})`);
+    }
+    const blob = await response.blob();
+    const fileName = resolveDownloadFileName(response, id);
+    const savedByPicker = await saveByFilePicker(blob, fileName);
+    if (!savedByPicker) {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    }
+  } catch (error) {
+    message.error(error?.message || 'ダウンロード失敗');
+  }
+}
+
+async function saveByFilePicker(blob, fileName) {
+  if (typeof window.showSaveFilePicker !== 'function') return false;
+  const ext = fileName.toLowerCase().endsWith('.xlsx') ? '.xlsx' : '';
+  const options = {
+    suggestedName: fileName,
+    types: [
+      {
+        description: 'Excel',
+        accept: {
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+        },
+      },
+    ],
+  };
+  if (!ext) {
+    options.types = [];
+  }
+  try {
+    const handle = await window.showSaveFilePicker(options);
+    const writable = await handle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    return true;
+  } catch (error) {
+    if (error?.name === 'AbortError') return true;
+    return false;
+  }
+}
+
+function resolveDownloadFileName(response, id) {
+  const fallback = `request_${id}.xlsx`;
+  const cd = response.headers.get('content-disposition') || '';
+  if (!cd) return fallback;
+
+  const starMatch = cd.match(/filename\*\s*=\s*([^;]+)/i);
+  if (starMatch?.[1]) {
+    const raw = starMatch[1].trim().replace(/^["']|["']$/g, '');
+    const encoded = raw.includes("''") ? raw.split("''").slice(1).join("''") : raw;
+    try {
+      return decodeURIComponent(encoded);
+    } catch {
+      return encoded || fallback;
+    }
+  }
+
+  const plainMatch = cd.match(/filename\s*=\s*([^;]+)/i);
+  if (plainMatch?.[1]) {
+    const raw = plainMatch[1].trim().replace(/^["']|["']$/g, '');
+    return raw || fallback;
+  }
+
+  return fallback;
+}
+
 function formatTime(v) {
   if (!v) return '-';
   const d = new Date(v);
@@ -866,4 +966,5 @@ function moduleToUpperSnake(moduleKey) {
     .toUpperCase();
 }
 </script>
+
 
