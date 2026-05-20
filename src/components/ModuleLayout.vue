@@ -57,9 +57,10 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
-import ModuleTable from './ModuleTable.vue';
+import { defineAsyncComponent, ref, watch } from 'vue';
 import { MODULE_GROUPS } from '../utils/module';
+
+const ModuleTable = defineAsyncComponent(() => import('./ModuleTable.vue'));
 
 const props = defineProps({
   darkMode: { type: Boolean, default: false },
