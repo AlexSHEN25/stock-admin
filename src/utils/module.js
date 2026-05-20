@@ -60,6 +60,12 @@
   },
 ];
 
+const NAME_STATUS_QUERY_FIELDS = ['id', 'name', 'status'];
+const NAME_STATUS_FORM_FIELDS = ['name', 'status'];
+const STOCK_ORDER_ITEM_FIELDS = ['id', 'orderId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'stockTypeId', 'stockTypeName', 'makerId', 'makerName', 'beforeQty', 'changeQty', 'afterQty', 'price', 'currency', 'remark'];
+const REQUEST_FORM_FIELDS = ['id', 'bizNo', 'userId', 'username', 'deptId', 'deptName', 'customerId', 'customerName', 'warehouseId', 'totalQty', 'requestQty', 'totalAmt', 'state', 'approverId', 'approverName', 'approveTime', 'approveRemark'];
+const REQUEST_ITEM_FIELDS = ['id', 'requestId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'makerId', 'makerName', 'stockTypeId', 'stockTypeName', 'warehouseId', 'price', 'currency', 'discount', 'requestQty', 'approveQty', 'outQty', 'stockRecordId', 'remark'];
+
 export const MODULE_PRESETS = {
   user: {
     queryFields: ['username', 'deptId', 'deptName', 'email', 'phone', 'status'],
@@ -118,8 +124,8 @@ export const MODULE_PRESETS = {
     },
   },
   stockOrderItem: {
-    queryFields: ['id', 'orderId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'stockTypeId', 'stockTypeName', 'makerId', 'makerName', 'beforeQty', 'changeQty', 'afterQty', 'price', 'currency', 'remark'],
-    formFields: ['orderId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'stockTypeId', 'stockTypeName', 'makerId', 'makerName', 'beforeQty', 'changeQty', 'afterQty', 'price', 'currency', 'remark'],
+    queryFields: STOCK_ORDER_ITEM_FIELDS,
+    formFields: STOCK_ORDER_ITEM_FIELDS.filter((field) => field !== 'id'),
     fieldTypes: {
       orderId: 'number',
       goodsId: 'relation',
@@ -165,8 +171,8 @@ export const MODULE_PRESETS = {
     },
   },
   requestForm: {
-    queryFields: ['id', 'bizNo', 'userId', 'username', 'deptId', 'deptName', 'customerId', 'customerName', 'warehouseId', 'totalQty', 'requestQty', 'totalAmt', 'state', 'approverId', 'approverName', 'approveTime', 'approveRemark'],
-    formFields: ['bizNo', 'userId', 'username', 'deptId', 'deptName', 'customerId', 'customerName', 'warehouseId', 'totalQty', 'requestQty', 'totalAmt', 'state', 'approverId', 'approverName', 'approveTime', 'approveRemark'],
+    queryFields: REQUEST_FORM_FIELDS,
+    formFields: REQUEST_FORM_FIELDS.filter((field) => field !== 'id'),
     fieldTypes: {
       userId: 'relation',
       deptId: 'relation',
@@ -182,8 +188,8 @@ export const MODULE_PRESETS = {
     },
   },
   requestItem: {
-    queryFields: ['id', 'requestId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'makerId', 'makerName', 'stockTypeId', 'stockTypeName', 'warehouseId', 'price', 'currency', 'discount', 'requestQty', 'approveQty', 'outQty', 'stockRecordId', 'remark'],
-    formFields: ['requestId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'makerId', 'makerName', 'stockTypeId', 'stockTypeName', 'warehouseId', 'price', 'currency', 'discount', 'requestQty', 'approveQty', 'outQty', 'stockRecordId', 'remark'],
+    queryFields: REQUEST_ITEM_FIELDS,
+    formFields: REQUEST_ITEM_FIELDS.filter((field) => field !== 'id'),
     fieldTypes: {
       requestId: 'number',
       goodsId: 'relation',
@@ -218,8 +224,8 @@ export const MODULE_PRESETS = {
     fieldTypes: { parentId: 'relation', sort: 'number', status: 'select' },
   },
   maker: {
-    queryFields: ['id', 'name', 'status'],
-    formFields: ['name', 'status'],
+    queryFields: NAME_STATUS_QUERY_FIELDS,
+    formFields: NAME_STATUS_FORM_FIELDS,
     fieldTypes: { status: 'select' },
   },
   brand: {
@@ -228,8 +234,8 @@ export const MODULE_PRESETS = {
     fieldTypes: { status: 'select' },
   },
   category: {
-    queryFields: ['id', 'name', 'status'],
-    formFields: ['name', 'status'],
+    queryFields: NAME_STATUS_QUERY_FIELDS,
+    formFields: NAME_STATUS_FORM_FIELDS,
     fieldTypes: { status: 'select' },
   },
   series: {
@@ -257,8 +263,8 @@ export const MODULE_PRESETS = {
     fieldTypes: { goodsId: 'relation', skuId: 'relation', levelId: 'number', status: 'select' },
   },
   stockType: {
-    queryFields: ['id', 'name', 'status'],
-    formFields: ['name', 'status'],
+    queryFields: NAME_STATUS_QUERY_FIELDS,
+    formFields: NAME_STATUS_FORM_FIELDS,
     fieldTypes: { status: 'select' },
   },
   priceRecord: {
@@ -380,6 +386,9 @@ export const FIELD_LABELS = {
   email: 'メールアドレス',
   phone: '電話番号',
   avatar: 'アバター',
+  contactPerson: '担当者',
+  country: '国',
+  city: '都市',
   warehouseId: '倉庫',
   warehouseName: '倉庫名',
   goodsId: '商品',
@@ -431,10 +440,10 @@ export const FIELD_LABELS = {
   stockId: '在庫ID',
   levelId: 'ランクID',
   levelName: 'ランク名',
-  ownerUserId: 'Owner UserID',
-  ownerUserName: 'Owner User名',
-  ownerDeptId: 'Owner DeptID',
-  ownerDeptName: 'Owner Dept名',
+  ownerUserId: '担当ユーザーID',
+  ownerUserName: '担当ユーザー名',
+  ownerDeptId: '担当部署ID',
+  ownerDeptName: '担当部署名',
   customerId: '顧客ID',
   customerName: '顧客名',
   customerCode: '顧客コード',
@@ -449,6 +458,36 @@ export const FIELD_LABELS = {
   requestType: '申請種別',
   requestStatus: '申請状態',
   imageUrl: '画像URL',
+  image: '画像',
+  icon: 'アイコン',
+  component: 'コンポーネント',
+  module: 'モジュール',
+  operation: '操作種別',
+  method: 'HTTPメソッド',
+  path: 'パス',
+  requestUrl: 'リクエストURL',
+  requestIp: 'リクエストIP',
+  requestParam: 'リクエストパラメータ',
+  responseData: 'レスポンスデータ',
+  errorMsg: 'エラーメッセージ',
+  costTime: '処理時間(ms)',
+  loginTime: 'ログイン時刻',
+  loginIp: 'ログインIP',
+  token: 'トークン',
+  isRead: '既読',
+  type: '種別',
+  group: 'グループ',
+  value: '値',
+  tip: 'ヒント',
+  permissionId: '権限ID',
+  requesterId: '申請者ID',
+  requesterName: '申請者名',
+  operatorId: '操作者ID',
+  operatorName: '操作者名',
+  stockRecordId: '在庫履歴ID',
+  specId: '仕様ID',
+  specName: '仕様名',
+  specValue: '仕様値',
   currency: '通貨',
   beforeQty: '変更前数量',
   afterQty: '変更後数量',
@@ -495,11 +534,27 @@ export function normalizeTitle(key) {
 
 export function displayKeys(record) {
   if (!record) return [];
+  const keyList = Object.keys(record);
+  const lowerKeySet = new Set(keyList.map((k) => String(k || '').toLowerCase()));
+  const relationIdSet = new Set(Object.keys(RELATION_FIELD_MODULE).map((k) => String(k || '').toLowerCase()));
+  const keepIdSet = new Set(['skuid']);
+  const mappedIdToName = Object.entries(NAME_TO_ID_FIELD).reduce((acc, [nameField, idField]) => {
+    acc[String(idField).toLowerCase()] = nameField;
+    return acc;
+  }, {});
+
   return Object.keys(record).filter((key) => {
     const low = key.toLowerCase();
     if (low.endsWith('id')) {
-      const nameKey = key.slice(0, -2) + 'Name';
+      if (keepIdSet.has(low)) return true;
+      const base = String(key).replace(/id$/i, '');
+      const nameKey = `${base}Name`;
       if (Object.prototype.hasOwnProperty.call(record, nameKey)) return false;
+      if (lowerKeySet.has(String(nameKey).toLowerCase())) return false;
+
+      const mappedName = mappedIdToName[low];
+      if (mappedName && lowerKeySet.has(String(mappedName).toLowerCase())) return false;
+      if (relationIdSet.has(low)) return false;
     }
     return true;
   });

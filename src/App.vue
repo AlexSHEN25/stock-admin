@@ -1,13 +1,16 @@
 ﻿<template>
   <a-config-provider :theme="themeConfig">
-    <login-form v-if="!token" @success="onLoginSuccess" />
+    <login-form
+      v-if="!token"
+      @success="onLoginSuccess"
+    />
     <module-layout
       v-else
-      :darkMode="darkMode"
-      :menuCodes="menuCodes"
-      :permissionCodes="permissionCodes"
-      :permissionReady="permissionReady"
-      :currentUser="currentUser"
+      :dark-mode="darkMode"
+      :menu-codes="menuCodes"
+      :permission-codes="permissionCodes"
+      :permission-ready="permissionReady"
+      :current-user="currentUser"
       @toggle-theme="onToggleTheme"
       @logout="onLogout"
     />

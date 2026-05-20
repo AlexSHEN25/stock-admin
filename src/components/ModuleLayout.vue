@@ -1,21 +1,32 @@
 ﻿<template>
   <a-layout class="layout-root">
-    <a-layout-sider v-if="hasMenus" width="280" class="left-sider">
-      <div class="logo">在庫管理</div>
+    <a-layout-sider
+      v-if="hasMenus"
+      width="280"
+      class="left-sider"
+    >
+      <div class="logo">
+        在庫管理
+      </div>
       <a-menu
         class="left-menu"
         mode="inline"
         :items="menuItems"
-        :selectedKeys="selectedKeys"
-        :openKeys="openKeys"
+        :selected-keys="selectedKeys"
+        :open-keys="openKeys"
         @click="onMenuClick"
-        @openChange="(keys) => (openKeys = keys)"
+        @open-change="(keys) => (openKeys = keys)"
       />
     </a-layout-sider>
     <a-layout>
       <a-layout-header class="top-header">
-        <div class="top-header-title">{{ activeLabel }}</div>
-        <a-space class="top-header-tools" :size="12">
+        <div class="top-header-title">
+          {{ activeLabel }}
+        </div>
+        <a-space
+          class="top-header-tools"
+          :size="12"
+        >
           <a-switch
             :checked="darkMode"
             checked-children="夜"
@@ -25,14 +36,19 @@
           <div class="user-badge">
             <span class="user-badge-name">{{ currentUser || '-' }}</span>
           </div>
-          <a-button type="link" @click="$emit('logout')">ログアウト</a-button>
+          <a-button
+            type="link"
+            @click="$emit('logout')"
+          >
+            ログアウト
+          </a-button>
         </a-space>
       </a-layout-header>
       <a-layout-content class="content-wrap">
         <module-table
-          :moduleKey="activeModule"
-          :permissionCodes="permissionCodes"
-          :permissionReady="permissionReady"
+          :module-key="activeModule"
+          :permission-codes="permissionCodes"
+          :permission-ready="permissionReady"
           @navigate-module="onNavigateModule"
         />
       </a-layout-content>
@@ -64,6 +80,12 @@ const selectedKeys = ref([firstModule]);
 const openKeys = ref([MODULE_GROUPS[0].key]);
 const nodeMap = ref(new Map());
 const HIDDEN_MODULES = ['stockOrderItem'];
+const HIDDEN_MODULE_CONFIG = {
+  stockOrderItem: { parent: 'stockOrder', label: '入出庫明細' },
+};
+const MODULE_PERMISSION_ALIASES = {
+  goods: ['GOODS_MANAGEMENT', 'GOODS_BUNDLE'],
+};
 const allModules = MODULE_GROUPS.flatMap((g) => g.children.map((c) => c.key));
 const allowedModules = ref(new Set([...allModules, ...HIDDEN_MODULES]));
 
@@ -111,11 +133,12 @@ function onMenuClick({ key }) {
 function onNavigateModule(moduleKey) {
   const target = normalizeModuleKey(moduleKey);
   if (!isValidModule(target)) return;
+  const hiddenConfig = HIDDEN_MODULE_CONFIG[target];
+  const menuKey = hiddenConfig?.parent || target;
   activeModule.value = target;
-  selectedKeys.value = [target === 'stockOrderItem' ? 'stockOrder' : target];
+  selectedKeys.value = [menuKey];
   activeLabel.value = findLabelByKey(target);
-  const parentKey = target === 'stockOrderItem' ? 'stockOrder' : target;
-  const parent = MODULE_GROUPS.find((g) => g.children.some((c) => c.key === parentKey));
+  const parent = MODULE_GROUPS.find((g) => g.children.some((c) => c.key === menuKey));
   if (parent) {
     openKeys.value = [parent.key];
   }
@@ -126,7 +149,7 @@ function isValidModule(moduleKey) {
 }
 
 function findLabelByKey(key) {
-  if (key === 'stockOrderItem') return '入出庫明細';
+  if (HIDDEN_MODULE_CONFIG[key]?.label) return HIDDEN_MODULE_CONFIG[key].label;
   for (const group of MODULE_GROUPS) {
     const hit = group.children.find((item) => item.key === key);
     if (hit) return hit.label;
@@ -179,21 +202,9 @@ function buildAllowedModulesByCodes() {
   const allowed = new Set();
 
   allModules.forEach((moduleKey) => {
-    if (moduleKey === 'goods') {
-      const menuCandidates = ['GOODS_MANAGEMENT', 'GOODS_BUNDLE'];
-      const dataCandidates = ['GOODS_MANAGEMENT', 'GOODS_BUNDLE'];
-      const hasMenu = menuCandidates.some((x) => menuCodes.has(`MENU_${x}`));
-      const hasData = dataCandidates.some((x) => permCodes.has(`DATA_${x}_READ`) || permCodes.has(`DATA_${x}_WRITE`));
-      if (hasMenu && hasData) allowed.add(moduleKey);
-      return;
-    }
-
-    const upper = moduleToUpperSnake(moduleKey);
-    const menuCode = `MENU_${upper}`;
-    const readCode = `DATA_${upper}_READ`;
-    const writeCode = `DATA_${upper}_WRITE`;
-    const hasMenu = menuCodes.has(menuCode);
-    const hasData = permCodes.has(readCode) || permCodes.has(writeCode);
+    const aliases = MODULE_PERMISSION_ALIASES[moduleKey] || [moduleToUpperSnake(moduleKey)];
+    const hasMenu = aliases.some((x) => menuCodes.has(`MENU_${x}`));
+    const hasData = aliases.some((x) => permCodes.has(`DATA_${x}_READ`) || permCodes.has(`DATA_${x}_WRITE`));
     if (hasMenu && hasData) allowed.add(moduleKey);
   });
 

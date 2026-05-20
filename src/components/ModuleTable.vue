@@ -1,44 +1,80 @@
 ﻿<template>
-  <a-card :title="null" :bordered="false">
+  <a-card
+    :title="null"
+    :bordered="false"
+  >
     <div class="search-toolbar">
-        <div class="search-filters">
-          <template v-for="field in queryFields" :key="field">
-            <a-select
-              v-if="queryInputType(field) === 'select'"
-              v-model:value="queryState[field]"
-              :options="queryOptions(field)"
-              :placeholder="queryPlaceholder(field)"
-              class="search-control"
-              allow-clear
-            />
-            <a-input
-              v-else-if="queryInputType(field) === 'text'"
-              v-model:value="queryState[field]"
-              :placeholder="queryPlaceholder(field)"
-              class="search-control"
-              @pressEnter="reload"
-            />
-            <a-input-number
-              v-else
-              v-model:value="queryState[field]"
-              :placeholder="queryPlaceholder(field)"
-              class="search-control"
-            />
-          </template>
-        </div>
-        <div class="search-actions">
-          <a-button type="primary" class="search-btn search-btn-main" @click="doSearch">{{ i18n.search }}</a-button>
-          <a-button class="search-btn" @click="resetQuery">{{ i18n.reset }}</a-button>
-          <a-popconfirm v-if="canWrite" :title="i18n.confirmBatchDelete" :ok-text="i18n.yes" :cancel-text="i18n.no" @confirm="onBatchDelete">
-            <a-button danger class="search-btn" :disabled="selectedRowKeys.length === 0">{{ i18n.batchDelete }}</a-button>
-          </a-popconfirm>
-          <a-button v-if="canWrite" type="primary" class="search-btn search-btn-create" @click="openCreate">{{ i18n.create }}</a-button>
-        </div>
+      <div class="search-filters">
+        <template
+          v-for="field in queryFields"
+          :key="field"
+        >
+          <a-select
+            v-if="queryInputType(field) === 'select'"
+            v-model:value="queryState[field]"
+            :options="queryOptions(field)"
+            :placeholder="queryPlaceholder(field)"
+            class="search-control"
+            allow-clear
+          />
+          <a-input
+            v-else-if="queryInputType(field) === 'text'"
+            v-model:value="queryState[field]"
+            :placeholder="queryPlaceholder(field)"
+            class="search-control"
+            @press-enter="reload"
+          />
+          <a-input-number
+            v-else
+            v-model:value="queryState[field]"
+            :placeholder="queryPlaceholder(field)"
+            class="search-control"
+          />
+        </template>
       </div>
+      <div class="search-actions">
+        <a-button
+          type="primary"
+          class="search-btn search-btn-main"
+          @click="doSearch"
+        >
+          {{ i18n.search }}
+        </a-button>
+        <a-button
+          class="search-btn"
+          @click="resetQuery"
+        >
+          {{ i18n.reset }}
+        </a-button>
+        <a-popconfirm
+          v-if="canWrite"
+          :title="i18n.confirmBatchDelete"
+          :ok-text="i18n.yes"
+          :cancel-text="i18n.no"
+          @confirm="onBatchDelete"
+        >
+          <a-button
+            danger
+            class="search-btn"
+            :disabled="selectedRowKeys.length === 0"
+          >
+            {{ i18n.batchDelete }}
+          </a-button>
+        </a-popconfirm>
+        <a-button
+          v-if="canWrite"
+          type="primary"
+          class="search-btn search-btn-create"
+          @click="openCreate"
+        >
+          {{ i18n.create }}
+        </a-button>
+      </div>
+    </div>
 
     <a-table
       class="module-table"
-      :rowKey="(row) => getRecordId(row) || JSON.stringify(row)"
+      :row-key="(row) => getRecordId(row) || JSON.stringify(row)"
       :columns="columns"
       :data-source="rows"
       :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
@@ -79,17 +115,26 @@
             show-time
             style="width: 100%"
           />
-          <a-input v-else v-model:value="editState[inlineField(column.key)]" />
+          <a-input
+            v-else
+            v-model:value="editState[inlineField(column.key)]"
+          />
         </template>
         <template v-if="!isEditing(record) && String(column.key) === 'skuId'">
           {{ record.skuId ?? '-' }}
         </template>
         <template v-else-if="!isEditing(record) && column.key === 'mainImage'">
-          <img v-if="record.mainImage || record.imageUrl" :src="record.mainImage || record.imageUrl" class="goods-thumb" />
+          <img
+            v-if="record.mainImage || record.imageUrl"
+            :src="record.mainImage || record.imageUrl"
+            class="goods-thumb"
+          >
           <span v-else>-</span>
         </template>
         <template v-else-if="!isEditing(record) && column.key === 'statusDesc'">
-          <a-tag :color="Number(record.status) === 1 ? 'success' : 'default'">{{ record.statusDesc || (Number(record.status) === 1 ? 'ON' : 'OFF') }}</a-tag>
+          <a-tag :color="Number(record.status) === 1 ? 'success' : 'default'">
+            {{ record.statusDesc || (Number(record.status) === 1 ? 'ON' : 'OFF') }}
+          </a-tag>
         </template>
         <template v-else-if="!isEditing(record) && column.key === 'updateTime'">
           {{ formatTime(record.updateTime) }}
@@ -102,14 +147,36 @@
         </template>
         <template v-if="column.key === '__actions'">
           <a-space>
-            <a v-if="props.moduleKey === 'stockOrder'" @click="goOrderItems(record)">明細</a>
-            <a v-if="props.moduleKey === 'requestForm'" @click="goRequestItems(record)">明細</a>
-            <a v-if="props.moduleKey === 'requestForm'" @click="downloadRequestForm(record)">ダウンロード</a>
-            <a v-if="canWrite && !isEditing(record)" @click="startInlineEdit(record)">{{ i18n.inlineEdit }}</a>
-            <a v-if="canWrite && isEditing(record)" @click="saveInlineEdit(record)">{{ i18n.save }}</a>
-            <a v-if="canWrite && isEditing(record)" @click="cancelInlineEdit">{{ i18n.cancel }}</a>
-            <a v-if="canWrite" @click="openEdit(record)">{{ i18n.edit }}</a>
-            <a-popconfirm v-if="canWrite" :title="i18n.confirmDelete" :ok-text="i18n.yes" :cancel-text="i18n.no" @confirm="onDelete(record)">
+            <a
+              v-for="action in rowExtraActions"
+              :key="action.key"
+              @click="handleRowExtraAction(action.key, record)"
+            >
+              {{ action.label }}
+            </a>
+            <a
+              v-if="canWrite && !isEditing(record)"
+              @click="startInlineEdit(record)"
+            >{{ i18n.inlineEdit }}</a>
+            <a
+              v-if="canWrite && isEditing(record)"
+              @click="saveInlineEdit(record)"
+            >{{ i18n.save }}</a>
+            <a
+              v-if="canWrite && isEditing(record)"
+              @click="cancelInlineEdit"
+            >{{ i18n.cancel }}</a>
+            <a
+              v-if="canWrite"
+              @click="openEdit(record)"
+            >{{ i18n.edit }}</a>
+            <a-popconfirm
+              v-if="canWrite"
+              :title="i18n.confirmDelete"
+              :ok-text="i18n.yes"
+              :cancel-text="i18n.no"
+              @confirm="onDelete(record)"
+            >
               <a>{{ i18n.delete }}</a>
             </a-popconfirm>
             <span v-if="!canWrite">{{ i18n.readonly }}</span>
@@ -118,13 +185,28 @@
       </template>
     </a-table>
 
-    <a-modal :open="modalOpen" :title="editing ? i18n.edit : i18n.create" :ok-text="i18n.save" :cancel-text="i18n.cancel" :okButtonProps="{ disabled: !canWrite }" @ok="submit" @cancel="() => (modalOpen = false)">
+    <a-modal
+      :open="modalOpen"
+      :title="editing ? i18n.edit : i18n.create"
+      :ok-text="i18n.save"
+      :cancel-text="i18n.cancel"
+      :ok-button-props="{ disabled: !canWrite }"
+      @ok="submit"
+      @cancel="() => (modalOpen = false)"
+    >
       <a-form layout="vertical">
-        <a-form-item v-for="field in formKeys" :key="field" :required="requiredForForm(field)">
+        <a-form-item
+          v-for="field in formKeys"
+          :key="field"
+          :required="requiredForForm(field)"
+        >
           <template #label>
             {{ normalizeTitle(field) }}
           </template>
-          <a-input v-if="inputType(field) === 'text'" v-model:value="formState[field]" />
+          <a-input
+            v-if="inputType(field) === 'text'"
+            v-model:value="formState[field]"
+          />
           <a-select
             v-else-if="inputType(field) === 'relation'"
             v-model:value="formState[field]"
@@ -138,8 +220,16 @@
             v-model:value="formState[field]"
             style="width: 100%"
           />
-          <a-select v-else-if="inputType(field) === 'select'" v-model:value="formState[field]" :options="selectOptionsForField(field)" allow-clear />
-          <a-switch v-else-if="inputType(field) === 'switch'" v-model:checked="formState[field]" />
+          <a-select
+            v-else-if="inputType(field) === 'select'"
+            v-model:value="formState[field]"
+            :options="selectOptionsForField(field)"
+            allow-clear
+          />
+          <a-switch
+            v-else-if="inputType(field) === 'switch'"
+            v-model:checked="formState[field]"
+          />
           <a-date-picker
             v-else-if="inputType(field) === 'datetime'"
             v-model:value="formState[field]"
@@ -147,7 +237,11 @@
             show-time
             style="width: 100%"
           />
-          <a-textarea v-else v-model:value="formState[field]" :rows="3" />
+          <a-textarea
+            v-else
+            v-model:value="formState[field]"
+            :rows="3"
+          />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -182,8 +276,7 @@ const relationOptions = reactive({});
 const selectedRowKeys = ref([]);
 const pagination = reactive({ current: 1, pageSize: 10, total: 0 });
 const isGoodsManagement = computed(() => props.moduleKey === 'goods');
-const listModulePath = computed(() => (isGoodsManagement.value ? 'goods' : props.moduleKey));
-const writeModulePath = computed(() => (isGoodsManagement.value ? 'goods' : props.moduleKey));
+const modulePath = computed(() => props.moduleKey);
 const goodsManagementQueryFields = ['keyword', 'englishName', 'skuCode', 'skuName', 'brandName', 'categoryName', 'status'];
 const goodsManagementFormFields = [
   'name',
@@ -285,6 +378,43 @@ const stockOrderStateOptions = computed(() => ([
   { label: '完了', value: 2 },
   { label: '取消', value: 3 },
 ]));
+const MODULE_QUERY_JUMPS = {
+  stockOrderItem: { storageKey: 'jump_stock_order_id', queryField: 'orderId' },
+  requestItem: { storageKey: 'jump_request_form_id', queryField: 'requestId' },
+};
+const MODULE_DETAIL_NAVIGATIONS = {
+  stockOrder: { storageKey: 'jump_stock_order_id', targetModule: 'stockOrderItem' },
+  requestForm: { storageKey: 'jump_request_form_id', targetModule: 'requestItem' },
+};
+const MODULE_ROW_EXTRA_ACTIONS = {
+  stockOrder: [{ key: 'detail', label: '明細' }],
+  requestForm: [
+    { key: 'detail', label: '明細' },
+    { key: 'download', label: 'ダウンロード' },
+  ],
+};
+const MODULE_SUBMIT_HANDLERS = {
+  stock: submitStockFlow,
+};
+const MODULE_ENUM_FIELD_OPTIONS = computed(() => ({
+  stock: {
+    sourceType: stockSourceTypeOptions.value,
+  },
+  stockOrder: {
+    orderType: stockOrderTypeOptions.value,
+    sourceType: stockOrderSourceTypeOptions.value,
+    state: stockOrderStateOptions.value,
+  },
+  stockRecord: {
+    orderType: stockOrderTypeOptions.value,
+    sourceType: stockOrderSourceTypeOptions.value,
+    state: stockOrderStateOptions.value,
+  },
+  requestForm: {
+    state: stockOrderStateOptions.value,
+  },
+}));
+const rowExtraActions = computed(() => MODULE_ROW_EXTRA_ACTIONS[props.moduleKey] || []);
 const canWrite = computed(() => {
   if (!props.permissionReady) return true;
   if (isGoodsManagement.value) {
@@ -330,7 +460,6 @@ const i18n = computed(() => ({
   requiredField: '\u5fc5\u9808\u9805\u76ee\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044',
   stockFlowSuccess: '\u5728\u5eab\u696d\u52d9\u3092\u767b\u9332\u3057\u307e\u3057\u305f',
   selectDept: '\u90e8\u7f72\u540d\u3092\u9078\u629e',
-  searchBy: '',
   searchSuffix: '\u3067\u691c\u7d22',
   hotYes: '\u306f\u3044',
   hotNo: '\u3044\u3044\u3048',
@@ -358,14 +487,15 @@ const keys = computed(() => {
   if (!first) return [];
   const raw = displayKeys(first);
   const noStatus = raw.includes('statusDesc') ? raw.filter((k) => k !== 'status') : raw;
-  const tail = noStatus.filter((k) => k === 'createTime' || k === 'updateTime');
-  const head = noStatus.filter((k) => k !== 'createTime' && k !== 'updateTime');
+  const noId = noStatus.filter((k) => String(k || '').toLowerCase() !== 'id');
+  const tail = noId.filter((k) => k === 'createTime' || k === 'updateTime');
+  const head = noId.filter((k) => k !== 'createTime' && k !== 'updateTime');
   return [...head, ...tail];
 });
 
 const columns = computed(() => {
   const base = keys.value.map((key) => ({
-    title: isGoodsManagement.value && key === 'skuId' ? 'ID' : normalizeTitle(key),
+    title: normalizeTitle(key),
     dataIndex: key,
     key,
     fixed: columnFixed(key),
@@ -423,23 +553,14 @@ watch(
 );
 
 function applyPendingQuery() {
-  if (props.moduleKey === 'stockOrderItem') {
-    const orderId = sessionStorage.getItem('jump_stock_order_id');
-    if (!orderId) return;
-    if (Object.prototype.hasOwnProperty.call(queryState, 'orderId')) {
-      queryState.orderId = Number(orderId);
-    }
-    sessionStorage.removeItem('jump_stock_order_id');
-    return;
+  const jump = MODULE_QUERY_JUMPS[props.moduleKey];
+  if (!jump) return;
+  const raw = sessionStorage.getItem(jump.storageKey);
+  if (!raw) return;
+  if (Object.prototype.hasOwnProperty.call(queryState, jump.queryField)) {
+    queryState[jump.queryField] = Number(raw);
   }
-  if (props.moduleKey === 'requestItem') {
-    const requestId = sessionStorage.getItem('jump_request_form_id');
-    if (!requestId) return;
-    if (Object.prototype.hasOwnProperty.call(queryState, 'requestId')) {
-      queryState.requestId = Number(requestId);
-    }
-    sessionStorage.removeItem('jump_request_form_id');
-  }
+  sessionStorage.removeItem(jump.storageKey);
 }
 
 function initQuery() {
@@ -468,7 +589,7 @@ async function reload() {
       sortOrder: 'desc',
       ...buildQueryParams(),
     };
-    const page = await fetchPage(listModulePath.value, params);
+    const page = await fetchPage(modulePath.value, params);
     rows.value = page.records;
     pagination.total = page.total;
   } catch (error) {
@@ -543,17 +664,18 @@ function resetForm(record) {
 async function submit() {
   if (!canWrite.value) return;
   if (validateRequiredFields()) return;
-  if (props.moduleKey === 'stock') {
-    await submitStockFlow();
+  const moduleSubmitHandler = MODULE_SUBMIT_HANDLERS[props.moduleKey];
+  if (moduleSubmitHandler) {
+    await moduleSubmitHandler();
     return;
   }
   try {
     if (editing.value) {
       const payload = normalizePayload({ ...(editingRaw.value || {}), ...formState });
-      await updateItem(writeModulePath.value, payload);
+      await updateItem(modulePath.value, payload);
       message.success(i18n.value.updateSuccess);
     } else {
-      await createItem(writeModulePath.value, normalizePayload({ ...formState }));
+      await createItem(modulePath.value, normalizePayload({ ...formState }));
       message.success(i18n.value.createSuccess);
     }
     modalOpen.value = false;
@@ -631,7 +753,7 @@ async function submitStockFlow() {
 async function onDelete(record) {
   if (!canWrite.value) return;
   try {
-    await removeItem(writeModulePath.value, getRecordId(record));
+    await removeItem(modulePath.value, getRecordId(record));
     message.success(i18n.value.deleteSuccess);
     reload();
   } catch (error) {
@@ -644,7 +766,7 @@ async function onBatchDelete() {
   if (selectedRowKeys.value.length === 0) return;
   try {
     for (const id of selectedRowKeys.value) {
-      await removeItem(writeModulePath.value, id);
+      await removeItem(modulePath.value, id);
     }
     message.success(i18n.value.batchDeleteSuccess);
     selectedRowKeys.value = [];
@@ -694,18 +816,7 @@ function selectOptionsForField(field) {
 
 function enumOptionsForField(field) {
   const key = String(field || '');
-  if (props.moduleKey === 'stock' && key === 'sourceType') {
-    return stockSourceTypeOptions.value;
-  }
-  if (props.moduleKey === 'stockOrder' || props.moduleKey === 'stockRecord') {
-    if (key === 'orderType') return stockOrderTypeOptions.value;
-    if (key === 'sourceType') return stockOrderSourceTypeOptions.value;
-    if (key === 'state') return stockOrderStateOptions.value;
-  }
-  if (props.moduleKey === 'requestForm' && key === 'state') {
-    return stockOrderStateOptions.value;
-  }
-  return [];
+  return MODULE_ENUM_FIELD_OPTIONS.value[props.moduleKey]?.[key] || [];
 }
 
 function hasEnumOptions(field) {
@@ -780,7 +891,7 @@ async function saveInlineEdit(record) {
   if (!canWrite.value) return;
   try {
     const payload = normalizePayload({ ...record, ...editState, id: getRecordId(record) });
-    await updateItem(writeModulePath.value, payload);
+    await updateItem(modulePath.value, payload);
     message.success(i18n.value.updateSuccess);
     cancelInlineEdit();
     reload();
@@ -835,18 +946,23 @@ function getRecordId(record) {
   return record?.id ?? record?.skuId ?? record?._id ?? null;
 }
 
-function goOrderItems(record) {
+function goDetailModule(record) {
+  const navigation = MODULE_DETAIL_NAVIGATIONS[props.moduleKey];
+  if (!navigation) return;
   const id = getRecordId(record);
   if (!id) return;
-  sessionStorage.setItem('jump_stock_order_id', String(id));
-  emit('navigate-module', 'stockOrderItem');
+  sessionStorage.setItem(navigation.storageKey, String(id));
+  emit('navigate-module', navigation.targetModule);
 }
 
-function goRequestItems(record) {
-  const id = getRecordId(record);
-  if (!id) return;
-  sessionStorage.setItem('jump_request_form_id', String(id));
-  emit('navigate-module', 'requestItem');
+function handleRowExtraAction(actionKey, record) {
+  if (actionKey === 'detail') {
+    goDetailModule(record);
+    return;
+  }
+  if (actionKey === 'download') {
+    downloadRequestForm(record);
+  }
 }
 
 async function downloadRequestForm(record) {

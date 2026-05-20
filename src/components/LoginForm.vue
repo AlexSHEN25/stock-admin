@@ -1,14 +1,31 @@
 ﻿<template>
   <div class="login-wrap">
-    <a-card title="ログイン" class="login-card">
+    <a-card
+      title="ログイン"
+      class="login-card"
+    >
       <a-form layout="vertical">
         <a-form-item label="ユーザー名">
-          <a-input v-model:value="form.username" autocomplete="username" />
+          <a-input
+            v-model:value="form.username"
+            autocomplete="username"
+          />
         </a-form-item>
         <a-form-item label="パスワード">
-          <a-input-password v-model:value="form.password" autocomplete="current-password" @pressEnter="submit" />
+          <a-input-password
+            v-model:value="form.password"
+            autocomplete="current-password"
+            @press-enter="submit"
+          />
         </a-form-item>
-        <a-button type="primary" :loading="loading" block @click="submit">ログイン</a-button>
+        <a-button
+          type="primary"
+          :loading="loading"
+          block
+          @click="submit"
+        >
+          ログイン
+        </a-button>
       </a-form>
     </a-card>
   </div>
