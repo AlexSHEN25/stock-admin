@@ -1,7 +1,6 @@
 ﻿import axios from 'axios';
 
 export const TOKEN_KEY = 'stock_admin_token';
-export const LANG_KEY = 'stock_admin_lang';
 
 const http = axios.create({
   baseURL: '/',
@@ -9,10 +8,9 @@ const http = axios.create({
 });
 
 http.interceptors.request.use((config) => {
-  const locale = getCurrentLocale();
   config.headers = config.headers || {};
-  config.headers['Accept-Language'] = locale;
-  config.headers['X-Lang'] = locale;
+  config.headers['Accept-Language'] = 'ja-JP';
+  config.headers['X-Lang'] = 'ja-JP';
 
   const token = localStorage.getItem(TOKEN_KEY);
   if (token) {
@@ -46,9 +44,3 @@ http.interceptors.response.use(
 );
 
 export default http;
-
-function getCurrentLocale() {
-  const saved = localStorage.getItem(LANG_KEY);
-  if (saved && String(saved).trim()) return saved;
-  return 'ja-JP';
-}

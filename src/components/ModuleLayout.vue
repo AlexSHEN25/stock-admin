@@ -1,7 +1,7 @@
 ﻿<template>
   <a-layout class="layout-root">
     <a-layout-sider v-if="hasMenus" width="280" class="left-sider">
-      <div class="logo">{{ navText.logo }}</div>
+      <div class="logo">在庫管理</div>
       <a-menu
         class="left-menu"
         mode="inline"
@@ -16,46 +16,44 @@
       <a-layout-header class="top-header">
         <div class="top-header-title">{{ activeLabel }}</div>
         <a-space class="top-header-tools" :size="12">
-          <a-select
-            :value="currentLang"
-            class="lang-switch"
-            :options="langOptions"
-            @change="(v) => $emit('change-lang', v)"
-          />
           <a-switch
             :checked="darkMode"
-            :checked-children="navText.themeDark"
-            :un-checked-children="navText.themeLight"
+            checked-children="夜"
+            un-checked-children="昼"
             @change="(v) => $emit('toggle-theme', v)"
           />
           <div class="user-badge">
             <span class="user-badge-name">{{ currentUser || '-' }}</span>
           </div>
-          <a-button type="link" @click="$emit('logout')">{{ navText.logout }}</a-button>
+          <a-button type="link" @click="$emit('logout')">ログアウト</a-button>
         </a-space>
       </a-layout-header>
       <a-layout-content class="content-wrap">
-        <module-table :moduleKey="activeModule" :permissionCodes="permissionCodes" :permissionReady="permissionReady" :currentLang="currentLang" />
+        <module-table
+          :moduleKey="activeModule"
+          :permissionCodes="permissionCodes"
+          :permissionReady="permissionReady"
+          @navigate-module="onNavigateModule"
+        />
       </a-layout-content>
     </a-layout>
   </a-layout>
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import ModuleTable from './ModuleTable.vue';
-import { MODULE_GROUPS, getLocalizedModuleGroups } from '../utils/module';
+import { MODULE_GROUPS } from '../utils/module';
 
 const props = defineProps({
   darkMode: { type: Boolean, default: false },
   menuCodes: { type: Array, default: () => [] },
   permissionCodes: { type: Array, default: () => [] },
   permissionReady: { type: Boolean, default: false },
-  currentLang: { type: String, default: 'ja-JP' },
   currentUser: { type: String, default: '' },
 });
 
-defineEmits(['logout', 'toggle-theme', 'change-lang']);
+defineEmits(['logout', 'toggle-theme']);
 
 const menuItems = ref([]);
 const hasMenus = ref(false);
@@ -65,34 +63,20 @@ const activeLabel = ref(findLabelByKey(firstModule));
 const selectedKeys = ref([firstModule]);
 const openKeys = ref([MODULE_GROUPS[0].key]);
 const nodeMap = ref(new Map());
+const HIDDEN_MODULES = ['stockOrderItem'];
 const allModules = MODULE_GROUPS.flatMap((g) => g.children.map((c) => c.key));
-const allowedModules = ref(new Set(allModules));
-const langOptions = [
-  { label: '日本語', value: 'ja-JP' },
-  { label: '中文', value: 'zh-CN' },
-  { label: 'English', value: 'en-US' },
-];
-const NAV_I18N = {
-  ja: { logo: '在庫管理', themeDark: '黒', themeLight: '白', logout: 'ログアウト' },
-  zh: { logo: '库存管理', themeDark: '暗', themeLight: '亮', logout: '退出登录' },
-  en: { logo: 'Inventory', themeDark: 'Dark', themeLight: 'Light', logout: 'Logout' },
-};
-const navText = computed(() => {
-  const low = String(props.currentLang || '').toLowerCase();
-  const locale = low.startsWith('zh') ? 'zh' : low.startsWith('en') ? 'en' : 'ja';
-  return NAV_I18N[locale];
-});
+const allowedModules = ref(new Set([...allModules, ...HIDDEN_MODULES]));
 
 watch(
-  () => [props.menuCodes, props.permissionCodes, props.permissionReady, props.currentLang],
+  () => [props.menuCodes, props.permissionCodes, props.permissionReady],
   () => initMenus(),
   { immediate: true, deep: true },
 );
 
 function rebuildMap(items) {
-  const m = new Map();
-  walk(items, m);
-  nodeMap.value = m;
+  const map = new Map();
+  walk(items, map);
+  nodeMap.value = map;
 }
 
 function walk(items, map) {
@@ -115,11 +99,26 @@ function normalizeModuleKey(key) {
 function onMenuClick({ key }) {
   const node = nodeMap.value.get(key);
   if (node?.children?.length) return;
+
   const moduleKey = normalizeModuleKey(key);
   if (!isValidModule(moduleKey)) return;
+
   activeModule.value = moduleKey;
   activeLabel.value = findLabelByKey(key);
   selectedKeys.value = [key];
+}
+
+function onNavigateModule(moduleKey) {
+  const target = normalizeModuleKey(moduleKey);
+  if (!isValidModule(target)) return;
+  activeModule.value = target;
+  selectedKeys.value = [target === 'stockOrderItem' ? 'stockOrder' : target];
+  activeLabel.value = findLabelByKey(target);
+  const parentKey = target === 'stockOrderItem' ? 'stockOrder' : target;
+  const parent = MODULE_GROUPS.find((g) => g.children.some((c) => c.key === parentKey));
+  if (parent) {
+    openKeys.value = [parent.key];
+  }
 }
 
 function isValidModule(moduleKey) {
@@ -127,20 +126,21 @@ function isValidModule(moduleKey) {
 }
 
 function findLabelByKey(key) {
-  const localized = getLocalizedModuleGroups(props.currentLang);
-  for (const group of localized) {
+  if (key === 'stockOrderItem') return '入出庫明細';
+  for (const group of MODULE_GROUPS) {
     const hit = group.children.find((item) => item.key === key);
     if (hit) return hit.label;
   }
   return '';
 }
 
-async function initMenus() {
+function initMenus() {
   const allowed = buildAllowedModulesByCodes();
-  allowedModules.value = allowed.size > 0 ? allowed : new Set(allModules);
+  const mergedAllowed = allowed.size > 0 ? allowed : new Set(allModules);
+  HIDDEN_MODULES.forEach((m) => mergedAllowed.add(m));
+  allowedModules.value = mergedAllowed;
 
-  const localized = getLocalizedModuleGroups(props.currentLang);
-  const filtered = localized.map((group) => ({
+  const filtered = MODULE_GROUPS.map((group) => ({
     ...group,
     children: group.children.filter((item) => allowedModules.value.has(item.key)),
   })).filter((group) => group.children.length > 0);
@@ -150,8 +150,8 @@ async function initMenus() {
     label: group.label,
     children: group.children.map((item) => ({ key: item.key, label: item.label })),
   }));
-  hasMenus.value = menuItems.value.length > 0;
 
+  hasMenus.value = menuItems.value.length > 0;
   rebuildMap(menuItems.value);
   ensureActiveModule();
 }
@@ -159,6 +159,7 @@ async function initMenus() {
 function ensureActiveModule() {
   const first = menuItems.value[0]?.children?.[0];
   if (!first) return;
+
   if (!allowedModules.value.has(activeModule.value)) {
     activeModule.value = first.key;
     selectedKeys.value = [first.key];
@@ -166,6 +167,7 @@ function ensureActiveModule() {
     openKeys.value = [menuItems.value[0].key];
     return;
   }
+
   activeLabel.value = findLabelByKey(selectedKeys.value[0] || activeModule.value);
 }
 

@@ -1,4 +1,4 @@
-﻿* {
+* {
   box-sizing: border-box;
 }
 
@@ -80,10 +80,6 @@ html[data-theme-mode='light'] .top-header .ant-btn-link {
 .top-header-tools {
   display: flex;
   align-items: center;
-}
-
-.lang-switch {
-  width: 120px;
 }
 
 .user-badge {
@@ -404,3 +400,4 @@ html[data-theme-mode='dark'] .module-table .ant-table-content::-webkit-scrollbar
   border-radius: 6px;
   border: 1px solid #e5e5e5;
 }
+

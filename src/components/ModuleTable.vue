@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <a-card :title="null" :bordered="false">
     <div class="search-toolbar">
         <div class="search-filters">
@@ -97,8 +97,13 @@
         <template v-else-if="!isEditing(record) && String(column.key) === 'isHot'">
           {{ Number(record.isHot) === 1 ? i18n.hotYes : i18n.hotNo }}
         </template>
+        <template v-else-if="!isEditing(record) && hasEnumOptions(column.key)">
+          {{ enumLabel(column.key, record[column.key]) }}
+        </template>
         <template v-if="column.key === '__actions'">
           <a-space>
+            <a v-if="props.moduleKey === 'stockOrder'" @click="goOrderItems(record)">明細</a>
+            <a v-if="props.moduleKey === 'requestForm'" @click="goRequestItems(record)">明細</a>
             <a v-if="canWrite && !isEditing(record)" @click="startInlineEdit(record)">{{ i18n.inlineEdit }}</a>
             <a v-if="canWrite && isEditing(record)" @click="saveInlineEdit(record)">{{ i18n.save }}</a>
             <a v-if="canWrite && isEditing(record)" @click="cancelInlineEdit">{{ i18n.cancel }}</a>
@@ -116,7 +121,7 @@
       <a-form layout="vertical">
         <a-form-item v-for="field in formKeys" :key="field" :required="requiredForForm(field)">
           <template #label>
-            {{ normalizeTitle(field, props.currentLang) }}
+            {{ normalizeTitle(field) }}
           </template>
           <a-input v-if="inputType(field) === 'text'" v-model:value="formState[field]" />
           <a-select
@@ -158,8 +163,8 @@ const props = defineProps({
   moduleKey: { type: String, required: true },
   permissionCodes: { type: Array, default: () => [] },
   permissionReady: { type: Boolean, default: false },
-  currentLang: { type: String, default: 'ja-JP' },
 });
+const emit = defineEmits(['navigate-module']);
 
 const rows = ref([]);
 const loading = ref(false);
@@ -253,24 +258,31 @@ const queryFields = computed(() => {
 });
 const statusOptions = STATUS_OPTIONS;
 const stockSourceTypeOptions = computed(() => {
-  const low = String(props.currentLang || '').toLowerCase();
-  if (low.startsWith('zh')) {
-    return [
-      { label: '自社入库（需审批）', value: 1 },
-      { label: '再贩卖入库（直接入库）', value: 2 },
-    ];
-  }
-  if (low.startsWith('en')) {
-    return [
-      { label: 'Internal Inbound (Approval Required)', value: 1 },
-      { label: 'Resale Inbound (Direct)', value: 2 },
-    ];
-  }
   return [
-    { label: '自社入庫（承認必須）', value: 1 },
-    { label: '再販売入庫（即時入庫）', value: 2 },
+    { label: '\u81ea\u793e\u5165\u5eab\uff08\u627f\u8a8d\u5fc5\u9808\uff09', value: 1 },
+    { label: '\u518d\u8ca9\u58f2\u5165\u5eab\uff08\u5373\u6642\u5165\u5eab\uff09', value: 2 },
   ];
 });
+const stockOrderTypeOptions = computed(() => ([
+  { label: '入库', value: 1 },
+  { label: '出库', value: 2 },
+  { label: '调整', value: 3 },
+  { label: '盘点', value: 4 },
+  { label: '调拨', value: 5 },
+  { label: '退货', value: 6 },
+]));
+const stockOrderSourceTypeOptions = computed(() => ([
+  { label: '订单', value: 1 },
+  { label: '退货', value: 2 },
+  { label: '请求单', value: 3 },
+  { label: '手动', value: 4 },
+]));
+const stockOrderStateOptions = computed(() => ([
+  { label: '草稿', value: 0 },
+  { label: '审核中', value: 1 },
+  { label: '完成', value: 2 },
+  { label: '取消', value: 3 },
+]));
 const canWrite = computed(() => {
   if (!props.permissionReady) return true;
   if (isGoodsManagement.value) {
@@ -288,112 +300,39 @@ const tablePagination = computed(() => ({
   showSizeChanger: true,
   pageSizeOptions: ['10', '20', '50'],
 }));
-const i18n = computed(() => {
-  const low = String(props.currentLang || '').toLowerCase();
-  if (low.startsWith('zh')) {
-    return {
-      search: '查询',
-      reset: '重置',
-      confirmBatchDelete: '确认删除已选记录吗？',
-      yes: '是',
-      no: '否',
-      batchDelete: '批量删除',
-      create: '新建',
-      inlineEdit: '行内编辑',
-      save: '保存',
-      cancel: '取消',
-      edit: '编辑',
-      confirmDelete: '确认删除吗？',
-      delete: '删除',
-      readonly: '仅查看',
-      actions: '操作',
-      fetchFail: '获取失败',
-      updateSuccess: '更新成功',
-      createSuccess: '创建成功',
-      saveFail: '保存失败',
-      deleteSuccess: '删除成功',
-      deleteFail: '删除失败',
-      batchDeleteSuccess: '批量删除成功',
-      batchDeleteFail: '批量删除失败',
-      updateFail: '更新失败',
-      requiredField: '请填写必填项',
-      stockFlowSuccess: '库存业务已提交',
-      selectDept: '请选择部门',
-      searchBy: '按',
-      searchSuffix: '搜索',
-      hotYes: '是',
-      hotNo: '否',
-    };
-  }
-  if (low.startsWith('en')) {
-    return {
-      search: 'Search',
-      reset: 'Reset',
-      confirmBatchDelete: 'Delete selected rows?',
-      yes: 'Yes',
-      no: 'No',
-      batchDelete: 'Batch Delete',
-      create: 'Create',
-      inlineEdit: 'Inline Edit',
-      save: 'Save',
-      cancel: 'Cancel',
-      edit: 'Edit',
-      confirmDelete: 'Delete this row?',
-      delete: 'Delete',
-      readonly: 'Read Only',
-      actions: 'Actions',
-      fetchFail: 'Failed to fetch',
-      updateSuccess: 'Updated',
-      createSuccess: 'Created',
-      saveFail: 'Failed to save',
-      deleteSuccess: 'Deleted',
-      deleteFail: 'Failed to delete',
-      batchDeleteSuccess: 'Batch deleted',
-      batchDeleteFail: 'Batch delete failed',
-      updateFail: 'Update failed',
-      requiredField: 'Please fill required fields',
-      stockFlowSuccess: 'Stock flow submitted',
-      selectDept: 'Select department',
-      searchBy: 'Search by',
-      searchSuffix: '',
-      hotYes: 'Yes',
-      hotNo: 'No',
-    };
-  }
-  return {
-    search: '検索',
-    reset: 'リセット',
-    confirmBatchDelete: '選択行を削除しますか',
-    yes: 'はい',
-    no: 'いいえ',
-    batchDelete: '一括削除',
-    create: '新規作成',
-    inlineEdit: '行内編集',
-    save: '保存',
-    cancel: 'キャンセル',
-    edit: '編集',
-    confirmDelete: '削除しますか',
-    delete: '削除',
-    readonly: '閲覧のみ',
-    actions: '操作',
-    fetchFail: '取得失敗',
-    updateSuccess: '更新しました',
-    createSuccess: '作成しました',
-    saveFail: '保存失敗',
-    deleteSuccess: '削除しました',
-    deleteFail: '削除失敗',
-    batchDeleteSuccess: '一括削除しました',
-    batchDeleteFail: '一括削除失敗',
-    updateFail: '更新失敗',
-    requiredField: '必須項目を入力してください',
-    stockFlowSuccess: '在庫業務を登録しました',
-    selectDept: '部署名を選択',
-    searchBy: '',
-    searchSuffix: 'で検索',
-    hotYes: 'はい',
-    hotNo: 'いいえ',
-  };
-});
+const i18n = computed(() => ({
+  search: '\u691c\u7d22',
+  reset: '\u30ea\u30bb\u30c3\u30c8',
+  confirmBatchDelete: '\u9078\u629e\u884c\u3092\u524a\u9664\u3057\u307e\u3059\u304b',
+  yes: '\u306f\u3044',
+  no: '\u3044\u3044\u3048',
+  batchDelete: '\u4e00\u62ec\u524a\u9664',
+  create: '\u65b0\u898f\u4f5c\u6210',
+  inlineEdit: '\u884c\u5185\u7de8\u96c6',
+  save: '\u4fdd\u5b58',
+  cancel: '\u30ad\u30e3\u30f3\u30bb\u30eb',
+  edit: '\u7de8\u96c6',
+  confirmDelete: '\u524a\u9664\u3057\u307e\u3059\u304b',
+  delete: '\u524a\u9664',
+  readonly: '\u95b2\u89a7\u306e\u307f',
+  actions: '\u64cd\u4f5c',
+  fetchFail: '\u53d6\u5f97\u5931\u6557',
+  updateSuccess: '\u66f4\u65b0\u3057\u307e\u3057\u305f',
+  createSuccess: '\u4f5c\u6210\u3057\u307e\u3057\u305f',
+  saveFail: '\u4fdd\u5b58\u5931\u6557',
+  deleteSuccess: '\u524a\u9664\u3057\u307e\u3057\u305f',
+  deleteFail: '\u524a\u9664\u5931\u6557',
+  batchDeleteSuccess: '\u4e00\u62ec\u524a\u9664\u3057\u307e\u3057\u305f',
+  batchDeleteFail: '\u4e00\u62ec\u524a\u9664\u5931\u6557',
+  updateFail: '\u66f4\u65b0\u5931\u6557',
+  requiredField: '\u5fc5\u9808\u9805\u76ee\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044',
+  stockFlowSuccess: '\u5728\u5eab\u696d\u52d9\u3092\u767b\u9332\u3057\u307e\u3057\u305f',
+  selectDept: '\u90e8\u7f72\u540d\u3092\u9078\u629e',
+  searchBy: '',
+  searchSuffix: '\u3067\u691c\u7d22',
+  hotYes: '\u306f\u3044',
+  hotNo: '\u3044\u3044\u3048',
+}));
 
 const keys = computed(() => {
   if (isGoodsManagement.value) {
@@ -424,7 +363,7 @@ const keys = computed(() => {
 
 const columns = computed(() => {
   const base = keys.value.map((key) => ({
-    title: isGoodsManagement.value && key === 'skuId' ? 'ID' : normalizeTitle(key, props.currentLang),
+    title: isGoodsManagement.value && key === 'skuId' ? 'ID' : normalizeTitle(key),
     dataIndex: key,
     key,
     fixed: columnFixed(key),
@@ -473,12 +412,33 @@ watch(
     if (!props.moduleKey) return;
     pagination.current = 1;
     initQuery();
+    applyPendingQuery();
     await loadQueryRelationOptions();
     await loadRelationOptions();
     await reload();
   },
   { immediate: true },
 );
+
+function applyPendingQuery() {
+  if (props.moduleKey === 'stockOrderItem') {
+    const orderId = sessionStorage.getItem('jump_stock_order_id');
+    if (!orderId) return;
+    if (Object.prototype.hasOwnProperty.call(queryState, 'orderId')) {
+      queryState.orderId = Number(orderId);
+    }
+    sessionStorage.removeItem('jump_stock_order_id');
+    return;
+  }
+  if (props.moduleKey === 'requestItem') {
+    const requestId = sessionStorage.getItem('jump_request_form_id');
+    if (!requestId) return;
+    if (Object.prototype.hasOwnProperty.call(queryState, 'requestId')) {
+      queryState.requestId = Number(requestId);
+    }
+    sessionStorage.removeItem('jump_request_form_id');
+  }
+}
 
 function initQuery() {
   Object.keys(queryState).forEach((k) => delete queryState[k]);
@@ -630,65 +590,33 @@ async function submitStockFlow() {
   const warehouseId = Number(formState.warehouseId);
   const stockTypeId = Number(formState.stockTypeId);
   const quantity = Number(formState.quantity);
-  const remark = formState.remark || null;
+  let skuId = formState.skuId ? Number(formState.skuId) : null;
+
+  // Auto-select SKU when the form does not expose skuId.
+  if (!skuId) {
+    try {
+      const skuList = await fetchModuleOptions('goodsSku');
+      const matched = (skuList || []).find((item) => Number(item.goodsId) === goodsId);
+      if (matched?.id) {
+        skuId = Number(matched.id);
+      }
+    } catch {
+      // Keep null and let backend validate.
+    }
+  }
+
+  const payload = {
+    goodsId,
+    skuId,
+    sourceType,
+    warehouseId,
+    stockTypeId,
+    quantity,
+    remark: formState.remark || null,
+  };
 
   try {
-    if (sourceType === 1) {
-      const requestForm = await createItem('requestForm', {
-        goodsId,
-        warehouseId,
-        stockTypeId,
-        totalQty: quantity,
-        requestQty: quantity,
-        state: 0,
-        remark,
-      });
-      const requestId = requestForm?.id || requestForm?.data?.id || requestForm?.requestId || null;
-      if (requestId) {
-        await createItem('requestItem', {
-          requestId,
-          goodsId,
-          warehouseId,
-          stockTypeId,
-          requestQty: quantity,
-          remark,
-        });
-      }
-    } else {
-      const stockOrder = await createItem('stockOrder', {
-        orderType: 1,
-        sourceType,
-        warehouseId,
-        stockTypeId,
-        totalQty: quantity,
-        state: 1,
-        remark,
-      });
-      const orderId = stockOrder?.id || stockOrder?.data?.id || stockOrder?.orderId || null;
-      let orderItemId = null;
-      if (orderId) {
-        const stockOrderItem = await createItem('stockOrderItem', {
-          orderId,
-          goodsId,
-          warehouseId,
-          stockTypeId,
-          changeQty: quantity,
-          remark,
-        });
-        orderItemId = stockOrderItem?.id || stockOrderItem?.data?.id || stockOrderItem?.orderItemId || null;
-      }
-      await createItem('stockRecord', {
-        orderId,
-        orderItemId,
-        goodsId,
-        warehouseId,
-        stockTypeId,
-        sourceType,
-        orderType: 1,
-        changeQty: quantity,
-        remark,
-      });
-    }
+    await createItem('stock/inbound', payload);
 
     modalOpen.value = false;
     message.success(i18n.value.stockFlowSuccess);
@@ -736,17 +664,15 @@ function queryInputType(field) {
 
 function queryOptions(field) {
   if (field === 'status') return statusOptions;
-  if (field === 'sourceType') return stockSourceTypeOptions.value;
+  const enumOpts = enumOptionsForField(field);
+  if (enumOpts.length > 0) return enumOpts;
   return queryRelationOptions[field] || [];
 }
 
 function queryPlaceholder(field) {
-  if (isGoodsManagement.value && field === 'keyword') return String(props.currentLang || '').toLowerCase().startsWith('en') ? 'Goods/SKU keyword' : String(props.currentLang || '').toLowerCase().startsWith('zh') ? '商品/SKU关键字' : '商品/SKUキーワード';
+  if (isGoodsManagement.value && field === 'keyword') return '\u5546\u54c1/SKU\u30ad\u30fc\u30ef\u30fc\u30c9';
   if (field === 'deptName') return i18n.value.selectDept;
-  if (String(props.currentLang || '').toLowerCase().startsWith('en')) {
-    return `${i18n.value.searchBy} ${normalizeTitle(field, props.currentLang)}`.trim();
-  }
-  return `${normalizeTitle(field, props.currentLang)}${i18n.value.searchSuffix}`;
+  return `${normalizeTitle(field)}${i18n.value.searchSuffix}`;
 }
 
 function inputType(field) {
@@ -759,8 +685,35 @@ function requiredForForm(field) {
 
 function selectOptionsForField(field) {
   if (field === 'status') return statusOptions;
-  if (field === 'sourceType') return stockSourceTypeOptions.value;
+  const enumOpts = enumOptionsForField(field);
+  if (enumOpts.length > 0) return enumOpts;
   return [];
+}
+
+function enumOptionsForField(field) {
+  const key = String(field || '');
+  if (props.moduleKey === 'stock' && key === 'sourceType') {
+    return stockSourceTypeOptions.value;
+  }
+  if (props.moduleKey === 'stockOrder' || props.moduleKey === 'stockRecord') {
+    if (key === 'orderType') return stockOrderTypeOptions.value;
+    if (key === 'sourceType') return stockOrderSourceTypeOptions.value;
+    if (key === 'state') return stockOrderStateOptions.value;
+  }
+  if (props.moduleKey === 'requestForm' && key === 'state') {
+    return stockOrderStateOptions.value;
+  }
+  return [];
+}
+
+function hasEnumOptions(field) {
+  return enumOptionsForField(field).length > 0;
+}
+
+function enumLabel(field, value) {
+  const opts = enumOptionsForField(field);
+  const hit = opts.find((item) => Number(item.value) === Number(value));
+  return hit?.label || value || '-';
 }
 
 function inlineField(field) {
@@ -880,6 +833,20 @@ function getRecordId(record) {
   return record?.id ?? record?.skuId ?? record?._id ?? null;
 }
 
+function goOrderItems(record) {
+  const id = getRecordId(record);
+  if (!id) return;
+  sessionStorage.setItem('jump_stock_order_id', String(id));
+  emit('navigate-module', 'stockOrderItem');
+}
+
+function goRequestItems(record) {
+  const id = getRecordId(record);
+  if (!id) return;
+  sessionStorage.setItem('jump_request_form_id', String(id));
+  emit('navigate-module', 'requestItem');
+}
+
 function formatTime(v) {
   if (!v) return '-';
   const d = new Date(v);
@@ -899,3 +866,4 @@ function moduleToUpperSnake(moduleKey) {
     .toUpperCase();
 }
 </script>
+
