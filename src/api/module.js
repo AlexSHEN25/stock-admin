@@ -29,6 +29,14 @@ export async function fetchModuleOptions(modulePath) {
   return page.records || [];
 }
 
+export async function readMessage(id) {
+  return http.put(`/api/message/read/${id}`);
+}
+
+export async function readAllMessages() {
+  return http.put('/api/message/read-all');
+}
+
 function normalizePage(data) {
   const records = data?.records || data?.list || data?.rows || [];
   const total = Number(data?.total ?? records.length ?? 0);

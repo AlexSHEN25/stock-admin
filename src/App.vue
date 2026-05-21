@@ -18,13 +18,12 @@
 </template>
 
 <script setup>
-import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { message, theme } from 'ant-design-vue';
 import { fetchPermissionScope, logout } from './api/auth';
 import { TOKEN_KEY } from './api/http';
-
-const LoginForm = defineAsyncComponent(() => import('./components/LoginForm.vue'));
-const ModuleLayout = defineAsyncComponent(() => import('./components/ModuleLayout.vue'));
+import LoginForm from './components/LoginForm.vue';
+import ModuleLayout from './components/ModuleLayout.vue';
 
 const THEME_KEY = 'stock_admin_theme_dark';
 const USERNAME_KEY = 'stock_admin_username';

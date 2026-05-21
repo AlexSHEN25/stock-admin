@@ -47,7 +47,7 @@
           {{ i18n.reset }}
         </a-button>
         <a-popconfirm
-          v-if="canWrite"
+          v-if="canWrite && canBatchDeleteInModule()"
           :title="i18n.confirmBatchDelete"
           :ok-text="i18n.yes"
           :cancel-text="i18n.no"
@@ -62,12 +62,19 @@
           </a-button>
         </a-popconfirm>
         <a-button
-          v-if="canWrite"
+          v-if="canWrite && canCreateInModule()"
           type="primary"
           class="search-btn search-btn-create"
           @click="openCreate"
         >
           {{ i18n.create }}
+        </a-button>
+        <a-button
+          v-if="props.moduleKey === 'message'"
+          class="search-btn"
+          @click="onReadAllMessages"
+        >
+          {{ i18n.readAll }}
         </a-button>
       </div>
     </div>
@@ -149,29 +156,30 @@
           <a-space>
             <a
               v-for="action in rowExtraActions"
+              v-show="canShowRowExtraAction(action.key, record)"
               :key="action.key"
               @click="handleRowExtraAction(action.key, record)"
             >
               {{ action.label }}
             </a>
             <a
-              v-if="canWrite && !isEditing(record)"
+              v-if="canWrite && canInlineEditRecord(record) && !isEditing(record)"
               @click="startInlineEdit(record)"
             >{{ i18n.inlineEdit }}</a>
             <a
-              v-if="canWrite && isEditing(record)"
+              v-if="canWrite && canEditRecord(record) && isEditing(record)"
               @click="saveInlineEdit(record)"
             >{{ i18n.save }}</a>
             <a
-              v-if="canWrite && isEditing(record)"
+              v-if="canWrite && canEditRecord(record) && isEditing(record)"
               @click="cancelInlineEdit"
             >{{ i18n.cancel }}</a>
             <a
-              v-if="canWrite"
+              v-if="canWrite && canEditRecord(record)"
               @click="openEdit(record)"
             >{{ i18n.edit }}</a>
             <a-popconfirm
-              v-if="canWrite"
+              v-if="canWrite && canDeleteRecord(record)"
               :title="i18n.confirmDelete"
               :ok-text="i18n.yes"
               :cancel-text="i18n.no"
@@ -251,7 +259,7 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
-import { createItem, fetchModuleOptions, fetchPage, removeItem, updateItem } from '../api/module';
+import { createItem, fetchModuleOptions, fetchPage, readAllMessages, readMessage, removeItem, updateItem } from '../api/module';
 import { TOKEN_KEY } from '../api/http';
 import { STATUS_OPTIONS, buildAutoQueryFields, displayKeys, getModulePreset, guessFieldType, isRequiredFormField, mapNameFieldToIdField, normalizeTitle, relationLabel, relationModuleByField } from '../utils/module';
 
@@ -259,6 +267,7 @@ const props = defineProps({
   moduleKey: { type: String, required: true },
   permissionCodes: { type: Array, default: () => [] },
   permissionReady: { type: Boolean, default: false },
+  currentUser: { type: String, default: '' },
 });
 const emit = defineEmits(['navigate-module']);
 
@@ -273,6 +282,8 @@ const editState = reactive({});
 const queryState = reactive({});
 const queryRelationOptions = reactive({});
 const relationOptions = reactive({});
+const relationModuleOptionCache = reactive({});
+const relationModuleOptionPromise = reactive({});
 const selectedRowKeys = ref([]);
 const pagination = reactive({ current: 1, pageSize: 10, total: 0 });
 const isGoodsManagement = computed(() => props.moduleKey === 'goods');
@@ -381,6 +392,7 @@ const stockOrderStateOptions = computed(() => ([
 const MODULE_QUERY_JUMPS = {
   stockOrderItem: { storageKey: 'jump_stock_order_id', queryField: 'orderId' },
   requestItem: { storageKey: 'jump_request_form_id', queryField: 'requestId' },
+  stockRecord: { storageKey: 'jump_stock_id', queryField: 'stockId' },
 };
 const MODULE_DETAIL_NAVIGATIONS = {
   stockOrder: { storageKey: 'jump_stock_order_id', targetModule: 'stockOrderItem' },
@@ -392,10 +404,18 @@ const MODULE_ROW_EXTRA_ACTIONS = {
     { key: 'detail', label: '明細' },
     { key: 'download', label: 'ダウンロード' },
   ],
+  message: [{ key: 'read', label: '既読' }],
 };
 const MODULE_SUBMIT_HANDLERS = {
   stock: submitStockFlow,
 };
+const REGULAR_USER_WRITE_MODULES = new Set([
+  'stockOrder',
+  'stockOrderItem',
+  'requestForm',
+  'requestItem',
+  'customer',
+]);
 const MODULE_ENUM_FIELD_OPTIONS = computed(() => ({
   stock: {
     sourceType: stockSourceTypeOptions.value,
@@ -415,16 +435,13 @@ const MODULE_ENUM_FIELD_OPTIONS = computed(() => ({
   },
 }));
 const rowExtraActions = computed(() => MODULE_ROW_EXTRA_ACTIONS[props.moduleKey] || []);
+const isAdminUser = computed(() => isAdminByPermissionCodes(props.permissionCodes || []));
 const canWrite = computed(() => {
   if (!props.permissionReady) return true;
-  if (isGoodsManagement.value) {
-    return (props.permissionCodes || []).includes('DATA_GOODS_MANAGEMENT_WRITE')
-      || (props.permissionCodes || []).includes('DATA_GOODS_BUNDLE_WRITE');
-  }
-  const upper = moduleToUpperSnake(props.moduleKey);
-  const writeCode = `DATA_${upper}_WRITE`;
-  return (props.permissionCodes || []).includes(writeCode);
+  if (isAdminUser.value) return true;
+  return REGULAR_USER_WRITE_MODULES.has(props.moduleKey);
 });
+const isUserSelfEditMode = computed(() => props.moduleKey === 'user' && editing.value && !isAdminUser.value);
 const tablePagination = computed(() => ({
   current: pagination.current,
   pageSize: pagination.pageSize,
@@ -446,6 +463,8 @@ const i18n = computed(() => ({
   edit: '\u7de8\u96c6',
   confirmDelete: '\u524a\u9664\u3057\u307e\u3059\u304b',
   delete: '\u524a\u9664',
+  read: '既読',
+  readAll: '全部既読',
   readonly: '\u95b2\u89a7\u306e\u307f',
   actions: '\u64cd\u4f5c',
   fetchFail: '\u53d6\u5f97\u5931\u6557',
@@ -531,10 +550,16 @@ function columnWidth(key) {
 
 const formKeys = computed(() => {
   if (isGoodsManagement.value) return goodsManagementFormFields;
-  if (preset.value.formFields?.length) return preset.value.formFields.filter((k) => !isReadonlyField(k));
-  const byRows = keys.value.filter((k) => !isReadonlyField(k));
-  if (byRows.length > 0) return byRows;
-  if (editingRaw.value) return Object.keys(editingRaw.value).filter((k) => !isReadonlyField(k));
+  const baseKeys = preset.value.formFields?.length
+    ? preset.value.formFields.filter((k) => !isReadonlyField(k))
+    : (() => {
+      const byRows = keys.value.filter((k) => !isReadonlyField(k));
+      if (byRows.length > 0) return byRows;
+      if (editingRaw.value) return Object.keys(editingRaw.value).filter((k) => !isReadonlyField(k));
+      return [];
+    })();
+  if (isUserSelfEditMode.value) return ['password'];
+  if (baseKeys.length > 0) return baseKeys;
   return [];
 });
 
@@ -634,6 +659,7 @@ function onSelectChange(keys) {
 
 function openCreate() {
   if (!canWrite.value) return;
+  if (!canCreateInModule()) return;
   editing.value = false;
   editingRaw.value = null;
   resetForm({});
@@ -643,6 +669,7 @@ function openCreate() {
 
 function openEdit(record) {
   if (!canWrite.value) return;
+  if (!canEditRecord(record)) return;
   editing.value = true;
   editingRaw.value = { ...record, id: getRecordId(record) };
   resetForm(record);
@@ -663,6 +690,7 @@ function resetForm(record) {
 
 async function submit() {
   if (!canWrite.value) return;
+  if (editing.value && editingRaw.value && !canEditRecord(editingRaw.value)) return;
   if (validateRequiredFields()) return;
   const moduleSubmitHandler = MODULE_SUBMIT_HANDLERS[props.moduleKey];
   if (moduleSubmitHandler) {
@@ -671,7 +699,7 @@ async function submit() {
   }
   try {
     if (editing.value) {
-      const payload = normalizePayload({ ...(editingRaw.value || {}), ...formState });
+      const payload = normalizePayload(buildEditPayload());
       await updateItem(modulePath.value, payload);
       message.success(i18n.value.updateSuccess);
     } else {
@@ -752,6 +780,7 @@ async function submitStockFlow() {
 
 async function onDelete(record) {
   if (!canWrite.value) return;
+  if (!canDeleteRecord(record)) return;
   try {
     await removeItem(modulePath.value, getRecordId(record));
     message.success(i18n.value.deleteSuccess);
@@ -763,6 +792,7 @@ async function onDelete(record) {
 
 async function onBatchDelete() {
   if (!canWrite.value) return;
+  if (!canBatchDeleteInModule()) return;
   if (selectedRowKeys.value.length === 0) return;
   try {
     for (const id of selectedRowKeys.value) {
@@ -788,9 +818,19 @@ function queryInputType(field) {
 
 function queryOptions(field) {
   if (field === 'status') return statusOptions;
-  const enumOpts = enumOptionsForField(field);
+  const enumOpts = dedupeOptions(enumOptionsForField(field));
   if (enumOpts.length > 0) return enumOpts;
-  return queryRelationOptions[field] || [];
+  return dedupeOptions(queryRelationOptions[field] || []);
+}
+
+function buildEditPayload() {
+  if (isUserSelfEditMode.value) {
+    return {
+      id: getRecordId(editingRaw.value),
+      password: formState.password,
+    };
+  }
+  return { ...(editingRaw.value || {}), ...formState };
 }
 
 function queryPlaceholder(field) {
@@ -809,7 +849,7 @@ function requiredForForm(field) {
 
 function selectOptionsForField(field) {
   if (field === 'status') return statusOptions;
-  const enumOpts = enumOptionsForField(field);
+  const enumOpts = dedupeOptions(enumOptionsForField(field));
   if (enumOpts.length > 0) return enumOpts;
   return [];
 }
@@ -868,6 +908,7 @@ function isEditing(record) {
 
 function startInlineEdit(record) {
   if (!canWrite.value) return;
+  if (!canEditRecord(record)) return;
   editingKey.value = getRecordId(record);
   Object.keys(editState).forEach((k) => delete editState[k]);
   formKeys.value.forEach((key) => {
@@ -889,6 +930,7 @@ function cancelInlineEdit() {
 
 async function saveInlineEdit(record) {
   if (!canWrite.value) return;
+  if (!canEditRecord(record)) return;
   try {
     const payload = normalizePayload({ ...record, ...editState, id: getRecordId(record) });
     await updateItem(modulePath.value, payload);
@@ -910,11 +952,7 @@ async function loadRelationOptions() {
     const targetModule = relationModuleByField(field);
     if (!targetModule) continue;
     try {
-      const list = await fetchModuleOptions(targetModule);
-      relationOptions[field] = (list || []).map((item) => ({
-        label: relationLabel(item),
-        value: item.id,
-      }));
+      relationOptions[field] = await getRelationModuleOptions(targetModule);
     } catch {
       relationOptions[field] = [];
     }
@@ -931,15 +969,48 @@ async function loadQueryRelationOptions() {
     const targetModule = relationModuleByField(idField || field);
     if (!targetModule) continue;
     try {
-      const list = await fetchModuleOptions(targetModule);
-      queryRelationOptions[field] = (list || []).map((item) => ({
-        label: relationLabel(item),
-        value: item.id,
-      }));
+      queryRelationOptions[field] = await getRelationModuleOptions(targetModule);
     } catch {
       queryRelationOptions[field] = [];
     }
   }
+}
+
+async function getRelationModuleOptions(targetModule) {
+  if (relationModuleOptionCache[targetModule]) {
+    return relationModuleOptionCache[targetModule];
+  }
+  if (!relationModuleOptionPromise[targetModule]) {
+    relationModuleOptionPromise[targetModule] = fetchModuleOptions(targetModule)
+      .then((list) => dedupeOptions((list || []).map((item) => ({
+        label: relationLabel(item),
+        value: item.id,
+      }))))
+      .then((options) => {
+        relationModuleOptionCache[targetModule] = options;
+        return options;
+      })
+      .finally(() => {
+        relationModuleOptionPromise[targetModule] = null;
+      });
+  }
+  return relationModuleOptionPromise[targetModule];
+}
+
+function dedupeOptions(options) {
+  const list = Array.isArray(options) ? options : [];
+  const seen = new Set();
+  const out = [];
+  for (const item of list) {
+    if (!item) continue;
+    const valueKey = item.value !== undefined && item.value !== null ? `v:${String(item.value)}` : '';
+    const labelKey = item.label !== undefined && item.label !== null ? `l:${String(item.label)}` : '';
+    const key = valueKey || labelKey;
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
 }
 
 function getRecordId(record) {
@@ -962,6 +1033,37 @@ function handleRowExtraAction(actionKey, record) {
   }
   if (actionKey === 'download') {
     downloadRequestForm(record);
+    return;
+  }
+  if (actionKey === 'read') {
+    onReadMessage(record);
+  }
+}
+
+function canShowRowExtraAction(actionKey, record) {
+  if (actionKey !== 'read') return true;
+  return props.moduleKey === 'message' && Number(record?.isRead) !== 1;
+}
+
+async function onReadMessage(record) {
+  const id = getRecordId(record);
+  if (!id) return;
+  try {
+    await readMessage(id);
+    message.success(i18n.value.read);
+    reload();
+  } catch (error) {
+    message.error(error?.message || i18n.value.updateFail);
+  }
+}
+
+async function onReadAllMessages() {
+  try {
+    await readAllMessages();
+    message.success(i18n.value.readAll);
+    reload();
+  } catch (error) {
+    message.error(error?.message || i18n.value.updateFail);
   }
 }
 
@@ -1076,10 +1178,57 @@ function formatTime(v) {
   return `${y}-${m}-${day} ${hh}:${mm}:${ss}`;
 }
 
-function moduleToUpperSnake(moduleKey) {
-  return String(moduleKey || '')
-    .replace(/([a-z])([A-Z])/g, '$1_$2')
-    .toUpperCase();
+function isAdminByPermissionCodes(codes) {
+  const list = Array.isArray(codes) ? codes.map((x) => String(x || '').trim()).filter(Boolean) : [];
+  if (list.length === 0) return false;
+  const codeSet = new Set(list);
+  const adminMarkers = [
+    'ROLE_SUPER_ADMIN',
+    'SUPER_ADMIN',
+    'DATA_ALL_WRITE',
+    'DATA_SUPER_ADMIN_WRITE',
+  ];
+  return adminMarkers.some((marker) => codeSet.has(marker));
+}
+
+
+function canCreateInModule() {
+  if (props.moduleKey !== 'user') return true;
+  return isAdminUser.value;
+}
+
+function canBatchDeleteInModule() {
+  if (props.moduleKey !== 'user') return true;
+  return isAdminUser.value;
+}
+
+function canDeleteRecord(_record) {
+  if (props.moduleKey !== 'user') return true;
+  if (isAdminUser.value) return true;
+  return false;
+}
+
+function canEditRecord(record) {
+  if (props.moduleKey !== 'user') return true;
+  if (isAdminUser.value) return true;
+  return isOwnUserRecord(record);
+}
+
+function canInlineEditRecord(record) {
+  if (props.moduleKey !== 'user') return canEditRecord(record);
+  return isAdminUser.value && canEditRecord(record);
+}
+
+function isOwnUserRecord(record) {
+  const self = String(props.currentUser || '').trim();
+  if (!self) return false;
+  const candidates = [
+    record?.username,
+    record?.userName,
+    record?.loginName,
+    record?.account,
+  ];
+  return candidates.some((name) => String(name || '').trim() === self);
 }
 </script>
 
