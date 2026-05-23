@@ -4,6 +4,15 @@
       v-if="!token"
       @success="onLoginSuccess"
     />
+    <div
+      v-else-if="!permissionReady"
+      class="app-loading-wrap"
+    >
+      <a-spin size="large" />
+      <div class="app-loading-text">
+        {{ APP_MESSAGES.permissionLoading }}
+      </div>
+    </div>
     <module-layout
       v-else
       :dark-mode="darkMode"
@@ -24,9 +33,19 @@ import { fetchPermissionScope, logout } from './api/auth';
 import { TOKEN_KEY } from './api/http';
 import LoginForm from './components/LoginForm.vue';
 import ModuleLayout from './components/ModuleLayout.vue';
+import { MODULE_GROUPS } from './utils/module';
+import { MODULE_LAYOUT_CONFIG } from './utils/module-ui';
 
 const THEME_KEY = 'stock_admin_theme_dark';
 const USERNAME_KEY = 'stock_admin_username';
+const PERMISSION_TIMEOUT_MS = 8000;
+const APP_MESSAGES = {
+  authExpired: 'ログインの有効期限が切れました',
+  permissionLoading: '権限情報を読み込み中です',
+  permissionLoadFail: '権限情報の取得に失敗しました。再ログインしてください',
+  permissionLoadTimeout: '権限情報の読み込みがタイムアウトしました。再ログインしてください',
+  loginSuccess: 'ログインしました',
+};
 
 const token = ref(localStorage.getItem(TOKEN_KEY));
 const darkMode = ref(localStorage.getItem(THEME_KEY) === '1');
@@ -56,7 +75,7 @@ function handleAuthExpired() {
   menuCodes.value = [];
   permissionCodes.value = [];
   permissionReady.value = false;
-  message.warning('ログインの有効期限が切れました');
+  message.warning(APP_MESSAGES.authExpired);
 }
 
 function onLoginSuccess(payload) {
@@ -79,8 +98,9 @@ function onLoginSuccess(payload) {
   }
 
   token.value = payload.token;
+  permissionReady.value = false;
   loadPermissions();
-  message.success('ログインしました');
+  message.success(APP_MESSAGES.loginSuccess);
 }
 
 function onToggleTheme(next) {
@@ -111,14 +131,103 @@ async function onLogout() {
 
 async function loadPermissions() {
   try {
-    const scope = await fetchPermissionScope();
+    const scope = await withTimeout(fetchPermissionScope(), PERMISSION_TIMEOUT_MS);
     menuCodes.value = scope.menuCodes || [];
     permissionCodes.value = scope.permissionCodes || [];
     permissionReady.value = true;
-  } catch {
+    logPermissionMapping(menuCodes.value, permissionCodes.value);
+  } catch (error) {
     menuCodes.value = [];
     permissionCodes.value = [];
     permissionReady.value = false;
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USERNAME_KEY);
+    token.value = null;
+    currentUser.value = '';
+    const isTimeout = String(error?.message || '') === 'PERMISSION_TIMEOUT';
+    message.warning(isTimeout ? APP_MESSAGES.permissionLoadTimeout : APP_MESSAGES.permissionLoadFail);
   }
 }
+
+function withTimeout(promise, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('PERMISSION_TIMEOUT'));
+    }, timeoutMs);
+
+    Promise.resolve(promise)
+      .then((result) => {
+        clearTimeout(timer);
+        resolve(result);
+      })
+      .catch((error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
+function logPermissionMapping(menuCodeList, permissionCodeList) {
+  const menuSet = new Set((menuCodeList || []).map((item) => String(item || '').trim()).filter(Boolean));
+  const permSet = new Set((permissionCodeList || []).map((item) => String(item || '').trim()).filter(Boolean));
+  const aliasesByModule = MODULE_LAYOUT_CONFIG.permissionAliases || {};
+  const moduleKeys = MODULE_GROUPS.flatMap((group) => group.children.map((child) => child.key));
+
+  const rows = moduleKeys.map((moduleKey) => {
+    const aliases = aliasesByModule[moduleKey] || [moduleToUpperSnake(moduleKey)];
+    const menuHits = aliases
+      .map((alias) => `MENU_${alias}`)
+      .filter((code) => menuSet.has(code));
+    const permHits = aliases.flatMap((alias) => {
+      const read = `DATA_${alias}_READ`;
+      const write = `DATA_${alias}_WRITE`;
+      return [read, write].filter((code) => permSet.has(code));
+    });
+    return {
+      moduleKey,
+      aliases: aliases.join(','),
+      menuHits: menuHits.join(','),
+      permHits: permHits.join(','),
+      visible: menuSet.size > 0 ? (menuHits.length > 0 && permHits.length > 0) : permHits.length > 0,
+    };
+  });
+
+  const hitCodes = new Set(rows.flatMap((row) => row.permHits ? row.permHits.split(',').filter(Boolean) : []));
+  const unmatchedPermCodes = [...permSet].filter((code) => !hitCodes.has(code));
+
+  console.groupCollapsed('[Permission Mapping]');
+  console.table(rows);
+  if (unmatchedPermCodes.length > 0) {
+    console.log('[Unmatched Permission Codes]', unmatchedPermCodes);
+  } else {
+    console.log('[Unmatched Permission Codes] none');
+  }
+  console.groupEnd();
+}
+
+function moduleToUpperSnake(moduleKey) {
+  return String(moduleKey || '')
+    .replace(/([a-z])([A-Z])/g, '$1_$2')
+    .toUpperCase();
+}
 </script>
+
+<style scoped>
+.app-loading-wrap {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.app-loading-text {
+  color: rgba(0, 0, 0, 0.65);
+  font-size: 14px;
+}
+
+:global(html[data-theme-mode='dark']) .app-loading-text {
+  color: rgba(255, 255, 255, 0.82);
+}
+</style>

@@ -279,6 +279,21 @@ html[data-theme-mode='light'] .top-header .ant-btn-link {
   border-radius: 12px;
 }
 
+.login-card .ant-card-head-title,
+.login-card .ant-form-item-label > label {
+  color: #111111;
+}
+
+.login-card .ant-input,
+.login-card .ant-input-password,
+.login-card .ant-input-password .ant-input {
+  color: #111111;
+}
+
+.login-card .ant-input::placeholder {
+  color: rgba(0, 0, 0, 0.45);
+}
+
 html[data-theme-mode='dark'] body {
   background: radial-gradient(circle at top right, #151515, #101010 45%, #070707);
 }
@@ -391,6 +406,38 @@ html[data-theme-mode='dark'] .module-table .ant-table-content::-webkit-scrollbar
 
 html[data-theme-mode='dark'] .module-table .ant-table-content::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, rgba(152, 152, 152, 0.66), rgba(112, 112, 112, 0.56));
+}
+
+html[data-theme-mode='dark'] .login-wrap {
+  background: transparent;
+}
+
+html[data-theme-mode='dark'] .login-card {
+  background: #141414;
+  border: 1px solid #2f2f2f;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme-mode='dark'] .login-card .ant-card-head {
+  border-bottom: 1px solid #2f2f2f;
+}
+
+html[data-theme-mode='dark'] .login-card .ant-card-head-title,
+html[data-theme-mode='dark'] .login-card .ant-form-item-label > label {
+  color: #f2f2f2;
+}
+
+html[data-theme-mode='dark'] .login-card .ant-input-affix-wrapper,
+html[data-theme-mode='dark'] .login-card .ant-input,
+html[data-theme-mode='dark'] .login-card .ant-input-password {
+  background: #1d1d1d !important;
+  border-color: #3a3a3a !important;
+  color: #f2f2f2 !important;
+}
+
+html[data-theme-mode='dark'] .login-card .ant-input::placeholder,
+html[data-theme-mode='dark'] .login-card .ant-input-password .ant-input::placeholder {
+  color: rgba(242, 242, 242, 0.55);
 }
 
 .goods-thumb {

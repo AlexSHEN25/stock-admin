@@ -1,0 +1,358 @@
+import { RELATION_FIELD_MODULE } from './module-fields';
+
+const NAME_STATUS_QUERY_FIELDS = ['id', 'name', 'status'];
+const NAME_STATUS_FORM_FIELDS = ['name', 'status'];
+const STOCK_ORDER_ITEM_FIELDS = ['id', 'orderId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'stockTypeId', 'stockTypeName', 'makerId', 'makerName', 'beforeQty', 'changeQty', 'afterQty', 'price', 'currency', 'remark'];
+const REQUEST_FORM_FIELDS = ['id', 'bizNo', 'userId', 'username', 'deptId', 'deptName', 'customerId', 'customerName', 'warehouseId', 'totalQty', 'requestQty', 'totalAmt', 'state', 'approverId', 'approverName', 'approveTime', 'approveRemark'];
+const REQUEST_ITEM_FIELDS = ['id', 'requestId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'makerId', 'makerName', 'stockTypeId', 'stockTypeName', 'warehouseId', 'price', 'currency', 'discount', 'requestQty', 'approveQty', 'outQty', 'stockRecordId', 'remark'];
+
+export const MODULE_GROUPS = [
+  {
+    key: 'base',
+    label: '基礎マスタ',
+    children: [
+      { key: 'user', label: 'ユーザー管理' },
+      { key: 'dept', label: '部署管理' },
+      { key: 'warehouse', label: '倉庫管理' },
+      { key: 'role', label: 'ロール管理' },
+      { key: 'permission', label: '権限管理' },
+    ],
+  },
+  {
+    key: 'goods',
+    label: '商品管理',
+    children: [
+      { key: 'goods', label: '商品管理' },
+      { key: 'goodsLevelPrice', label: '会員価格管理' },
+      { key: 'maker', label: 'メーカー管理' },
+      { key: 'brand', label: 'ブランド管理' },
+      { key: 'category', label: 'カテゴリ管理' },
+      { key: 'series', label: 'シリーズ管理' },
+    ],
+  },
+  {
+    key: 'stock',
+    label: '在庫管理',
+    children: [
+      { key: 'stock', label: '在庫一覧' },
+      { key: 'stockType', label: '在庫区分' },
+      { key: 'stockRecord', label: '在庫履歴' },
+      { key: 'stockOrder', label: '入出庫伝票' },
+      { key: 'priceRecord', label: '価格履歴' },
+    ],
+  },
+  {
+    key: 'request',
+    label: '請求書管理',
+    children: [
+      { key: 'requestForm', label: '申請管理' },
+      { key: 'requestItem', label: '申請明細' },
+    ],
+  },
+  {
+    key: 'customer',
+    label: '顧客管理',
+    children: [
+      { key: 'customer', label: '顧客管理' },
+      { key: 'customerLevel', label: '顧客ランク管理' },
+    ],
+  },
+  {
+    key: 'system',
+    label: 'システム管理',
+    children: [
+      { key: 'config', label: 'システム設定' },
+      { key: 'message', label: 'メッセージ管理' },
+      { key: 'operateLog', label: '操作ログ' },
+    ],
+  },
+];
+
+export const MODULE_PRESETS = {
+  user: {
+    queryFields: ['username', 'deptId', 'deptName', 'email', 'phone', 'status'],
+    formFields: ['username', 'password', 'deptId', 'email', 'phone', 'status'],
+    fieldTypes: { deptId: 'relation', status: 'select' },
+  },
+  dept: {
+    queryFields: ['id', 'name', 'code', 'leaderId', 'sort', 'status'],
+    formFields: ['parentId', 'name', 'code', 'leaderId', 'sort', 'status'],
+    fieldTypes: { parentId: 'relation', leaderId: 'relation', sort: 'number', status: 'select' },
+  },
+  goods: {
+    queryFields: ['id', 'name', 'englishName', 'seriesId', 'brandId', 'categoryId', 'makerId', 'sort', 'status', 'isHot'],
+    formFields: ['name', 'englishName', 'brandId', 'seriesId', 'categoryId', 'makerId', 'description', 'isHot', 'skuCode', 'skuName', 'price', 'status'],
+    fieldTypes: {
+      brandId: 'relation',
+      seriesId: 'relation',
+      categoryId: 'relation',
+      makerId: 'relation',
+      isHot: 'switch',
+      price: 'decimal',
+      status: 'select',
+      description: 'textarea',
+    },
+  },
+  stock: {
+    queryFields: ['id', 'goodsId', 'goodsName', 'skuCode', 'skuId', 'stockTypeId', 'currentQty', 'lockQty', 'price', 'priceUpdateTime', 'currency', 'warehouseId', 'status'],
+    formFields: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity', 'remark', 'status'],
+    fieldTypes: {
+      goodsId: 'relation',
+      sourceType: 'select',
+      warehouseId: 'relation',
+      stockTypeId: 'relation',
+      quantity: 'number',
+      remark: 'textarea',
+      status: 'select',
+    },
+  },
+  stockOrder: {
+    queryFields: ['id', 'orderNo', 'orderType', 'stockTypeId', 'warehouseId', 'sourceType', 'sourceId', 'totalQty', 'state', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'approverId', 'approverName', 'approveTime', 'finishTime', 'remark'],
+    formFields: ['orderNo', 'orderType', 'warehouseId', 'sourceType', 'sourceId', 'totalQty', 'stockTypeId', 'state', 'requesterId', 'operatorId', 'approverId', 'approveTime', 'finishTime', 'remark'],
+    fieldTypes: {
+      warehouseId: 'relation',
+      stockTypeId: 'relation',
+      requesterId: 'relation',
+      operatorId: 'relation',
+      approverId: 'relation',
+      orderType: 'select',
+      sourceType: 'select',
+      sourceId: 'number',
+      totalQty: 'number',
+      state: 'select',
+      approveTime: 'datetime',
+      finishTime: 'datetime',
+      remark: 'textarea',
+    },
+  },
+  stockOrderItem: {
+    queryFields: STOCK_ORDER_ITEM_FIELDS,
+    formFields: STOCK_ORDER_ITEM_FIELDS.filter((field) => field !== 'id'),
+    fieldTypes: {
+      orderId: 'number',
+      goodsId: 'relation',
+      skuId: 'relation',
+      brandId: 'relation',
+      seriesId: 'relation',
+      categoryId: 'relation',
+      stockTypeId: 'relation',
+      makerId: 'relation',
+      beforeQty: 'number',
+      changeQty: 'number',
+      afterQty: 'number',
+      price: 'decimal',
+      remark: 'textarea',
+    },
+  },
+  stockRecord: {
+    queryFields: ['id', 'bizNo', 'orderId', 'orderItemId', 'stockId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'stockTypeId', 'stockTypeName', 'makerId', 'makerName', 'warehouseId', 'beforeQty', 'changeQty', 'afterQty', 'sourceType', 'orderType', 'price', 'currency', 'priceUpdateTime', 'customerId', 'customerName', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'remark'],
+    formFields: ['bizNo', 'orderId', 'orderItemId', 'stockId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'stockTypeId', 'stockTypeName', 'makerId', 'makerName', 'warehouseId', 'beforeQty', 'changeQty', 'afterQty', 'sourceType', 'orderType', 'price', 'currency', 'priceUpdateTime', 'customerId', 'customerName', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'remark'],
+    fieldTypes: {
+      orderId: 'number',
+      orderItemId: 'number',
+      stockId: 'number',
+      goodsId: 'relation',
+      skuId: 'relation',
+      brandId: 'relation',
+      seriesId: 'relation',
+      categoryId: 'relation',
+      stockTypeId: 'relation',
+      makerId: 'relation',
+      warehouseId: 'relation',
+      customerId: 'relation',
+      requesterId: 'relation',
+      operatorId: 'relation',
+      beforeQty: 'number',
+      changeQty: 'number',
+      afterQty: 'number',
+      sourceType: 'number',
+      orderType: 'number',
+      price: 'decimal',
+      priceUpdateTime: 'datetime',
+      remark: 'textarea',
+    },
+  },
+  requestForm: {
+    queryFields: REQUEST_FORM_FIELDS,
+    formFields: REQUEST_FORM_FIELDS.filter((field) => field !== 'id'),
+    fieldTypes: {
+      userId: 'relation',
+      deptId: 'relation',
+      customerId: 'relation',
+      warehouseId: 'relation',
+      approverId: 'relation',
+      totalQty: 'number',
+      requestQty: 'number',
+      totalAmt: 'decimal',
+      state: 'number',
+      approveTime: 'datetime',
+      approveRemark: 'textarea',
+    },
+  },
+  requestItem: {
+    queryFields: REQUEST_ITEM_FIELDS,
+    formFields: REQUEST_ITEM_FIELDS.filter((field) => field !== 'id'),
+    fieldTypes: {
+      requestId: 'number',
+      goodsId: 'relation',
+      skuId: 'relation',
+      brandId: 'relation',
+      seriesId: 'relation',
+      categoryId: 'relation',
+      makerId: 'relation',
+      stockTypeId: 'relation',
+      warehouseId: 'relation',
+      stockRecordId: 'number',
+      price: 'decimal',
+      discount: 'decimal',
+      requestQty: 'number',
+      approveQty: 'number',
+      outQty: 'number',
+      remark: 'textarea',
+    },
+  },
+  warehouse: {
+    queryFields: ['id', 'name', 'code', 'address', 'managerId', 'status'],
+    formFields: ['name', 'code', 'address', 'managerId', 'status'],
+    fieldTypes: { managerId: 'relation', status: 'select' },
+  },
+  role: {
+    queryFields: ['id', 'name', 'code', 'remark', 'status'],
+    formFields: ['name', 'code', 'remark', 'status'],
+    fieldTypes: { status: 'select' },
+  },
+  permission: {
+    queryFields: ['id', 'name', 'code', 'module', 'type', 'parentId', 'path', 'sort', 'icon', 'component', 'status'],
+    fieldTypes: { parentId: 'relation', sort: 'number', status: 'select' },
+  },
+  maker: {
+    queryFields: NAME_STATUS_QUERY_FIELDS,
+    formFields: NAME_STATUS_FORM_FIELDS,
+    fieldTypes: { status: 'select' },
+  },
+  brand: {
+    queryFields: ['id', 'name', 'englishName', 'image', 'content', 'status'],
+    formFields: ['name', 'englishName', 'content', 'status'],
+    fieldTypes: { status: 'select' },
+  },
+  category: {
+    queryFields: NAME_STATUS_QUERY_FIELDS,
+    formFields: NAME_STATUS_FORM_FIELDS,
+    fieldTypes: { status: 'select' },
+  },
+  series: {
+    queryFields: ['id', 'name', 'englishName', 'brandId', 'content', 'status'],
+    formFields: ['name', 'englishName', 'brandId', 'content', 'status'],
+    fieldTypes: { brandId: 'relation', status: 'select' },
+  },
+  config: {
+    queryFields: ['id', 'name', 'group', 'title', 'tip', 'type', 'value', 'content'],
+  },
+  goodsSku: {
+    queryFields: ['id', 'goodsId', 'skuCode', 'skuName', 'price', 'currency', 'costPrice', 'updatePrice', 'priceUpdateTime', 'barcode', 'weight', 'volume', 'status'],
+    fieldTypes: { goodsId: 'relation', status: 'select' },
+  },
+  goodsSkuSpec: {
+    queryFields: ['id', 'skuId', 'skuCode', 'specId', 'specName', 'specValue', 'sort'],
+    fieldTypes: { skuId: 'relation', specId: 'number', sort: 'number' },
+  },
+  goodsImage: {
+    queryFields: ['id', 'goodsId', 'skuId', 'skuCode', 'imageUrl', 'sort'],
+    fieldTypes: { goodsId: 'relation', skuId: 'relation', sort: 'number' },
+  },
+  goodsLevelPrice: {
+    queryFields: ['id', 'goodsId', 'skuId', 'skuCode', 'levelId', 'price', 'currency', 'discount', 'effectiveTime', 'expireTime', 'status'],
+    fieldTypes: { goodsId: 'relation', skuId: 'relation', levelId: 'number', status: 'select' },
+  },
+  stockType: {
+    queryFields: NAME_STATUS_QUERY_FIELDS,
+    formFields: NAME_STATUS_FORM_FIELDS,
+    fieldTypes: { status: 'select' },
+  },
+  priceRecord: {
+    queryFields: ['id', 'goodsId', 'goodsName', 'englishName', 'skuId', 'skuCode', 'oldPrice', 'newPrice', 'currency', 'discount', 'priceUpdateTime', 'operatorId', 'operatorName'],
+  },
+  customer: {
+    queryFields: ['id', 'customerCode', 'name', 'englishName', 'contactPerson', 'phone', 'email', 'country', 'city', 'address', 'levelName', 'ownerUserName', 'ownerDeptName', 'remark', 'status'],
+    formFields: ['customerCode', 'name', 'englishName', 'contactPerson', 'phone', 'email', 'country', 'city', 'address', 'levelId', 'ownerUserId', 'ownerDeptId', 'remark', 'status'],
+    fieldTypes: { levelId: 'relation', ownerUserId: 'relation', ownerDeptId: 'relation', status: 'select' },
+  },
+  customerLevel: {
+    queryFields: ['id', 'name', 'discount', 'remark', 'status'],
+    fieldTypes: { status: 'select' },
+  },
+  message: {
+    queryFields: ['id', 'type', 'userId', 'message', 'sourceId', 'isRead', 'state'],
+    fieldTypes: { userId: 'relation' },
+  },
+  operateLog: {
+    queryFields: ['id', 'userId', 'username', 'module', 'operation', 'method', 'requestUrl', 'requestIp', 'requestParam', 'responseData', 'status', 'errorMsg', 'costTime'],
+    fieldTypes: { userId: 'relation', status: 'select' },
+  },
+  userRole: {
+    queryFields: ['id', 'userId', 'roleId'],
+    fieldTypes: { userId: 'relation', roleId: 'relation' },
+  },
+  rolePermission: {
+    queryFields: ['id', 'roleId', 'permissionId'],
+    fieldTypes: { roleId: 'relation', permissionId: 'relation' },
+  },
+  userToken: {
+    queryFields: ['id', 'token', 'userId', 'loginTime', 'expireTime', 'loginIp', 'status'],
+    fieldTypes: { userId: 'relation', status: 'select' },
+  },
+};
+
+export const REQUIRED_FORM_FIELDS = {
+  user: ['username', 'password', 'deptId', 'status'],
+  dept: ['name', 'code', 'status'],
+  goods: ['name', 'englishName', 'brandId', 'seriesId', 'categoryId', 'makerId', 'skuCode', 'skuName'],
+  stock: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity'],
+  stockOrder: ['orderNo', 'orderType', 'warehouseId', 'sourceType'],
+  stockOrderItem: ['orderId', 'goodsId', 'skuId', 'goodsName', 'beforeQty', 'changeQty', 'afterQty'],
+  stockRecord: ['bizNo', 'orderId', 'orderItemId', 'stockId', 'goodsId', 'skuId', 'goodsName', 'beforeQty', 'changeQty', 'afterQty', 'orderType', 'sourceType'],
+  requestForm: ['bizNo', 'userId', 'username', 'customerId', 'customerName'],
+  requestItem: ['requestId', 'goodsId', 'skuId'],
+  warehouse: ['name', 'code', 'status'],
+  role: ['name', 'code', 'status'],
+  maker: ['name', 'status'],
+  brand: ['name', 'status'],
+  category: ['name', 'status'],
+  series: ['name', 'brandId', 'status'],
+};
+
+export function getModulePreset(moduleKey) {
+  return MODULE_PRESETS[moduleKey] || { queryFields: [], formFields: [], fieldTypes: {} };
+}
+
+export function isRequiredFormField(moduleKey, field) {
+  const list = REQUIRED_FORM_FIELDS[moduleKey] || [];
+  return list.includes(field);
+}
+
+export function guessFieldType(field, moduleKey) {
+  const preset = MODULE_PRESETS[moduleKey];
+  const byPreset = preset?.fieldTypes?.[field];
+  if (byPreset) return byPreset;
+
+  const low = String(field || '').toLowerCase();
+  if (low.includes('time') || low.includes('date')) return 'datetime';
+  if (low === 'status') return 'select';
+  if (low.startsWith('is') || low.startsWith('has')) return 'switch';
+  if (RELATION_FIELD_MODULE[field]) return 'relation';
+  if (low.endsWith('id')) return 'number';
+  if (low.includes('price') || low.includes('amount') || low.includes('discount')) return 'decimal';
+  if (low.includes('count') || low.includes('num') || low.includes('sort') || low.includes('quantity') || low.includes('qty')) return 'number';
+  if (low.includes('description') || low.includes('remark') || low.includes('content')) return 'textarea';
+  return 'text';
+}
+
+export function buildAutoQueryFields(fields) {
+  if (!Array.isArray(fields) || fields.length === 0) return [];
+  return fields.filter((field) => {
+    const low = String(field || '').toLowerCase();
+    if (!low) return false;
+    if (low.endsWith('desc')) return false;
+    return true;
+  });
+}

@@ -1,4 +1,10 @@
-import http from './http';
+﻿import http from './http';
+
+const AUTH_MESSAGES = {
+  userMissing: 'ユーザー名が未入力です',
+  passwordMissing: '新しいパスワードを入力してください',
+  userLookupFail: 'ユーザー情報の取得に失敗しました',
+};
 
 export function login(payload) {
   return http.post('/api/user/login', payload);
@@ -9,15 +15,15 @@ export function logout() {
 }
 
 export async function fetchPermissionScope() {
-  const res = await http.get('/api/user/permissions');
-  return normalizePermissionPayload(res);
+  const response = await http.get('/api/user/permissions');
+  return normalizePermissionPayload(response);
 }
 
 export async function changeMyPassword(currentUsername, newPassword) {
   const username = String(currentUsername || '').trim();
   const password = String(newPassword || '');
-  if (!username) throw new Error('ユーザー名が取得できません');
-  if (!password) throw new Error('新しいパスワードを入力してください');
+  if (!username) throw new Error(AUTH_MESSAGES.userMissing);
+  if (!password) throw new Error(AUTH_MESSAGES.passwordMissing);
 
   const page = await http.post('/api/user/page', {
     pageNum: 1,
@@ -27,26 +33,34 @@ export async function changeMyPassword(currentUsername, newPassword) {
   const records = Array.isArray(page?.records) ? page.records : [];
   const self = records.find((item) => String(item?.username || '').trim() === username);
   const userId = self?.id;
-  if (!userId) throw new Error('ユーザー情報の取得に失敗しました');
+  if (!userId) throw new Error(AUTH_MESSAGES.userLookupFail);
 
   return http.put(`/api/user/${userId}/password`, { password });
 }
 
 function normalizePermissionPayload(payload) {
   if (Array.isArray(payload)) {
-    return { menuCodes: [], permissionCodes: payload.map((x) => String(x || '')).filter(Boolean) };
+    return splitScopeCodes(payload);
   }
 
-  const menuCodes = Array.isArray(payload?.menuCodes)
-    ? payload.menuCodes.map((x) => String(x || '')).filter(Boolean)
+  const explicitMenuCodes = Array.isArray(payload?.menuCodes) ? payload.menuCodes : [];
+  const explicitPermissionCodes = Array.isArray(payload?.permissionCodes) ? payload.permissionCodes : [];
+  const merged = [
+    ...explicitMenuCodes,
+    ...explicitPermissionCodes,
+    ...(Array.isArray(payload?.codes) ? payload.codes : []),
+  ];
+
+  return splitScopeCodes(merged);
+}
+
+function splitScopeCodes(source) {
+  const raw = Array.isArray(source)
+    ? source.map((item) => String(item || '').trim()).filter(Boolean)
     : [];
 
-  const permissionCodes = Array.isArray(payload?.permissionCodes)
-    ? payload.permissionCodes.map((x) => String(x || '')).filter(Boolean)
-    : Array.isArray(payload?.codes)
-      ? payload.codes.map((x) => String(x || '')).filter(Boolean)
-      : [];
+  const menuCodes = [...new Set(raw.filter((code) => code.startsWith('MENU_')))];
+  const permissionCodes = [...new Set(raw.filter((code) => !code.startsWith('MENU_')))];
 
   return { menuCodes, permissionCodes };
 }
-
