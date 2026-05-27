@@ -9,7 +9,7 @@ const REQUEST_ITEM_FIELDS = ['id', 'requestId', 'goodsId', 'skuId', 'skuCode', '
 export const MODULE_GROUPS = [
   {
     key: 'base',
-    label: '基礎マスタ',
+    label: '基礎情報',
     children: [
       { key: 'user', label: 'ユーザー管理' },
       { key: 'dept', label: '部署管理' },
@@ -70,9 +70,9 @@ export const MODULE_GROUPS = [
 
 export const MODULE_PRESETS = {
   user: {
-    queryFields: ['username', 'deptId', 'deptName', 'email', 'phone', 'status'],
-    formFields: ['username', 'password', 'deptId', 'email', 'phone', 'status'],
-    fieldTypes: { deptId: 'relation', status: 'select' },
+    queryFields: ['username', 'deptId', 'deptName', 'roleId', 'roleName', 'email', 'phone', 'status'],
+    formFields: ['username', 'password', 'deptId', 'roleId', 'email', 'phone', 'avatar', 'status'],
+    fieldTypes: { deptId: 'relation', roleId: 'relation', status: 'select' },
   },
   dept: {
     queryFields: ['id', 'name', 'code', 'leaderId', 'sort', 'status'],
@@ -217,9 +217,9 @@ export const MODULE_PRESETS = {
     fieldTypes: { managerId: 'relation', status: 'select' },
   },
   role: {
-    queryFields: ['id', 'name', 'code', 'remark', 'status'],
-    formFields: ['name', 'code', 'remark', 'status'],
-    fieldTypes: { status: 'select' },
+    queryFields: ['id', 'name', 'code', 'permissionName', 'remark', 'status'],
+    formFields: ['name', 'code', 'permissionIds', 'remark', 'status'],
+    fieldTypes: { permissionIds: 'relation', status: 'select' },
   },
   permission: {
     queryFields: ['id', 'name', 'code', 'module', 'type', 'parentId', 'path', 'sort', 'icon', 'component', 'status'],
@@ -304,7 +304,7 @@ export const MODULE_PRESETS = {
 };
 
 export const REQUIRED_FORM_FIELDS = {
-  user: ['username', 'password', 'deptId', 'status'],
+  user: ['username', 'password', 'deptId', 'roleId', 'status'],
   dept: ['name', 'code', 'status'],
   goods: ['name', 'englishName', 'brandId', 'seriesId', 'categoryId', 'makerId', 'skuCode', 'skuName'],
   stock: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity'],
@@ -314,7 +314,7 @@ export const REQUIRED_FORM_FIELDS = {
   requestForm: ['bizNo', 'userId', 'username', 'customerId', 'customerName'],
   requestItem: ['requestId', 'goodsId', 'skuId'],
   warehouse: ['name', 'code', 'status'],
-  role: ['name', 'code', 'status'],
+  role: ['name', 'code', 'permissionIds', 'status'],
   maker: ['name', 'status'],
   brand: ['name', 'status'],
   category: ['name', 'status'],

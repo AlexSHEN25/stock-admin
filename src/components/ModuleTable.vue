@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <a-card
     :title="null"
     :bordered="false"
@@ -92,23 +92,42 @@
     >
       <template #bodyCell="{ column, record }">
         <template v-if="isEditing(record) && column.key !== '__actions' && !isReadonlyField(column.key)">
+          <a-upload
+            v-if="isAvatarField(column.key)"
+            accept="image/*"
+            list-type="picture-card"
+            :show-upload-list="false"
+            :before-upload="(file) => beforeInlineAvatarUpload(column.key, file)"
+          >
+            <img
+              v-if="editState[inlineField(column.key)]"
+              :src="editState[inlineField(column.key)]"
+              class="goods-thumb"
+            >
+            <div v-else>
+              + Upload
+            </div>
+          </a-upload>
           <a-select
-            v-if="inlineInputType(column.key) === 'relation'"
+            v-else-if="inlineInputType(column.key) === 'relation'"
             v-model:value="editState[inlineField(column.key)]"
             :options="relationOptions[inlineField(column.key)] || []"
+            :mode="isMultiRelationField(inlineField(column.key)) ? 'multiple' : undefined"
             show-search
             allow-clear
             option-filter-prop="label"
+            style="width: 100%"
           />
           <a-input-number
             v-else-if="inlineInputType(column.key) === 'number' || inlineInputType(column.key) === 'decimal'"
             v-model:value="editState[inlineField(column.key)]"
+            :min="inlineField(column.key) === 'sort' ? 0 : undefined"
             style="width: 100%"
           />
           <a-select
             v-else-if="inlineInputType(column.key) === 'select'"
             v-model:value="editState[inlineField(column.key)]"
-            :options="selectOptionsForField(inlineField(column.key))"
+            :options="selectOptionsMerged(inlineField(column.key))"
             allow-clear
           />
           <a-switch
@@ -138,6 +157,14 @@
           >
           <span v-else>-</span>
         </template>
+        <template v-else-if="isAvatarField(column.key)">
+          <img
+            v-if="resolveAvatarSrc(record)"
+            :src="resolveAvatarSrc(record)"
+            class="goods-thumb"
+          >
+          <span v-else>-</span>
+        </template>
         <template v-else-if="column.key === 'statusDesc'">
           <a-tag :color="Number(record.status) === 1 ? 'success' : 'default'">
             {{ record.statusDesc || (Number(record.status) === 1 ? 'ON' : 'OFF') }}
@@ -149,9 +176,25 @@
         <template v-else-if="String(column.key) === 'isHot'">
           {{ Number(record.isHot) === 1 ? TABLE_TEXT.hotYes : TABLE_TEXT.hotNo }}
         </template>
-        <template v-else-if="hasEnumOptions(column.key)">
-          {{ enumLabel(column.key, record[column.key]) }}
+        <template v-else-if="isPermissionNamesField(column.key)">
+          <div
+            v-if="permissionNameList(record).length"
+            class="permission-chip-list"
+          >
+            <a-tag
+              v-for="item in permissionNameList(record)"
+              :key="item"
+              class="permission-chip"
+            >
+              {{ item }}
+            </a-tag>
+          </div>
+          <span v-else>-</span>
         </template>
+        <template v-else-if="hasEnumOptionsMerged(column.key)">
+          {{ enumLabelMerged(column.key, record[column.key]) }}
+        </template>
+
         <template v-else-if="column.key === '__actions'">
           <a-space>
             <a
@@ -204,21 +247,39 @@
     >
       <a-form layout="vertical">
         <a-form-item
-          v-for="field in formKeys"
+          v-for="field in visibleFormKeys"
           :key="field"
-          :required="requiredForForm(field)"
+          :required="isFormFieldRequired(field)"
         >
           <template #label>
             {{ normalizeTitle(field) }}
           </template>
+          <a-upload
+            v-if="isAvatarField(field)"
+            accept="image/*"
+            list-type="picture-card"
+            :show-upload-list="false"
+            :before-upload="(file) => beforeAvatarUpload(field, file)"
+          >
+            <img
+              v-if="formState[field]"
+              :src="formState[field]"
+              class="goods-thumb"
+            >
+            <div v-else>
+              + Upload
+            </div>
+          </a-upload>
           <a-input
-            v-if="inputType(field) === 'text'"
+            v-else-if="inputType(field) === 'text'"
             v-model:value="formState[field]"
+            :placeholder="formPlaceholder(field)"
           />
           <a-select
             v-else-if="inputType(field) === 'relation'"
             v-model:value="formState[field]"
             :options="relationOptions[field] || []"
+            :mode="isMultiRelationField(field) ? 'multiple' : undefined"
             show-search
             allow-clear
             option-filter-prop="label"
@@ -226,12 +287,13 @@
           <a-input-number
             v-else-if="inputType(field) === 'number' || inputType(field) === 'decimal'"
             v-model:value="formState[field]"
+            :min="field === 'sort' ? 0 : undefined"
             style="width: 100%"
           />
           <a-select
             v-else-if="inputType(field) === 'select'"
             v-model:value="formState[field]"
-            :options="selectOptionsForField(field)"
+            :options="selectOptionsMerged(field)"
             allow-clear
           />
           <a-switch
@@ -257,9 +319,9 @@
 </template>
 
 <script setup>
-import { computed, watch } from 'vue';
+import { computed, reactive, watch } from 'vue';
 import { message } from 'ant-design-vue';
-import { fetchModuleOptions } from '../api/module';
+import { fetchEnumOptions, fetchModuleOptions, uploadUserAvatar } from '../api/module';
 import { useModuleActions } from '../composables/useModuleActions';
 import { useModuleFieldBehavior } from '../composables/useModuleFieldBehavior';
 import { useRelationOptions } from '../composables/useRelationOptions';
@@ -295,6 +357,7 @@ const props = defineProps({
 const emit = defineEmits(['navigate-module']);
 const rowAutoKeyMap = new WeakMap();
 let rowAutoKeySeed = 0;
+const dynamicEnumOptions = reactive({});
 
 const isGoodsManagement = computed(() => props.moduleKey === 'goods');
 const modulePath = computed(() => props.moduleKey);
@@ -336,6 +399,7 @@ const {
   loading,
   modalOpen,
   editing,
+  editingKey,
   editingRaw,
   formState,
   editState,
@@ -398,6 +462,7 @@ const {
   normalizeQueryField,
   editingRaw,
   isUserSelfEditMode,
+  mapNameFieldToIdField,
 });
 const {
   queryRelationOptions,
@@ -421,6 +486,58 @@ const tablePagination = computed(() => ({
   showSizeChanger: true,
   pageSizeOptions: ['10', '20', '50'],
 }));
+const visibleFormKeys = computed(() => (
+  editing.value ? formKeys.value : formKeys.value.filter((field) => String(field || '').toLowerCase() !== 'status')
+));
+
+function enumKeyByField(moduleKey, field) {
+  const low = String(field || '').toLowerCase();
+  if (low === 'status') return 'status';
+  if (moduleKey === 'permission' && low === 'type') return 'permissionType';
+  return '';
+}
+
+async function loadDynamicEnumOptions() {
+  Object.keys(dynamicEnumOptions).forEach((key) => delete dynamicEnumOptions[key]);
+  const fields = [...new Set([...(queryFields.value || []), ...(formKeys.value || []), ...(keys.value || [])])];
+  const targets = fields
+    .map((field) => ({ field, enumKey: enumKeyByField(props.moduleKey, field) }))
+    .filter((item) => item.enumKey);
+  await Promise.all(targets.map(async ({ field, enumKey }) => {
+    try {
+      dynamicEnumOptions[field] = await fetchEnumOptions(enumKey);
+    } catch (_e) {
+      dynamicEnumOptions[field] = [];
+    }
+  }));
+}
+
+function mergedEnumOptions(field) {
+  const dynamic = dedupeOptions(dynamicEnumOptions[field] || []);
+  if (dynamic.length > 0) return dynamic;
+  return dedupeOptions(enumOptionsForField(field));
+}
+
+function selectOptionsMerged(field) {
+  if (field === 'status') {
+    const dynamic = dedupeOptions(dynamicEnumOptions[field] || []);
+    if (dynamic.length > 0) return dynamic;
+  }
+  if (field !== 'status') {
+    const dynamic = dedupeOptions(dynamicEnumOptions[field] || []);
+    if (dynamic.length > 0) return dynamic;
+  }
+  return selectOptionsForField(field);
+}
+
+function hasEnumOptionsMerged(field) {
+  return mergedEnumOptions(field).length > 0;
+}
+
+function enumLabelMerged(field, value) {
+  const hit = mergedEnumOptions(field).find((item) => Number(item.value) === Number(value));
+  return hit?.label || value || '-';
+}
 
 watch(
   () => props.moduleKey,
@@ -429,6 +546,7 @@ watch(
     pagination.current = 1;
     initQuery();
     applyPendingQuery(MODULE_QUERY_JUMPS[props.moduleKey]);
+    await loadDynamicEnumOptions();
     await loadQueryRelationOptions(queryFields.value);
     await loadRelationOptions(formKeys.value, keys.value);
     await reload();
@@ -459,6 +577,9 @@ async function submitStockFlow() {
 function openCreate() {
   const opened = openCreateState();
   if (opened) {
+    if (Object.prototype.hasOwnProperty.call(formState, 'status')) {
+      formState.status = 1;
+    }
     loadRelationOptions(formKeys.value, keys.value);
   }
 }
@@ -494,9 +615,9 @@ async function saveInlineEdit(record) {
 }
 
 function queryOptions(field) {
-  if (field === 'status') return statusOptions;
-  const enumOptions = dedupeOptions(enumOptionsForField(field));
+  const enumOptions = mergedEnumOptions(field);
   if (enumOptions.length > 0) return enumOptions;
+  if (field === 'status') return statusOptions;
   return dedupeOptions(queryRelationOptions[field] || []);
 }
 
@@ -504,6 +625,81 @@ function getRecordId(record) {
   return record?.skuId ?? record?.id ?? record?._id ?? null;
 }
 
+function isAvatarField(field) {
+  const key = String(field || '').toLowerCase();
+  return key === 'avatar' || key === 'avatarurl';
+}
+
+function resolveAvatarSrc(record) {
+  if (!record) return '';
+  const raw = String(record.avatar || record.avatarUrl || '').trim();
+  if (!raw) return '';
+  if (raw.startsWith('data:') || raw.startsWith('blob:')) return raw;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (raw.startsWith('/')) return raw;
+  return `/${raw}`;
+}
+
+function beforeAvatarUpload(field, file) {
+  if (props.moduleKey === 'user' && editing.value && editingRaw.value?.id) {
+    uploadAvatarToBackend(editingRaw.value.id, file, (url) => {
+      formState[field] = url;
+    });
+    return false;
+  }
+  setImageFieldFromFile(formState, field, file);
+  return false;
+}
+
+function beforeInlineAvatarUpload(field, file) {
+  if (props.moduleKey === 'user' && editingKeyRecordId.value) {
+    uploadAvatarToBackend(editingKeyRecordId.value, file, (url) => {
+      editState[inlineField(field)] = url;
+    });
+    return false;
+  }
+  setImageFieldFromFile(editState, inlineField(field), file);
+  return false;
+}
+
+const editingKeyRecordId = computed(() => {
+  const key = String(editingKey.value ?? '');
+  if (!key) return null;
+  const hit = rows.value.find((item) => String(getRecordId(item)) === key);
+  return hit ? getRecordId(hit) : null;
+});
+
+async function uploadAvatarToBackend(userId, file, onSuccess) {
+  try {
+    const avatarPath = await uploadUserAvatar(userId, file);
+    onSuccess(String(avatarPath || ''));
+    message.success('繧｢繝舌ち繝ｼ繧偵い繝・・繝ｭ繝ｼ繝峨＠縺ｾ縺励◆');
+  } catch (error) {
+    message.error(error?.message || '繧｢繝舌ち繝ｼ縺ｮ繧｢繝・・繝ｭ繝ｼ繝峨↓螟ｱ謨励＠縺ｾ縺励◆');
+  }
+}
+
+function setImageFieldFromFile(target, field, file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    target[field] = String(reader.result || '');
+  };
+  reader.readAsDataURL(file);
+}
+
+function isPermissionNamesField(field) {
+  const low = String(field || '').toLowerCase();
+  return low === 'permissionname' || low === 'permissionnames';
+}
+
+function permissionNameList(record) {
+  const raw = String(record?.permissionNames || record?.permissionName || '').trim();
+  if (!raw) return [];
+  return raw
+    .split(/[\n,，、]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 function getRowKey(record) {
   const primaryId = getRecordId(record);
   const secondaryParts = [
@@ -567,4 +763,34 @@ function canEditRecord(record) {
 function canInlineEditRecord(record) {
   return canInlineEditModuleRecord(props.moduleKey, record, props.currentUser, props.permissionCodes || []);
 }
+
+function isMultiRelationField(field) {
+  return props.moduleKey === 'role' && String(field || '').toLowerCase() === 'permissionids';
+}
+
+
+function isFormFieldRequired(field) {
+  if (props.moduleKey === 'user' && editing.value && String(field || '').toLowerCase() === 'password') {
+    return false;
+  }
+  return requiredForForm(field);
+}
+
+function formPlaceholder(field) {
+  const low = String(field || '').toLowerCase();
+  if (props.moduleKey === 'user' && editing.value && low === 'password') {
+    return '遨ｺ谺・・蝣ｴ蜷医√ヱ繧ｹ繝ｯ繝ｼ繝峨・譖ｴ譁ｰ縺輔ｌ縺ｾ縺帙ｓ';
+  }
+  return '';
+}
 </script>
+
+
+
+
+
+
+
+
+
+

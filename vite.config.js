@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+﻿import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 
 export default defineConfig({
@@ -23,7 +23,11 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      '/avatar': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        rewrite: (path) => `/api${path}`,
+      },
     },
   },
 });
-

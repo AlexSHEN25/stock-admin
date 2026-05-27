@@ -1,4 +1,4 @@
-* {
+﻿* {
   box-sizing: border-box;
 }
 
@@ -448,3 +448,40 @@ html[data-theme-mode='dark'] .login-card .ant-input-password .ant-input::placeho
   border: 1px solid #e5e5e5;
 }
 
+.cell-wrap-multiline {
+  white-space: normal;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.module-table .ant-table-tbody > tr > td.cell-permission-names {
+  white-space: normal !important;
+}
+
+.module-table .ant-table-tbody > tr > td.cell-permission-names .cell-wrap-multiline {
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere;
+}
+
+
+.permission-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 140px;
+  overflow: auto;
+  align-content: flex-start;
+}
+
+.permission-chip {
+  margin-inline-end: 0 !important;
+  max-width: 100%;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.module-table .ant-table-tbody > tr > td.cell-permission-names {
+  vertical-align: top;
+}

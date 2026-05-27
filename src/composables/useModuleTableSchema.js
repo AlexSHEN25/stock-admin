@@ -15,6 +15,7 @@ export function useModuleTableSchema(options) {
     normalizeQueryField,
     editingRaw,
     isUserSelfEditMode,
+    mapNameFieldToIdField,
   } = options;
 
   const keys = computed(() => {
@@ -40,10 +41,11 @@ export function useModuleTableSchema(options) {
     if (!first) return [];
     const raw = displayKeys(first);
     const noStatus = raw.includes('statusDesc') ? raw.filter((key) => key !== 'status') : raw;
+    const hasId = noStatus.some((key) => String(key || '').toLowerCase() === 'id');
     const noId = noStatus.filter((key) => String(key || '').toLowerCase() !== 'id');
     const tail = noId.filter((key) => key === 'createTime' || key === 'updateTime');
     const head = noId.filter((key) => key !== 'createTime' && key !== 'updateTime');
-    return [...head, ...tail];
+    return hasId ? ['id', ...head, ...tail] : [...head, ...tail];
   });
 
   const queryFields = computed(() => {
@@ -59,8 +61,10 @@ export function useModuleTableSchema(options) {
       title: normalizeTitle(key),
       dataIndex: key,
       key,
+      className: isPermissionNamesKey(key) ? 'cell-permission-names' : undefined,
       fixed: columnFixed(key, isGoodsManagement.value),
       width: columnWidth(key, isGoodsManagement.value),
+      ellipsis: String(key || '').toLowerCase() === 'id',
       onCell: (record) => {
         if (isReadonlyField(key)) return {};
         return {
@@ -87,16 +91,30 @@ export function useModuleTableSchema(options) {
   const formKeys = computed(() => {
     if (isGoodsManagement.value) return GOODS_TABLE_CONFIG.formFields;
 
+    const normalizeFormFields = (fields) => {
+      const out = [];
+      const seen = new Set();
+      for (const field of fields || []) {
+        if (isReadonlyField(field)) continue;
+        const mapped = mapNameFieldToIdField(field) || field;
+        if (!mapped || isReadonlyField(mapped)) continue;
+        if (seen.has(mapped)) continue;
+        seen.add(mapped);
+        out.push(mapped);
+      }
+      return out;
+    };
+
     const presetFormFields = preset.value.formFields?.length
-      ? preset.value.formFields.filter((field) => !isReadonlyField(field))
+      ? normalizeFormFields(preset.value.formFields)
       : [];
     if (isUserSelfEditMode.value) return ['password'];
     if (presetFormFields.length > 0) return presetFormFields;
 
-    const fieldsFromRows = keys.value.filter((field) => !isReadonlyField(field));
+    const fieldsFromRows = normalizeFormFields(keys.value);
     if (fieldsFromRows.length > 0) return fieldsFromRows;
     if (editingRaw.value) {
-      return Object.keys(editingRaw.value).filter((field) => !isReadonlyField(field));
+      return normalizeFormFields(Object.keys(editingRaw.value));
     }
     return [];
   });
@@ -106,7 +124,13 @@ export function useModuleTableSchema(options) {
     queryFields,
     columns,
     formKeys,
+    mapNameFieldToIdField,
   };
+}
+
+function isPermissionNamesKey(key) {
+  const low = String(key || '').toLowerCase();
+  return low === 'permissionname' || low === 'permissionnames';
 }
 
 function columnFixed(key, isGoodsManagement) {
@@ -120,7 +144,11 @@ function columnFixed(key, isGoodsManagement) {
 function columnWidth(key, isGoodsManagement) {
   const lower = String(key || '').toLowerCase();
   if (isGoodsManagement && lower === 'skuid') return 120;
-  if (lower === 'id') return 90;
+  if (lower.endsWith('ids')) return 160;
+  if (lower.endsWith('id')) return 130;
+  if (lower === 'permissionname' || lower === 'permissionnames') return 360;
+  if (lower === 'rolename') return 220;
+  if (lower === 'id') return 100;
   if (lower === 'createtime' || lower === 'updatetime') return 160;
   return undefined;
 }

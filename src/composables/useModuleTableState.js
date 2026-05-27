@@ -112,8 +112,22 @@ export function useModuleTableState(options) {
         formState[key] = Boolean(record[key]);
         return;
       }
+      if (moduleKey.value === 'role' && key === 'permissionIds') {
+        formState[key] = normalizePermissionIds(record);
+        return;
+      }
       formState[key] = record[key] ?? null;
     });
+  }
+
+  function normalizePermissionIds(record) {
+    const raw = record?.permissionIds ?? record?.permissionId;
+    if (Array.isArray(raw)) return raw.map((x) => Number(x)).filter((x) => !Number.isNaN(x));
+    if (raw === undefined || raw === null || String(raw).trim() === '') return [];
+    return String(raw)
+      .split(/[,\s]+/)
+      .map((x) => Number(x))
+      .filter((x) => !Number.isNaN(x));
   }
 
   function openCreate() {
@@ -136,17 +150,28 @@ export function useModuleTableState(options) {
 
   function buildEditPayload(getRecordId) {
     if (moduleKey.value === 'user' && editing.value && !canCreateRecord()) {
-      return {
+      const payload = {
         id: getRecordId(editingRaw.value),
         password: formState.password,
       };
+      if (payload.password === undefined || payload.password === null || String(payload.password).trim() === '') {
+        delete payload.password;
+      }
+      return payload;
     }
-    return { ...(editingRaw.value || {}), ...formState };
+    const payload = { ...(editingRaw.value || {}), ...formState };
+    if (moduleKey.value === 'user') {
+      const pwd = payload.password;
+      if (pwd === undefined || pwd === null || String(pwd).trim() === '') {
+        delete payload.password;
+      }
+    }
+    return payload;
   }
 
   function validateRequiredFields() {
     const missing = getFormKeys()
-      .filter((field) => requiredForForm(field))
+      .filter((field) => isFieldRequired(field))
       .some((field) => {
         const value = formState[field];
         return value === undefined || value === null || String(value).trim() === '';
@@ -154,6 +179,13 @@ export function useModuleTableState(options) {
     if (!missing) return false;
     message.warning(TABLE_TEXT.requiredField);
     return true;
+  }
+
+  function isFieldRequired(field) {
+    if (moduleKey.value === 'user' && editing.value && String(field || '').toLowerCase() === 'password') {
+      return false;
+    }
+    return requiredForForm(field);
   }
 
   async function submit(getRecordId, normalizePayload) {
@@ -219,6 +251,10 @@ export function useModuleTableState(options) {
     getFormKeys().forEach((key) => {
       if (isReadonlyField(key)) return;
       const targetKey = inlineField(key);
+      if (moduleKey.value === 'role' && targetKey === 'permissionIds') {
+        editState[targetKey] = normalizePermissionIds(record);
+        return;
+      }
       if (inputType(targetKey) === 'switch') {
         editState[targetKey] = Boolean(record[targetKey]);
         return;
