@@ -9,7 +9,7 @@ const REQUEST_ITEM_FIELDS = ['id', 'requestId', 'goodsId', 'skuId', 'skuCode', '
 export const MODULE_GROUPS = [
   {
     key: 'base',
-    label: '基礎情報',
+    label: '基礎マスタ',
     children: [
       { key: 'user', label: 'ユーザー管理' },
       { key: 'dept', label: '部署管理' },
@@ -46,7 +46,7 @@ export const MODULE_GROUPS = [
     label: '請求書管理',
     children: [
       { key: 'requestForm', label: '請求書管理' },
-      { key: 'requestItem', label: '請求書明细' },
+      { key: 'requestItem', label: '請求書明細' },
     ],
   },
   {
@@ -217,7 +217,7 @@ export const MODULE_PRESETS = {
     fieldTypes: { managerId: 'relation', status: 'select' },
   },
   role: {
-    queryFields: ['id', 'name', 'code', 'permissionName', 'remark', 'status'],
+    queryFields: ['id', 'name', 'code', 'permissionNames', 'remark', 'status'],
     formFields: ['name', 'code', 'permissionIds', 'remark', 'status'],
     fieldTypes: { permissionIds: 'relation', status: 'select' },
   },
@@ -304,7 +304,7 @@ export const MODULE_PRESETS = {
 };
 
 export const REQUIRED_FORM_FIELDS = {
-  user: ['username', 'password', 'deptId', 'roleId', 'status'],
+  user: ['username', 'password', 'deptId', 'status'],
   dept: ['name', 'code', 'status'],
   goods: ['name', 'englishName', 'brandId', 'seriesId', 'categoryId', 'makerId', 'skuCode', 'skuName'],
   stock: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity'],
@@ -314,7 +314,7 @@ export const REQUIRED_FORM_FIELDS = {
   requestForm: ['bizNo', 'userId', 'username', 'customerId', 'customerName'],
   requestItem: ['requestId', 'goodsId', 'skuId'],
   warehouse: ['name', 'code', 'status'],
-  role: ['name', 'code', 'permissionIds', 'status'],
+  role: ['name', 'code', 'status'],
   maker: ['name', 'status'],
   brand: ['name', 'status'],
   category: ['name', 'status'],

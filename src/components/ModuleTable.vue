@@ -673,9 +673,9 @@ async function uploadAvatarToBackend(userId, file, onSuccess) {
   try {
     const avatarPath = await uploadUserAvatar(userId, file);
     onSuccess(String(avatarPath || ''));
-    message.success('繧｢繝舌ち繝ｼ繧偵い繝・・繝ｭ繝ｼ繝峨＠縺ｾ縺励◆');
+    message.success('アバターをアップロードしました');
   } catch (error) {
-    message.error(error?.message || '繧｢繝舌ち繝ｼ縺ｮ繧｢繝・・繝ｭ繝ｼ繝峨↓螟ｱ謨励＠縺ｾ縺励◆');
+    message.error(error?.message || 'アバターのアップロードに失敗しました');
   }
 }
 
@@ -779,7 +779,7 @@ function isFormFieldRequired(field) {
 function formPlaceholder(field) {
   const low = String(field || '').toLowerCase();
   if (props.moduleKey === 'user' && editing.value && low === 'password') {
-    return '遨ｺ谺・・蝣ｴ蜷医√ヱ繧ｹ繝ｯ繝ｼ繝峨・譖ｴ譁ｰ縺輔ｌ縺ｾ縺帙ｓ';
+    return '空欄の場合、パスワードは更新されません';
   }
   return '';
 }
