@@ -1,6 +1,6 @@
 import { computed, ref, watch } from 'vue';
 import { MODULE_GROUPS } from '../utils/module';
-import { MODULE_LAYOUT_CONFIG } from '../utils/module-ui';
+import { MODULE_LAYOUT_CONFIG, isAdminByPermissionCodes } from '../utils/module-ui';
 
 const HIDDEN_MODULES = MODULE_LAYOUT_CONFIG.hiddenModules;
 const HIDDEN_MODULE_CONFIG = MODULE_LAYOUT_CONFIG.hiddenModuleMap;
@@ -163,6 +163,9 @@ export function useModuleMenu(options) {
         .map((item) => String(item || '').trim())
         .filter(Boolean),
     );
+    if (isAdminByPermissionCodes([...allowedPermissionCodes])) {
+      return new Set(ALL_MODULES);
+    }
     const hasMenuScope = allowedMenuCodes.size > 0;
     const allowed = new Set();
 

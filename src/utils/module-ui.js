@@ -233,9 +233,7 @@ export const REGULAR_USER_WRITE_MODULES = new Set([
 
 export const ADMIN_PERMISSION_MARKERS = [
   'ROLE_SUPER_ADMIN',
-  'SUPER_ADMIN',
   'DATA_ALL_WRITE',
-  'DATA_SUPER_ADMIN_WRITE',
 ];
 
 export function getModuleEnumOptions(moduleKey, field) {
