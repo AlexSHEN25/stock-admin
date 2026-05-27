@@ -64,7 +64,7 @@ export function useModuleTableSchema(options) {
       className: isPermissionNamesKey(key) ? 'cell-permission-names' : undefined,
       fixed: columnFixed(key, isGoodsManagement.value),
       width: columnWidth(key, isGoodsManagement.value),
-      ellipsis: String(key || '').toLowerCase() === 'id',
+      ellipsis: false,
       onCell: (record) => {
         if (isReadonlyField(key)) return {};
         return {
@@ -144,11 +144,11 @@ function columnFixed(key, isGoodsManagement) {
 function columnWidth(key, isGoodsManagement) {
   const lower = String(key || '').toLowerCase();
   if (isGoodsManagement && lower === 'skuid') return 120;
+  if (lower === 'id') return 72;
   if (lower.endsWith('ids')) return 160;
   if (lower.endsWith('id')) return 130;
   if (lower === 'permissionname' || lower === 'permissionnames') return 360;
   if (lower === 'rolename') return 220;
-  if (lower === 'id') return 100;
   if (lower === 'createtime' || lower === 'updatetime') return 160;
   return undefined;
 }
