@@ -1,4 +1,4 @@
-import { RELATION_FIELD_MODULE } from './module-fields';
+﻿import { RELATION_FIELD_MODULE } from './module-fields';
 
 const NAME_STATUS_QUERY_FIELDS = ['id', 'name', 'status'];
 const NAME_STATUS_FORM_FIELDS = ['name', 'status'];
@@ -232,7 +232,7 @@ export const MODULE_PRESETS = {
   },
   brand: {
     queryFields: ['id', 'name', 'englishName', 'image', 'content', 'status'],
-    formFields: ['name', 'englishName', 'content', 'status'],
+    formFields: ['name', 'englishName', 'image', 'content', 'status'],
     fieldTypes: { status: 'select' },
   },
   category: {
@@ -306,7 +306,7 @@ export const MODULE_PRESETS = {
 export const REQUIRED_FORM_FIELDS = {
   user: ['username', 'password', 'deptId', 'status'],
   dept: ['name', 'code', 'status'],
-  goods: ['name', 'englishName', 'brandId', 'seriesId', 'categoryId', 'makerId', 'skuCode', 'skuName'],
+  goods: ['name', 'englishName', 'brandId', 'seriesId', 'categoryId', 'makerId', 'skuCode'],
   stock: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity'],
   stockOrder: ['orderNo', 'orderType', 'warehouseId', 'sourceType'],
   stockOrderItem: ['orderId', 'goodsId', 'skuId', 'goodsName', 'beforeQty', 'changeQty', 'afterQty'],
@@ -356,3 +356,5 @@ export function buildAutoQueryFields(fields) {
     return true;
   });
 }
+
+

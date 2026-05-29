@@ -100,7 +100,7 @@ export const PASSWORD_MESSAGES = {
 };
 
 export const GOODS_TABLE_CONFIG = {
-  queryFields: ['keyword', 'englishName', 'skuCode', 'skuName', 'brandName', 'categoryName', 'status'],
+  queryFields: ['name', 'skuCode', 'brandId', 'seriesId', 'categoryId', 'makerId', 'status'],
   formFields: ['name', 'englishName', 'brandId', 'seriesId', 'categoryId', 'makerId', 'description', 'isHot', 'skuCode', 'skuName', 'price', 'status'],
   preferredFields: [
     'skuId',

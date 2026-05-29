@@ -187,8 +187,8 @@ export function useModuleMenu(options) {
       }
     });
 
-    // Fallback: if backend returns scope without DATA_* details, keep base modules visible
-    // to avoid blank layout after login.
+    // Global fallback: never return empty set, avoid blank menu after login
+    // when backend permission code format is temporarily inconsistent.
     if (allowed.size === 0 && !hasMenuScope && allowedPermissionCodes.size === 0) {
       return new Set(ALL_MODULES);
     }

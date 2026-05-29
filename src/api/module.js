@@ -48,6 +48,23 @@ export async function removeItem(modulePath, id) {
   return http.delete(`/api/${modulePath}/${id}`);
 }
 
+export async function removeItems(modulePath, ids) {
+  const list = Array.isArray(ids) ? ids.filter((x) => x !== undefined && x !== null) : [];
+  if (list.length === 0) return null;
+  if (modulePath === 'goods') {
+    return requestWithFallback(
+      () => http.delete('/api/goods/batch', { data: list }),
+      () => http.post('/api/goods/batch', list),
+    );
+  }
+  for (const id of list) {
+    // keep compatibility for other modules without batch endpoint
+    // eslint-disable-next-line no-await-in-loop
+    await removeItem(modulePath, id);
+  }
+  return true;
+}
+
 export async function fetchModuleOptions(modulePath) {
   const page = await fetchPage(modulePath, {
     pageNum: 1,
@@ -83,19 +100,59 @@ export async function readAllMessages() {
   return Number(updatedCount ?? 0);
 }
 
-export async function uploadUserAvatar(userId, file) {
+export async function uploadFileByBizType(bizType, file, oldPath = '') {
   const formData = new FormData();
   formData.append('file', file);
   const config = {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
+    params: {
+      bizType,
+    },
   };
+
+  const safeOldPath = normalizeUploadOldPath(oldPath);
+  if (safeOldPath) {
+    config.params.oldPath = safeOldPath;
+  }
+
+  const result = safeOldPath
+    ? await http.put('/api/file/upload', formData, config)
+    : await http.post('/api/file/upload', formData, config);
+
+  if (typeof result === 'string') return result;
+  if (result && typeof result === 'object') {
+    return String(result.url || result.path || result.imageUrl || result.filePath || '');
+  }
+  return '';
+}
+
+function normalizeUploadOldPath(path) {
+  const raw = String(path || '').trim();
+  if (!raw) return '';
+  if (raw.startsWith('data:') || raw.startsWith('blob:')) return '';
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const url = new URL(raw);
+      return url.pathname || '';
+    } catch (_e) {
+      return '';
+    }
+  }
+  return raw;
+}
+export async function fetchGoodsDetail(id) {
+  if (id === undefined || id === null || String(id).trim() === '') return null;
   return requestWithFallback(
-    () => http.post(`/api/user/${userId}/avatar`, formData, config),
-    () => http.post('/api/user/avatar', formData, config),
-    () => http.post('/api/user/upload-avatar', formData, config),
+    () => http.get(`/api/goods/${id}/detail`),
+    () => http.get(`/api/goods/${id}`),
   );
+}
+
+export async function fetchGoodsFormOptions() {
+  const data = await http.get('/api/goods/form/options');
+  return data && typeof data === 'object' ? data : {};
 }
 
 function normalizePage(data) {
@@ -150,5 +207,6 @@ function normalizePageSize(input) {
   if (PAGE_SIZE_OPTIONS.includes(pageSize)) return pageSize;
   return PAGE_SIZE_OPTIONS[0];
 }
+
 
 

@@ -24,17 +24,14 @@ export function useModuleTableSchema(options) {
       if (!first) return GOODS_TABLE_CONFIG.preferredFields;
       const raw = Object.keys(first);
       const noStatus = raw.includes('statusDesc') ? raw.filter((key) => key !== 'status') : raw;
-      const timeTail = ['createTime', 'updateTime'];
       const withoutTail = noStatus.filter((key) => {
         const lower = String(key || '').toLowerCase();
-        if (timeTail.includes(key)) return false;
         if (lower === 'id' || lower === 'imageid') return false;
         return true;
       });
       const preferred = GOODS_TABLE_CONFIG.preferredFields.filter((key) => withoutTail.includes(key) && !timeTail.includes(key));
       const rest = withoutTail.filter((key) => !GOODS_TABLE_CONFIG.preferredFields.includes(key));
-      const tail = timeTail.filter((key) => noStatus.includes(key));
-      return [...preferred, ...rest, ...tail];
+      return orderGoodsKeys([...preferred, ...rest], noStatus);
     }
 
     const first = rows.value[0];
@@ -58,7 +55,7 @@ export function useModuleTableSchema(options) {
 
   const columns = computed(() => {
     const base = keys.value.map((key) => ({
-      title: normalizeTitle(key),
+      title: isGoodsSkuIdAsId(key, isGoodsManagement.value) ? 'ID' : normalizeTitle(key),
       dataIndex: key,
       key,
       className: isPermissionNamesKey(key) ? 'cell-permission-names' : undefined,
@@ -89,7 +86,16 @@ export function useModuleTableSchema(options) {
   });
 
   const formKeys = computed(() => {
-    if (isGoodsManagement.value) return GOODS_TABLE_CONFIG.formFields;
+    if (isGoodsManagement.value) {
+      const orderedFromTable = keys.value
+        .map((field) => mapNameFieldToIdField(field) || field)
+        .filter((field) => !isReadonlyField(field) && String(field || '').toLowerCase() !== 'skuid');
+      const presetGoodsFields = GOODS_TABLE_CONFIG.formFields || [];
+      const merged = [...orderedFromTable, ...presetGoodsFields];
+      const normalized = [...new Set(merged)].filter((field) => !isReadonlyField(field) && String(field || '').toLowerCase() !== 'skuid');
+      moveAfter(normalized, 'skuCode', ['skuName']);
+      return normalized;
+    }
 
     const normalizeFormFields = (fields) => {
       const out = [];
@@ -151,4 +157,54 @@ function columnWidth(key, isGoodsManagement) {
   if (lower === 'rolename') return 220;
   if (lower === 'createtime' || lower === 'updatetime') return 160;
   return undefined;
+}
+
+const timeTail = ['createTime', 'updateTime'];
+
+function isGoodsSkuIdAsId(key, isGoodsManagement) {
+  return isGoodsManagement && String(key || '').toLowerCase() === 'skuid';
+}
+
+function orderGoodsKeys(sourceKeys, availableKeys) {
+  const keySet = new Set(availableKeys);
+  const seen = new Set();
+  const result = [];
+  const hiddenIdFields = new Set(['brandid', 'seriesid', 'categoryid', 'makerid']);
+  const detailOnlyFields = new Set(['costprice', 'updateprice', 'priceupdatetime', 'barcode', 'weight', 'volume', 'imageurl']);
+
+  const push = (key) => {
+    if (!keySet.has(key)) return;
+    if (hiddenIdFields.has(String(key || '').toLowerCase())) return;
+    if (detailOnlyFields.has(String(key || '').toLowerCase())) return;
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push(key);
+  };
+
+  const working = sourceKeys.filter((key) => !timeTail.includes(key) && key !== 'status' && key !== 'statusDesc');
+  const head = ['skuId', 'goodsName', 'name', 'goodsId'];
+  head.forEach(push);
+
+  for (const key of working) {
+    if (key !== 'skuId' && key !== 'goodsName' && key !== 'name' && key !== 'goodsId') {
+      push(key);
+    }
+  }
+
+  moveAfter(result, 'englishName', ['skuCode', 'skuName']);
+
+  if (keySet.has('statusDesc')) push('statusDesc');
+  else if (keySet.has('status')) push('status');
+
+  timeTail.forEach((key) => push(key));
+  return result;
+}
+
+function moveAfter(list, anchor, moveKeys) {
+  if (!list.includes(anchor)) return;
+  const keep = list.filter((k) => !moveKeys.includes(k));
+  const anchorIndex = keep.indexOf(anchor);
+  const moved = moveKeys.filter((k) => list.includes(k));
+  keep.splice(anchorIndex + 1, 0, ...moved);
+  list.splice(0, list.length, ...keep);
 }

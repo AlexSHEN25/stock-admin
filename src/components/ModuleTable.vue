@@ -42,12 +42,13 @@
         </a-button>
         <a-button
           class="search-btn"
+          :disabled="!hasAnyActiveFilter()"
           @click="resetQuery"
         >
           {{ TABLE_TEXT.reset }}
         </a-button>
         <a-popconfirm
-          v-if="canWrite && canBatchDeleteInModule()"
+          v-if="canWrite && canBatchDeleteInModule() && selectedRowKeys.length > 0"
           :title="TABLE_TEXT.confirmBatchDelete"
           :ok-text="TABLE_TEXT.yes"
           :cancel-text="TABLE_TEXT.no"
@@ -56,11 +57,18 @@
           <a-button
             danger
             class="search-btn"
-            :disabled="selectedRowKeys.length === 0"
           >
             {{ TABLE_TEXT.batchDelete }}
           </a-button>
         </a-popconfirm>
+        <a-button
+          v-else-if="canWrite && canBatchDeleteInModule()"
+          danger
+          class="search-btn"
+          disabled
+        >
+          {{ TABLE_TEXT.batchDelete }}
+        </a-button>
         <a-button
           v-if="canWrite && canCreateInModule()"
           type="primary"
@@ -82,6 +90,7 @@
     <a-table
       class="module-table"
       :row-key="getRowKey"
+      :row-class-name="rowClassName"
       :columns="columns"
       :data-source="rows"
       :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
@@ -121,7 +130,8 @@
           <a-input-number
             v-else-if="inlineInputType(column.key) === 'number' || inlineInputType(column.key) === 'decimal'"
             v-model:value="editState[inlineField(column.key)]"
-            :min="inlineField(column.key) === 'sort' ? 0 : undefined"
+            :min="numberMinByField(inlineField(column.key))"
+            :precision="numberPrecisionByField(inlineField(column.key))"
             style="width: 100%"
           />
           <a-select
@@ -149,25 +159,29 @@
         <template v-else-if="String(column.key) === 'skuId'">
           {{ record.skuId ?? '-' }}
         </template>
-        <template v-else-if="column.key === 'mainImage'">
-          <img
-            v-if="record.mainImage || record.imageUrl"
-            :src="record.mainImage || record.imageUrl"
-            class="goods-thumb"
-          >
+        <template v-else-if="column.key === 'mainImage' || column.key === 'image' || column.key === 'imageUrl'">
+          <a-image
+            v-if="resolveGoodsImageUrl(record)"
+            :src="resolveGoodsImageUrl(record)"
+            :width="56"
+            :height="56"
+            style="object-fit: cover; border-radius: 6px;"
+          />
           <span v-else>-</span>
         </template>
         <template v-else-if="isAvatarField(column.key)">
-          <img
+          <a-image
             v-if="resolveAvatarSrc(record)"
             :src="resolveAvatarSrc(record)"
-            class="goods-thumb"
-          >
+            :width="56"
+            :height="56"
+            style="object-fit: cover; border-radius: 6px;"
+          />
           <span v-else>-</span>
         </template>
         <template v-else-if="column.key === 'statusDesc'">
           <a-tag :color="Number(record.status) === 1 ? 'success' : 'default'">
-            {{ record.statusDesc || (Number(record.status) === 1 ? 'ON' : 'OFF') }}
+            {{ normalizeDisplayLabel(record.statusDesc || (Number(record.status) === 1 ? 'ON' : 'OFF')) }}
           </a-tag>
         </template>
         <template v-else-if="column.key === 'updateTime'">
@@ -237,11 +251,13 @@
     </a-table>
 
     <a-modal
+      v-if="!isGoodsManagement"
       :open="modalOpen"
-      :title="editing ? TABLE_TEXT.edit : TABLE_TEXT.create"
+      :title="null"
       :ok-text="TABLE_TEXT.save"
       :cancel-text="TABLE_TEXT.cancel"
       :ok-button-props="{ disabled: !canWrite }"
+      wrap-class-name="module-edit-modal"
       @ok="submit"
       @cancel="() => (modalOpen = false)"
     >
@@ -287,7 +303,8 @@
           <a-input-number
             v-else-if="inputType(field) === 'number' || inputType(field) === 'decimal'"
             v-model:value="formState[field]"
-            :min="field === 'sort' ? 0 : undefined"
+            :min="numberMinByField(field)"
+            :precision="numberPrecisionByField(field)"
             style="width: 100%"
           />
           <a-select
@@ -315,13 +332,94 @@
         </a-form-item>
       </a-form>
     </a-modal>
+    <a-modal
+      :open="goodsDrawerOpen"
+      :title="goodsDrawerTitle"
+      width="860px"
+      @cancel="closeGoodsDrawer"
+    >
+      <a-spin :spinning="goodsDrawerLoading || goodsDetailLoading">
+        <a-form layout="vertical">
+          <a-divider orientation="left">商品基本</a-divider>
+          <a-row :gutter="12">
+            <a-col :span="12"><a-form-item label="名称" required><a-input v-model:value="goodsForm.name" /></a-form-item></a-col>
+            <a-col :span="12"><a-form-item label="英語名"><a-input v-model:value="goodsForm.englishName" /></a-form-item></a-col>
+            <a-col :span="12"><a-form-item label="ブランド" required><a-select v-model:value="goodsForm.brandId" :options="relationOptions.brandId || []" show-search allow-clear option-filter-prop="label" /></a-form-item></a-col>
+            <a-col :span="12"><a-form-item label="シリーズ" required><a-select v-model:value="goodsForm.seriesId" :options="relationOptions.seriesId || []" show-search allow-clear option-filter-prop="label" /></a-form-item></a-col>
+            <a-col :span="12"><a-form-item label="カテゴリ" required><a-select v-model:value="goodsForm.categoryId" :options="relationOptions.categoryId || []" show-search allow-clear option-filter-prop="label" /></a-form-item></a-col>
+            <a-col :span="12"><a-form-item label="メーカー" required><a-select v-model:value="goodsForm.makerId" :options="relationOptions.makerId || []" show-search allow-clear option-filter-prop="label" /></a-form-item></a-col>
+            <a-col :span="12"><a-form-item label="状態"><a-select v-model:value="goodsForm.status" :options="selectOptionsMerged('status')" allow-clear /></a-form-item></a-col>
+          </a-row>
+
+          <a-divider orientation="left">SKU情報</a-divider>
+          <a-row :gutter="12">
+            <a-col :span="12"><a-form-item label="SKUコード" required><a-input v-model:value="goodsForm.skuCode" /></a-form-item></a-col>
+            <a-col :span="12"><a-form-item label="SKU名"><a-input v-model:value="goodsForm.skuName" /></a-form-item></a-col>
+            <a-col :span="12"><a-form-item label="価格" required><a-input-number v-model:value="goodsForm.price" :min="0.01" :precision="2" style="width:100%" /></a-form-item></a-col>
+            <a-col :span="12"><a-form-item label="通貨"><a-select v-model:value="goodsForm.currency" :options="selectOptionsMerged('currency')" /></a-form-item></a-col>
+            <a-col :span="12"><a-form-item label="表示順"><a-input-number v-model:value="goodsForm.sort" :min="0" style="width:100%" /></a-form-item></a-col>
+            <a-col :span="12">
+              <a-form-item label="人気商品">
+                <a-select
+                  v-model:value="goodsForm.isHot"
+                  :options="hotOptions"
+                />
+              </a-form-item>
+            </a-col>
+            <a-col :span="24"><a-form-item label="説明"><a-textarea v-model:value="goodsForm.description" :rows="3" /></a-form-item></a-col>
+          </a-row>
+
+          <a-divider orientation="left">詳細設定</a-divider>
+          <a-row :gutter="12">
+            <a-col :span="12"><a-form-item label="原価"><a-input-number v-model:value="goodsForm.costPrice" :min="0.01" :precision="2" style="width:100%" /></a-form-item></a-col>
+            <a-col :span="12"><a-form-item label="改定価格"><a-input-number v-model:value="goodsForm.updatePrice" :min="0.01" :precision="2" style="width:100%" /></a-form-item></a-col>
+            <a-col :span="12"><a-form-item :label="'価格更新日時' + (goodsForm.updatePrice ? ' *' : '')"><a-date-picker v-model:value="goodsForm.priceUpdateTime" value-format="YYYY-MM-DD HH:mm:ss" show-time style="width:100%" /></a-form-item></a-col>
+            <a-col
+              v-if="goodsDrawerMode !== 'create'"
+              :span="12"
+            >
+              <a-form-item label="バーコード">
+                <div class="barcode-readonly-wrap">
+                  <a-qrcode
+                    v-if="goodsForm.barcode"
+                    :value="String(goodsForm.barcode)"
+                    :size="96"
+                  />
+                  <span v-else>-</span>
+                </div>
+              </a-form-item>
+            </a-col>
+            <a-col :span="12"><a-form-item label="重量"><a-input-number v-model:value="goodsForm.weight" style="width:100%" /></a-form-item></a-col>
+            <a-col :span="12"><a-form-item label="体積"><a-input-number v-model:value="goodsForm.volume" style="width:100%" /></a-form-item></a-col>
+          </a-row>
+
+          <a-divider orientation="left">画像</a-divider>
+          <a-row :gutter="12">
+            <a-col :span="24">
+              <a-upload accept="image/*" :show-upload-list="false" :before-upload="beforeGoodsImageUpload">
+                <a-button>画像アップロード</a-button>
+              </a-upload>
+              <div style="margin-top:8px;">
+                <img v-if="resolveGoodsImageUrl(goodsForm)" :src="resolveGoodsImageUrl(goodsForm)" class="goods-thumb">
+              </div>
+            </a-col>
+          </a-row>
+        </a-form>
+      </a-spin>
+      <template #footer>
+        <a-space>
+          <a-button @click="closeGoodsDrawer">{{ TABLE_TEXT.cancel }}</a-button>
+          <a-button type="primary" :loading="goodsDetailSaving" @click="saveGoodsDrawer">{{ TABLE_TEXT.save }}</a-button>
+        </a-space>
+      </template>
+    </a-modal>
   </a-card>
 </template>
 
 <script setup>
-import { computed, reactive, watch } from 'vue';
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
-import { fetchEnumOptions, fetchModuleOptions, uploadUserAvatar } from '../api/module';
+import { createItem, fetchEnumOptions, fetchGoodsDetail, fetchGoodsFormOptions, fetchModuleOptions, updateItem, uploadFileByBizType } from '../api/module';
 import { useModuleActions } from '../composables/useModuleActions';
 import { useModuleFieldBehavior } from '../composables/useModuleFieldBehavior';
 import { useRelationOptions } from '../composables/useRelationOptions';
@@ -358,6 +456,25 @@ const emit = defineEmits(['navigate-module']);
 const rowAutoKeyMap = new WeakMap();
 let rowAutoKeySeed = 0;
 const dynamicEnumOptions = reactive({});
+const goodsFormOptions = reactive({});
+const goodsDetailRecord = ref(null);
+const goodsDetailLoading = ref(false);
+const goodsDrawerOpen = ref(false);
+const goodsDrawerMode = ref('detail');
+const goodsDrawerLoading = ref(false);
+const goodsDetailSaving = ref(false);
+const goodsForm = reactive({});
+const highlightedPrimaryId = ref(null);
+let highlightTimer = null;
+const goodsDrawerTitle = computed(() => {
+  if (goodsDrawerMode.value === 'create') return TABLE_TEXT.create;
+  if (goodsDrawerMode.value === 'edit') return TABLE_TEXT.edit;
+  return TABLE_TEXT.detail;
+});
+const hotOptions = computed(() => [
+  { label: '通常', value: 0 },
+  { label: '人気', value: 1 },
+]);
 
 const isGoodsManagement = computed(() => props.moduleKey === 'goods');
 const modulePath = computed(() => props.moduleKey);
@@ -536,7 +653,48 @@ function hasEnumOptionsMerged(field) {
 
 function enumLabelMerged(field, value) {
   const hit = mergedEnumOptions(field).find((item) => Number(item.value) === Number(value));
-  return hit?.label || value || '-';
+  return normalizeDisplayLabel(hit?.label || value || '-');
+}
+
+function hasAnyActiveFilter() {
+  return (queryFields.value || []).some((field) => {
+    const value = queryState[field];
+    if (value === undefined || value === null) return false;
+    if (typeof value === 'number') return true;
+    return String(value).trim() !== '';
+  });
+}
+
+async function loadGoodsFormOptions() {
+  if (!isGoodsManagement.value) return;
+  const data = await fetchGoodsFormOptions();
+  Object.keys(goodsFormOptions).forEach((k) => delete goodsFormOptions[k]);
+  Object.assign(goodsFormOptions, data || {});
+  applyGoodsOptionList('brandId', data?.brandOptions);
+  applyGoodsOptionList('seriesId', data?.seriesOptions);
+  applyGoodsOptionList('categoryId', data?.categoryOptions);
+  applyGoodsOptionList('makerId', data?.makerOptions);
+  applyGoodsOptionList('status', data?.statusOptions);
+  applyGoodsOptionList('currency', data?.currencyOptions);
+}
+
+function applyGoodsOptionList(field, source) {
+  const list = Array.isArray(source) ? source : [];
+  const mapped = list
+    .map((item) => {
+      const value = item?.value ?? item?.id ?? item?.code;
+      const label = item?.label ?? item?.name ?? item?.text;
+      if (value === undefined || value === null || label === undefined || label === null) return null;
+      return { value, label: String(label) };
+    })
+    .filter(Boolean);
+  if (mapped.length === 0) return;
+  if (field === 'brandId' || field === 'seriesId' || field === 'categoryId' || field === 'makerId') {
+    relationOptions[field] = mapped;
+    queryRelationOptions[field] = mapped;
+    return;
+  }
+  dynamicEnumOptions[field] = mapped;
 }
 
 watch(
@@ -546,9 +704,14 @@ watch(
     pagination.current = 1;
     initQuery();
     applyPendingQuery(MODULE_QUERY_JUMPS[props.moduleKey]);
+    if (isGoodsManagement.value) {
+      await loadGoodsFormOptions();
+    }
     await loadDynamicEnumOptions();
-    await loadQueryRelationOptions(queryFields.value);
-    await loadRelationOptions(formKeys.value, keys.value);
+    if (!isGoodsManagement.value) {
+      await loadQueryRelationOptions(queryFields.value);
+      await loadRelationOptions(formKeys.value, keys.value);
+    }
     await reload();
   },
   { immediate: true },
@@ -575,6 +738,10 @@ async function submitStockFlow() {
 }
 
 function openCreate() {
+  if (isGoodsManagement.value) {
+    openGoodsDrawerCreate();
+    return;
+  }
   const opened = openCreateState();
   if (opened) {
     if (Object.prototype.hasOwnProperty.call(formState, 'status')) {
@@ -585,6 +752,10 @@ function openCreate() {
 }
 
 function openEdit(record) {
+  if (isGoodsManagement.value) {
+    openGoodsDrawerEdit(record);
+    return;
+  }
   const opened = openEditState(record, getRecordId);
   if (opened) {
     loadRelationOptions(formKeys.value, keys.value);
@@ -592,6 +763,7 @@ function openEdit(record) {
 }
 
 async function submit() {
+  if (isGoodsManagement.value) return;
   await submitState(getRecordId, normalizePayload);
 }
 
@@ -627,12 +799,14 @@ function getRecordId(record) {
 
 function isAvatarField(field) {
   const key = String(field || '').toLowerCase();
-  return key === 'avatar' || key === 'avatarurl';
+  if (key === 'avatar' || key === 'avatarurl') return true;
+  if (props.moduleKey === 'brand' && (key === 'image' || key === 'imageurl')) return true;
+  return false;
 }
 
 function resolveAvatarSrc(record) {
   if (!record) return '';
-  const raw = String(record.avatar || record.avatarUrl || '').trim();
+  const raw = String(record.avatar || record.avatarUrl || record.image || record.imageUrl || '').trim();
   if (!raw) return '';
   if (raw.startsWith('data:') || raw.startsWith('blob:')) return raw;
   if (/^https?:\/\//i.test(raw)) return raw;
@@ -641,8 +815,14 @@ function resolveAvatarSrc(record) {
 }
 
 function beforeAvatarUpload(field, file) {
-  if (props.moduleKey === 'user' && editing.value && editingRaw.value?.id) {
-    uploadAvatarToBackend(editingRaw.value.id, file, (url) => {
+  if (props.moduleKey === 'brand' && isAvatarField(field)) {
+    uploadBrandImageToBackend(file, formState[field], (url) => {
+      formState[field] = url;
+    });
+    return false;
+  }
+  if (props.moduleKey === 'user' && isAvatarField(field)) {
+    uploadAvatarToBackend(file, formState[field], (url) => {
       formState[field] = url;
     });
     return false;
@@ -652,8 +832,14 @@ function beforeAvatarUpload(field, file) {
 }
 
 function beforeInlineAvatarUpload(field, file) {
-  if (props.moduleKey === 'user' && editingKeyRecordId.value) {
-    uploadAvatarToBackend(editingKeyRecordId.value, file, (url) => {
+  if (props.moduleKey === 'brand' && isAvatarField(field)) {
+    uploadBrandImageToBackend(file, editState[inlineField(field)], (url) => {
+      editState[inlineField(field)] = url;
+    });
+    return false;
+  }
+  if (props.moduleKey === 'user' && isAvatarField(field)) {
+    uploadAvatarToBackend(file, editState[inlineField(field)], (url) => {
       editState[inlineField(field)] = url;
     });
     return false;
@@ -662,16 +848,9 @@ function beforeInlineAvatarUpload(field, file) {
   return false;
 }
 
-const editingKeyRecordId = computed(() => {
-  const key = String(editingKey.value ?? '');
-  if (!key) return null;
-  const hit = rows.value.find((item) => String(getRecordId(item)) === key);
-  return hit ? getRecordId(hit) : null;
-});
-
-async function uploadAvatarToBackend(userId, file, onSuccess) {
+async function uploadAvatarToBackend(file, oldPath, onSuccess) {
   try {
-    const avatarPath = await uploadUserAvatar(userId, file);
+    const avatarPath = await uploadFileByBizType('AVATAR', file, oldPath);
     onSuccess(String(avatarPath || ''));
     message.success('アバターをアップロードしました');
   } catch (error) {
@@ -679,6 +858,19 @@ async function uploadAvatarToBackend(userId, file, onSuccess) {
   }
 }
 
+async function uploadBrandImageToBackend(file, oldPath, onSuccess) {
+  try {
+    const imagePath = await uploadFileByBizType('BRAND', file, oldPath);
+    if (!imagePath) {
+      message.error('画像アップロードに失敗しました');
+      return;
+    }
+    onSuccess(String(imagePath || ''));
+    message.success('画像をアップロードしました');
+  } catch (error) {
+    message.error(error?.message || '画像アップロードに失敗しました');
+  }
+}
 function setImageFieldFromFile(target, field, file) {
   const reader = new FileReader();
   reader.onload = () => {
@@ -744,6 +936,210 @@ const {
   getRecordId,
 });
 
+function openGoodsDrawerCreate() {
+  goodsDrawerMode.value = 'create';
+  goodsDrawerOpen.value = true;
+  goodsDetailRecord.value = null;
+  resetGoodsForm({
+    status: 1,
+    currency: 'JPY',
+  });
+  loadRelationOptions(['brandId', 'seriesId', 'categoryId', 'makerId'], keys.value);
+}
+
+async function openGoodsDrawerEdit(record) {
+  goodsDrawerMode.value = 'edit';
+  goodsDrawerOpen.value = true;
+  goodsDetailRecord.value = record || null;
+  resetGoodsForm(record || {});
+  await hydrateGoodsDetail(record);
+}
+
+async function hydrateGoodsDetail(record) {
+  const goodsId = record?.goodsId ?? record?.id;
+  if (goodsId === undefined || goodsId === null || String(goodsId).trim() === '') return;
+  goodsDetailLoading.value = true;
+  try {
+    const detail = await fetchGoodsDetail(goodsId);
+    if (!detail || typeof detail !== 'object') return;
+    goodsDetailRecord.value = { ...(record || {}), ...normalizeGoodsDetail(detail) };
+    resetGoodsForm(goodsDetailRecord.value);
+  } catch (_e) {
+    // keep fallback values from row
+  } finally {
+    goodsDetailLoading.value = false;
+  }
+}
+
+function normalizeGoodsDetail(detail) {
+  return {
+    id: pickValue(detail, 'id'),
+    goodsId: pickValue(detail, 'goodsId'),
+    costPrice: pickValue(detail, 'costPrice', 'cost_price'),
+    updatePrice: pickValue(detail, 'updatePrice', 'update_price'),
+    priceUpdateTime: pickValue(detail, 'priceUpdateTime', 'price_update_time'),
+    barcode: pickValue(detail, 'barcode'),
+    weight: pickValue(detail, 'weight'),
+    volume: pickValue(detail, 'volume'),
+    imageUrl: resolveGoodsImageUrl(detail),
+  };
+}
+
+function pickValue(source, ...keys) {
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) return source[key];
+  }
+  return null;
+}
+
+function closeGoodsDrawer() {
+  goodsDrawerOpen.value = false;
+}
+
+function resetGoodsForm(source) {
+  const base = source || {};
+  const fields = [
+    'id', 'goodsId', 'skuId',
+    'name', 'englishName', 'brandId', 'seriesId', 'categoryId', 'makerId', 'status',
+    'description', 'sort', 'isHot',
+    'skuCode', 'skuName', 'price', 'currency',
+    'costPrice', 'updatePrice', 'priceUpdateTime', 'barcode', 'weight', 'volume', 'imageUrl',
+  ];
+  fields.forEach((field) => { goodsForm[field] = base[field] ?? null; });
+  goodsForm.imageUrl = resolveGoodsImageUrl(base);
+  goodsForm.isHot = Number(base.isHot ?? 0) === 1 ? 1 : 0;
+  if (!goodsForm.currency) goodsForm.currency = 'JPY';
+}
+
+function beforeGoodsImageUpload(file) {
+  uploadGoodsImageToBackend(file, goodsForm.imageUrl, (url) => {
+    goodsForm.imageUrl = url;
+  });
+  return false;
+}
+
+async function uploadGoodsImageToBackend(file, oldPath, onSuccess) {
+  try {
+    const imagePath = await uploadFileByBizType('GOODS', file, oldPath);
+    if (!imagePath) {
+      message.error('画像アップロードに失敗しました');
+      return;
+    }
+    onSuccess(String(imagePath || ''));
+    message.success('画像をアップロードしました');
+  } catch (error) {
+    message.error(error?.message || '画像アップロードに失敗しました');
+  }
+}
+function resolveGoodsImageUrl(source) {
+  const obj = source && typeof source === 'object' ? source : {};
+  const direct = pickValue(
+    obj,
+    'imageUrl',
+    'image_url',
+    'mainImage',
+    'mainImageUrl',
+    'image',
+    'imgUrl',
+    'img',
+    'cover',
+    'coverUrl',
+  );
+  if (direct) return String(direct);
+
+  const candidates = []
+    .concat(Array.isArray(obj.images) ? obj.images : [])
+    .concat(Array.isArray(obj.imageList) ? obj.imageList : [])
+    .concat(Array.isArray(obj.goodsImages) ? obj.goodsImages : [])
+    .concat(Array.isArray(obj.goodsImageList) ? obj.goodsImageList : []);
+  for (const item of candidates) {
+    const nested = pickValue(item || {}, 'imageUrl', 'image_url', 'url', 'imgUrl', 'path');
+    if (nested) return String(nested);
+  }
+  return '';
+}
+
+function validateGoodsForm() {
+  if (!goodsForm.name || String(goodsForm.name).trim() === '') return '名称を入力してください';
+  if (!goodsForm.skuCode || String(goodsForm.skuCode).trim() === '') return 'SKUコードを入力してください';
+  if (goodsForm.price === undefined || goodsForm.price === null || String(goodsForm.price).trim() === '') return '価格を入力してください';
+  if (!goodsForm.brandId || !goodsForm.seriesId || !goodsForm.categoryId || !goodsForm.makerId) return 'ブランド/シリーズ/カテゴリ/メーカーを選択してください';
+  if (goodsForm.updatePrice !== undefined && goodsForm.updatePrice !== null && String(goodsForm.updatePrice).trim() !== '') {
+    if (!goodsForm.priceUpdateTime || String(goodsForm.priceUpdateTime).trim() === '') return '改定価格を入力した場合、価格更新日時は必須です';
+  }
+  return '';
+}
+
+async function saveGoodsDrawer() {
+  const err = validateGoodsForm();
+  if (err) {
+    message.warning(err);
+    return;
+  }
+  goodsDetailSaving.value = true;
+  try {
+    const rawName = goodsForm.name ? String(goodsForm.name).trim() : '';
+    const rawSkuName = goodsForm.skuName ? String(goodsForm.skuName).trim() : '';
+    const payload = {
+      ...goodsDetailRecord.value,
+      ...goodsForm,
+      skuName: rawSkuName || rawName,
+      isHot: Number(goodsForm.isHot) === 1 ? 1 : 0,
+    };
+    if (!payload.updatePrice) payload.priceUpdateTime = null;
+    if (!payload.currency) payload.currency = 'JPY';
+    if (goodsDrawerMode.value === 'create') {
+      const created = await createItem('goods', normalizePayload(payload));
+      message.success(TABLE_TEXT.createSuccess);
+      goodsDrawerOpen.value = false;
+      pagination.current = 1;
+      highlightedPrimaryId.value = resolvePrimaryId(created) || null;
+    } else {
+      payload.id = payload.id || payload.goodsId;
+      await updateItem('goods', normalizePayload(payload));
+      message.success(TABLE_TEXT.updateSuccess);
+      goodsDrawerOpen.value = false;
+    }
+    await reload();
+    if (goodsDrawerMode.value === 'create') {
+      if (!highlightedPrimaryId.value && rows.value?.length) {
+        highlightedPrimaryId.value = resolvePrimaryId(rows.value[0]);
+      }
+      scheduleHighlightClear();
+    }
+  } catch (error) {
+    message.error(error?.message || TABLE_TEXT.updateFail);
+  } finally {
+    goodsDetailSaving.value = false;
+  }
+}
+
+function resolvePrimaryId(record) {
+  if (!record || typeof record !== 'object') return null;
+  return record.skuId ?? record.id ?? record.goodsId ?? null;
+}
+
+function rowClassName(record) {
+  if (!highlightedPrimaryId.value) return '';
+  const id = resolvePrimaryId(record);
+  return String(id) === String(highlightedPrimaryId.value) ? 'row-highlight-new' : '';
+}
+
+function scheduleHighlightClear() {
+  if (highlightTimer) clearTimeout(highlightTimer);
+  highlightTimer = setTimeout(() => {
+    highlightedPrimaryId.value = null;
+    highlightTimer = null;
+  }, 3000);
+}
+
+onBeforeUnmount(() => {
+  if (highlightTimer) {
+    clearTimeout(highlightTimer);
+    highlightTimer = null;
+  }
+});
+
 function canCreateInModule() {
   return canCreateModuleRecord(props.moduleKey, props.permissionCodes || []);
 }
@@ -761,6 +1157,7 @@ function canEditRecord(record) {
 }
 
 function canInlineEditRecord(record) {
+  if (props.moduleKey === 'goods') return false;
   return canInlineEditModuleRecord(props.moduleKey, record, props.currentUser, props.permissionCodes || []);
 }
 
@@ -769,6 +1166,49 @@ function isMultiRelationField(field) {
 }
 
 
+
+let modalDragCleanup = null;
+
+function onModalTitleMouseDown(event) {
+  if (!modalOpen.value || event.button !== 0) return;
+  const modal = document.querySelector('.module-edit-modal .ant-modal');
+  if (!modal) return;
+
+  const rect = modal.getBoundingClientRect();
+  const offsetX = event.clientX - rect.left;
+  const offsetY = event.clientY - rect.top;
+
+  modal.style.position = 'fixed';
+  modal.style.margin = '0';
+  modal.style.left = `${rect.left}px`;
+  modal.style.top = `${rect.top}px`;
+
+  const onMouseMove = (moveEvent) => {
+    const maxLeft = Math.max(0, window.innerWidth - rect.width);
+    const maxTop = Math.max(0, window.innerHeight - rect.height);
+    const nextLeft = Math.min(Math.max(0, moveEvent.clientX - offsetX), maxLeft);
+    const nextTop = Math.min(Math.max(0, moveEvent.clientY - offsetY), maxTop);
+    modal.style.left = `${nextLeft}px`;
+    modal.style.top = `${nextTop}px`;
+  };
+
+  const onMouseUp = () => {
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
+    modalDragCleanup = null;
+  };
+
+  window.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('mouseup', onMouseUp);
+  modalDragCleanup = onMouseUp;
+  event.preventDefault();
+}
+
+onBeforeUnmount(() => {
+  if (typeof modalDragCleanup === 'function') {
+    modalDragCleanup();
+  }
+});
 function isFormFieldRequired(field) {
   if (props.moduleKey === 'user' && editing.value && String(field || '').toLowerCase() === 'password') {
     return false;
@@ -783,7 +1223,49 @@ function formPlaceholder(field) {
   }
   return '';
 }
+
+function normalizeDisplayLabel(value) {
+  const text = String(value ?? '');
+  if (text.toLowerCase() === 'normal') return '有効';
+  return text || '-';
+}
+
+function numberMinByField(field) {
+  const low = String(field || '').toLowerCase();
+  if (low === 'sort') return 0;
+  if (isPriceLikeField(low)) return 0.01;
+  return undefined;
+}
+
+function numberPrecisionByField(field) {
+  const low = String(field || '').toLowerCase();
+  if (isPriceLikeField(low)) return 2;
+  return undefined;
+}
+
+function isPriceLikeField(lowField) {
+  const low = String(lowField || '');
+  return low.includes('price') || low.includes('amount');
+}
 </script>
+
+<style scoped>
+:deep(.row-highlight-new > td) {
+  background: #fff7e6 !important;
+  transition: background-color 0.3s ease;
+}
+</style>
+
+
+
+
+
+
+
+
+
+
+
 
 
 

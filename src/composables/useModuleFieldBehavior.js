@@ -3,6 +3,11 @@ import { TABLE_TEXT } from '../utils/module-ui';
 
 const GOODS_TEXT_QUERY_FIELDS = new Set(['keyword', 'englishName', 'skuCode', 'skuName']);
 const READONLY_FIELDS = new Set(['id', 'createtime', 'updatetime', 'statusdesc']);
+const CURRENCY_OPTIONS = [
+  { label: 'JPY', value: 'JPY' },
+  { label: 'RMB', value: 'RMB' },
+  { label: 'USD', value: 'USD' },
+];
 
 export function useModuleFieldBehavior(options) {
   const {
@@ -24,6 +29,7 @@ export function useModuleFieldBehavior(options) {
     }
     if (mapNameFieldToIdField(field)) return 'select';
     const type = inputType(field);
+    if (type === 'relation') return 'select';
     if (type === 'select') return 'select';
     if (type === 'number' || type === 'decimal') return 'number';
     return 'text';
@@ -46,6 +52,7 @@ export function useModuleFieldBehavior(options) {
   }
 
   function selectOptionsForField(field) {
+    if (String(field || '').toLowerCase() === 'currency') return CURRENCY_OPTIONS;
     if (field === 'status') return statusOptions;
     return dedupeOptions(enumOptionsForField(field));
   }
@@ -93,6 +100,20 @@ export function useModuleFieldBehavior(options) {
         output[key] = Number(output[key]);
       }
     });
+
+    if (moduleKey.value === 'goods') {
+      const skuName = output.skuName;
+      const goodsName = output.name || output.goodsName;
+      if ((skuName === null || skuName === undefined || String(skuName).trim() === '') && goodsName) {
+        output.skuName = goodsName;
+      }
+      if (output.updatePrice === null || output.updatePrice === undefined || String(output.updatePrice).trim() === '') {
+        output.priceUpdateTime = null;
+      }
+      if (!output.currency) {
+        output.currency = 'JPY';
+      }
+    }
     return output;
   }
 

@@ -28,6 +28,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => `/api${path}`,
       },
+      '/upload': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
     },
   },
 });
+

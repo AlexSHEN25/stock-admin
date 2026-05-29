@@ -1,6 +1,6 @@
-import { reactive, ref } from 'vue';
+﻿import { reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
-import { createItem, fetchPage, removeItem, updateItem } from '../api/module';
+import { createItem, fetchPage, removeItem, removeItems, updateItem } from '../api/module';
 import { TABLE_TEXT } from '../utils/module-ui';
 
 export function useModuleTableState(options) {
@@ -170,6 +170,10 @@ export function useModuleTableState(options) {
   }
 
   function validateRequiredFields() {
+    if (hasConditionalRequiredViolation()) {
+      message.warning('改定価格を入力した場合は価格更新日時を入力してください');
+      return true;
+    }
     const missing = getFormKeys()
       .filter((field) => isFieldRequired(field))
       .some((field) => {
@@ -186,6 +190,15 @@ export function useModuleTableState(options) {
       return false;
     }
     return requiredForForm(field);
+  }
+
+  function hasConditionalRequiredViolation() {
+    if (moduleKey.value !== 'goods') return false;
+    const updatePrice = formState.updatePrice;
+    const hasUpdatePrice = updatePrice !== undefined && updatePrice !== null && String(updatePrice).trim() !== '';
+    if (!hasUpdatePrice) return false;
+    const priceUpdateTime = formState.priceUpdateTime;
+    return priceUpdateTime === undefined || priceUpdateTime === null || String(priceUpdateTime).trim() === '';
   }
 
   async function submit(getRecordId, normalizePayload) {
@@ -229,9 +242,7 @@ export function useModuleTableState(options) {
     if (!canWrite.value || !canBatchDeleteRecord()) return;
     if (selectedRowKeys.value.length === 0) return;
     try {
-      for (const id of selectedRowKeys.value) {
-        await removeItem(modulePath.value, id);
-      }
+      await removeItems(modulePath.value, selectedRowKeys.value);
       selectedRowKeys.value = [];
       message.success(TABLE_TEXT.batchDeleteSuccess);
       await reload();

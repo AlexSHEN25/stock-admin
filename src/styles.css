@@ -1,4 +1,4 @@
-﻿* {
+* {
   box-sizing: border-box;
 }
 
@@ -484,4 +484,14 @@ html[data-theme-mode='dark'] .login-card .ant-input-password .ant-input::placeho
 
 .module-table .ant-table-tbody > tr > td.cell-permission-names {
   vertical-align: top;
+}
+
+.module-edit-modal .ant-modal {
+  max-width: calc(100vw - 24px);
+  transform: none;
+}
+
+.module-modal-drag-title {
+  cursor: move;
+  user-select: none;
 }
