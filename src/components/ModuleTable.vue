@@ -6,7 +6,7 @@
     <div class="search-toolbar">
       <div class="search-filters">
         <template
-          v-for="field in queryFields"
+          v-for="field in visibleQueryFields"
           :key="field"
         >
           <a-select
@@ -84,6 +84,14 @@
         >
           {{ TABLE_TEXT.readAll }}
         </a-button>
+        <a-button
+          v-if="props.moduleKey === 'requestItem'"
+          type="primary"
+          class="search-btn"
+          @click="openCandidateModal"
+        >
+          明細追加
+        </a-button>
       </div>
     </div>
 
@@ -92,7 +100,7 @@
       :row-key="getRowKey"
       :row-class-name="rowClassName"
       :columns="columns"
-      :data-source="rows"
+      :data-source="tableRows"
       :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
       :loading="loading"
       :pagination="tablePagination"
@@ -187,8 +195,14 @@
         <template v-else-if="column.key === 'updateTime'">
           {{ formatTime(record.updateTime) }}
         </template>
+        <template v-else-if="String(column.key) === 'bizDate'">
+          {{ formatBizDate(record) }}
+        </template>
         <template v-else-if="String(column.key) === 'isHot'">
           {{ Number(record.isHot) === 1 ? TABLE_TEXT.hotYes : TABLE_TEXT.hotNo }}
+        </template>
+        <template v-else-if="String(column.key) === 'changeQty'">
+          {{ formatQty(record.changeQty) }}
         </template>
         <template v-else-if="isPermissionNamesField(column.key)">
           <div
@@ -333,6 +347,49 @@
       </a-form>
     </a-modal>
     <a-modal
+      :open="candidateModalOpen"
+      title="明細追加"
+      width="1280px"
+      :ok-text="candidateSubmitText"
+      :ok-button-props="{ disabled: candidateSelectedKeys.length === 0 }"
+      @cancel="closeCandidateModal"
+      @ok="submitAddCandidates"
+    >
+      <a-spin :spinning="candidateLoading">
+        <div class="request-candidate-summary">
+          追加する明細を選択してください。選択済み: {{ candidateSelectedKeys.length }}件
+        </div>
+        <a-table
+          :row-key="candidateRowKey"
+          :data-source="candidateRows"
+          :columns="candidateColumns"
+          :pagination="{ pageSize: 10, showSizeChanger: true, pageSizeOptions: ['10', '20', '50'] }"
+          :row-selection="{ selectedRowKeys: candidateSelectedKeys, onChange: onCandidateSelectChange }"
+          :scroll="{ x: 'max-content', y: 520 }"
+        >
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'matchStatus'">
+              <a-tag :color="resolveKnifeHandleMatch(record).ok ? 'success' : 'warning'">
+                {{ resolveKnifeHandleMatch(record).text }}
+              </a-tag>
+            </template>
+            <template v-else-if="column.key === 'changeQty'">
+              {{ formatQty(record.changeQty) }}
+            </template>
+            <template v-else-if="column.key === 'requestQty'">
+              <a-input-number
+                v-model:value="candidateQtyState[candidateRowKey(record)]"
+                :min="1"
+                :max="maxRequestQty(record)"
+                :precision="0"
+                style="width: 100%"
+              />
+            </template>
+          </template>
+        </a-table>
+      </a-spin>
+    </a-modal>
+    <a-modal
       :open="goodsDrawerOpen"
       :title="goodsDrawerTitle"
       width="860px"
@@ -353,8 +410,8 @@
 
           <a-divider orientation="left">SKU情報</a-divider>
           <a-row :gutter="12">
-            <a-col :span="12"><a-form-item label="SKUコード" required><a-input v-model:value="goodsForm.skuCode" /></a-form-item></a-col>
-            <a-col :span="12"><a-form-item label="SKU名"><a-input v-model:value="goodsForm.skuName" /></a-form-item></a-col>
+            <a-col :span="12"><a-form-item label="品番" required><a-input v-model:value="goodsForm.skuCode" /></a-form-item></a-col>
+            <a-col :span="12"><a-form-item label="品名"><a-input v-model:value="goodsForm.skuName" /></a-form-item></a-col>
             <a-col :span="12"><a-form-item label="価格" required><a-input-number v-model:value="goodsForm.price" :min="0.01" :precision="2" style="width:100%" /></a-form-item></a-col>
             <a-col :span="12"><a-form-item label="通貨"><a-select v-model:value="goodsForm.currency" :options="selectOptionsMerged('currency')" /></a-form-item></a-col>
             <a-col :span="12"><a-form-item label="表示順"><a-input-number v-model:value="goodsForm.sort" :min="0" style="width:100%" /></a-form-item></a-col>
@@ -419,7 +476,19 @@
 <script setup>
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
-import { createItem, fetchEnumOptions, fetchGoodsDetail, fetchGoodsFormOptions, fetchModuleOptions, updateItem, uploadFileByBizType } from '../api/module';
+import {
+  addRequestItems,
+  createItem,
+  fetchEnumOptions,
+  fetchOutboundStockOrderOptions,
+  fetchGoodsDetail,
+  fetchGoodsFormOptions,
+  fetchModuleOptions,
+  getCandidateItems,
+  removeRequestItems,
+  updateItem,
+  uploadFileByBizType,
+} from '../api/module';
 import { useModuleActions } from '../composables/useModuleActions';
 import { useModuleFieldBehavior } from '../composables/useModuleFieldBehavior';
 import { useRelationOptions } from '../composables/useRelationOptions';
@@ -435,6 +504,7 @@ import {
   TABLE_TEXT,
   getModuleEnumOptions,
   getRowExtraActions,
+  isAdminByPermissionCodes,
 } from '../utils/module-ui';
 import {
   canBatchDeleteModuleRecord,
@@ -464,6 +534,11 @@ const goodsDrawerMode = ref('detail');
 const goodsDrawerLoading = ref(false);
 const goodsDetailSaving = ref(false);
 const goodsForm = reactive({});
+const candidateModalOpen = ref(false);
+const candidateLoading = ref(false);
+const candidateRows = ref([]);
+const candidateSelectedKeys = ref([]);
+const candidateQtyState = reactive({});
 const highlightedPrimaryId = ref(null);
 let highlightTimer = null;
 const goodsDrawerTitle = computed(() => {
@@ -476,11 +551,28 @@ const hotOptions = computed(() => [
   { label: '人気', value: 1 },
 ]);
 
+function formatBizDate(record) {
+  const raw = record?.bizDate;
+  if (!raw) return '-';
+  const text = formatTime(raw);
+  const orderType = Number(record?.orderType);
+  if (orderType === 1) return `納品日: ${text}`;
+  if (orderType === 2) return `出荷日: ${text}`;
+  return text;
+}
+
+function formatQty(value) {
+  const num = Number(value);
+  if (Number.isNaN(num)) return value ?? '-';
+  return Math.abs(num);
+}
+
 const isGoodsManagement = computed(() => props.moduleKey === 'goods');
 const modulePath = computed(() => props.moduleKey);
 const preset = computed(() => getModulePreset(props.moduleKey));
 const rowExtraActions = computed(() => getRowExtraActions(props.moduleKey));
 const canWrite = computed(() => hasWritePermission(props.moduleKey, props.permissionReady, props.permissionCodes || []));
+const isAdminUser = computed(() => isAdminByPermissionCodes(props.permissionCodes || []));
 const {
   statusOptions,
   queryInputType,
@@ -557,6 +649,11 @@ const {
   mapNameFieldToIdField,
   moduleSubmitHandlers: MODULE_SUBMIT_HANDLERS,
   buildQueryFieldAlias: (field) => field,
+  buildExtraQueryParams: () => (
+    props.moduleKey === 'message' && isAdminUser.value
+      ? { all: true, scope: 'all' }
+      : {}
+  ),
 });
 
 const isUserSelfEditMode = computed(() => props.moduleKey === 'user' && editing.value && !canCreateModuleRecord(props.moduleKey, props.permissionCodes || []));
@@ -596,6 +693,12 @@ const {
   inlineField,
   mapNameFieldToIdField,
 });
+
+const visibleQueryFields = computed(() => {
+  const list = queryFields.value || [];
+  if (props.moduleKey !== 'stockOrderItem') return list;
+  return list.filter((field) => String(field || '').toLowerCase() !== 'orderid');
+});
 const tablePagination = computed(() => ({
   current: pagination.current,
   pageSize: pagination.pageSize,
@@ -603,6 +706,28 @@ const tablePagination = computed(() => ({
   showSizeChanger: true,
   pageSizeOptions: ['10', '20', '50'],
 }));
+const tableRows = computed(() => {
+  if (props.moduleKey !== 'requestItem') return rows.value;
+  return (rows.value || []).filter((item) => Number(item?.state ?? item?.requestItemState ?? 1) === 1);
+});
+const candidateColumns = [
+  { title: '伝票番号', dataIndex: 'orderNo', key: 'orderNo', width: 140 },
+  { title: '商品名', dataIndex: 'goodsName', key: 'goodsName', width: 180 },
+  { title: '品番', dataIndex: 'skuCode', key: 'skuCode', width: 120 },
+  { title: 'ブランド', dataIndex: 'brandName', key: 'brandName', width: 120 },
+  { title: 'シリーズ', dataIndex: 'seriesName', key: 'seriesName', width: 120 },
+  { title: 'カテゴリ', dataIndex: 'categoryName', key: 'categoryName', width: 120 },
+  { title: '出庫数量', dataIndex: 'changeQty', key: 'changeQty', width: 90 },
+  { title: '請求数量', dataIndex: 'requestQty', key: 'requestQty', width: 120 },
+  { title: '価格', dataIndex: 'price', key: 'price', width: 100 },
+  { title: '通貨', dataIndex: 'currency', key: 'currency', width: 80 },
+  { title: '刀柄マッチ', dataIndex: 'matchStatus', key: 'matchStatus', width: 120 },
+];
+const candidateSubmitText = computed(() => (
+  candidateSelectedKeys.value.length > 0
+    ? `追加（${candidateSelectedKeys.value.length}件）`
+    : '追加'
+));
 const visibleFormKeys = computed(() => (
   editing.value ? formKeys.value : formKeys.value.filter((field) => String(field || '').toLowerCase() !== 'status')
 ));
@@ -697,6 +822,19 @@ function applyGoodsOptionList(field, source) {
   dynamicEnumOptions[field] = mapped;
 }
 
+async function loadSourceOrderOptions() {
+  if (props.moduleKey !== 'requestForm') return;
+  try {
+    const list = await fetchOutboundStockOrderOptions();
+    relationOptions.sourceOrderId = dedupeOptions((list || []).map((item) => ({
+      label: relationLabel(item),
+      value: item.id,
+    })));
+  } catch {
+    relationOptions.sourceOrderId = [];
+  }
+}
+
 watch(
   () => props.moduleKey,
   async () => {
@@ -711,6 +849,7 @@ watch(
     if (!isGoodsManagement.value) {
       await loadQueryRelationOptions(queryFields.value);
       await loadRelationOptions(formKeys.value, keys.value);
+      await loadSourceOrderOptions();
     }
     await reload();
   },
@@ -719,6 +858,7 @@ watch(
 
 function normalizeQueryField(field) {
   const key = String(field || '');
+  if (key === 'sourceOrderId') return key;
   if (!key.endsWith('Id')) return key;
   if (relationModuleByField(key)) return `${key.slice(0, -2)}Name`;
   const nameField = `${key.slice(0, -2)}Name`;
@@ -748,6 +888,7 @@ function openCreate() {
       formState.status = 1;
     }
     loadRelationOptions(formKeys.value, keys.value);
+    loadSourceOrderOptions();
   }
 }
 
@@ -759,6 +900,7 @@ function openEdit(record) {
   const opened = openEditState(record, getRecordId);
   if (opened) {
     loadRelationOptions(formKeys.value, keys.value);
+    loadSourceOrderOptions();
   }
 }
 
@@ -768,6 +910,24 @@ async function submit() {
 }
 
 async function onDelete(record) {
+  if (props.moduleKey === 'requestItem') {
+    const requestId = resolveCurrentRequestId();
+    const stockRecordId = Number(record?.stockRecordId);
+    const requestItemId = Number(getRecordId(record));
+    if (!requestId || (!stockRecordId && !requestItemId)) return;
+    try {
+      await removeRequestItems({
+        requestId,
+        stockRecordIds: stockRecordId ? [stockRecordId] : undefined,
+        requestItemIds: requestItemId ? [requestItemId] : undefined,
+      });
+      message.success('申請明細を削除しました');
+      await refreshRequestItemContext();
+    } catch (error) {
+      message.error(error?.message || TABLE_TEXT.deleteFail);
+    }
+    return;
+  }
   await onDeleteState(record, getRecordId);
 }
 
@@ -1061,7 +1221,7 @@ function resolveGoodsImageUrl(source) {
 
 function validateGoodsForm() {
   if (!goodsForm.name || String(goodsForm.name).trim() === '') return '名称を入力してください';
-  if (!goodsForm.skuCode || String(goodsForm.skuCode).trim() === '') return 'SKUコードを入力してください';
+  if (!goodsForm.skuCode || String(goodsForm.skuCode).trim() === '') return '品番を入力してください';
   if (goodsForm.price === undefined || goodsForm.price === null || String(goodsForm.price).trim() === '') return '価格を入力してください';
   if (!goodsForm.brandId || !goodsForm.seriesId || !goodsForm.categoryId || !goodsForm.makerId) return 'ブランド/シリーズ/カテゴリ/メーカーを選択してください';
   if (goodsForm.updatePrice !== undefined && goodsForm.updatePrice !== null && String(goodsForm.updatePrice).trim() !== '') {
@@ -1145,6 +1305,7 @@ function canCreateInModule() {
 }
 
 function canBatchDeleteInModule() {
+  if (props.moduleKey === 'requestItem') return false;
   return canBatchDeleteModuleRecord(props.moduleKey, props.permissionCodes || []);
 }
 
@@ -1159,6 +1320,175 @@ function canEditRecord(record) {
 function canInlineEditRecord(record) {
   if (props.moduleKey === 'goods') return false;
   return canInlineEditModuleRecord(props.moduleKey, record, props.currentUser, props.permissionCodes || []);
+}
+
+function resolveCurrentRequestId() {
+  const fromQuery = Number(queryState.requestId);
+  if (fromQuery) return fromQuery;
+  const first = rows.value?.[0];
+  const fromRow = Number(first?.requestId);
+  if (fromRow) return fromRow;
+  const raw = sessionStorage.getItem('jump_request_form_id');
+  const fromJump = Number(raw);
+  if (fromJump) return fromJump;
+  return null;
+}
+
+async function loadCandidateRows() {
+  const requestId = resolveCurrentRequestId();
+  if (!requestId) {
+    candidateRows.value = [];
+    return;
+  }
+  candidateLoading.value = true;
+  try {
+    const list = await getCandidateItems(requestId);
+    candidateRows.value = Array.isArray(list) ? list : [];
+    Object.keys(candidateQtyState).forEach((key) => delete candidateQtyState[key]);
+    candidateRows.value.forEach((item) => {
+      const key = candidateRowKey(item);
+      if (!key) return;
+      const seedQty = Number(item?.requestQty ?? item?.changeQty ?? 1);
+      candidateQtyState[key] = Math.max(1, Math.abs(seedQty || 1));
+    });
+    candidateSelectedKeys.value = candidateRows.value
+      .filter((item) => Number(item?.selected) === 1 || item?.selected === true)
+      .map((item) => candidateRowKey(item))
+      .filter((id) => id !== undefined && id !== null);
+  } catch (error) {
+    message.error(error?.message || TABLE_TEXT.fetchFail);
+  } finally {
+    candidateLoading.value = false;
+  }
+}
+
+function openCandidateModal() {
+  candidateModalOpen.value = true;
+  loadCandidateRows();
+}
+
+function closeCandidateModal() {
+  candidateModalOpen.value = false;
+}
+
+function onCandidateSelectChange(keys) {
+  candidateSelectedKeys.value = keys;
+}
+
+async function submitAddCandidates() {
+  const requestId = resolveCurrentRequestId();
+  const selectedKeys = new Set((candidateSelectedKeys.value || []).map((x) => String(x)));
+  const items = (candidateRows.value || [])
+    .filter((item) => selectedKeys.has(String(candidateRowKey(item))))
+    .map((item) => ({
+      maxQty: maxRequestQty(item),
+      stockRecordId: resolveCandidateStockRecordId(item),
+      requestQty: clampRequestQty(item, candidateQtyState[candidateRowKey(item)]),
+    }));
+  const payloadItems = items.map(({ maxQty, ...rest }) => rest);
+  if (!requestId) {
+    message.warning('請求書を選択してください');
+    return;
+  }
+  if (candidateSelectedKeys.value.length === 0) {
+    message.warning('追加する明細を選択してください');
+    return;
+  }
+  if (items.some((item) => !item.stockRecordId)) {
+    message.warning('候補データに在庫履歴IDがありません');
+    return;
+  }
+  if (items.some((item) => !item.requestQty || item.requestQty <= 0)) {
+    message.warning('請求数量を入力してください');
+    return;
+  }
+  if (items.some((item) => item.requestQty > item.maxQty)) {
+    message.warning('請求数量は出庫数量以下にしてください');
+    return;
+  }
+  candidateLoading.value = true;
+  try {
+    await addRequestItems({ requestId, items: payloadItems.filter((item) => item.stockRecordId && item.requestQty > 0) });
+    message.success('申請明細を更新しました');
+    candidateModalOpen.value = false;
+    await refreshRequestItemContext();
+  } catch (error) {
+    message.error(error?.message || TABLE_TEXT.saveFail);
+  } finally {
+    candidateLoading.value = false;
+  }
+}
+
+function candidateRowKey(record) {
+  return resolveCandidateStockRecordId(record) ?? record?.stockOrderItemId ?? record?.stock_order_item_id ?? record?.id;
+}
+
+function resolveCandidateStockRecordId(record) {
+  const raw = record?.stockRecordId
+    ?? record?.stock_record_id
+    ?? record?.stockRecordID
+    ?? record?.stockRecord?.id
+    ?? record?.recordId
+    ?? record?.record_id;
+  const id = Number(raw);
+  return Number.isNaN(id) ? 0 : id;
+}
+
+function maxRequestQty(record) {
+  const candidateMax = resolveCandidateMaxQty(record);
+  if (candidateMax > 0) return candidateMax;
+  const qty = Number(record?.changeQty ?? 0);
+  const normalized = Math.abs(qty);
+  return normalized > 0 ? normalized : 1;
+}
+
+function clampRequestQty(record, value) {
+  const raw = Math.abs(Number(value || 0));
+  if (!raw) return 0;
+  return Math.min(raw, maxRequestQty(record));
+}
+
+function resolveCandidateMaxQty(record) {
+  const sources = [
+    record?.maxRequestQty,
+    record?.max_request_qty,
+    record?.availableQty,
+    record?.available_qty,
+    record?.remainQty,
+    record?.remain_qty,
+    record?.leftQty,
+    record?.left_qty,
+    record?.canRequestQty,
+    record?.can_request_qty,
+    record?.requestableQty,
+    record?.requestable_qty,
+  ];
+  for (const value of sources) {
+    const qty = Number(value);
+    if (!Number.isNaN(qty) && qty > 0) {
+      return Math.floor(qty);
+    }
+  }
+  return 0;
+}
+
+async function refreshRequestItemContext() {
+  await reload();
+  await loadCandidateRows();
+}
+
+function resolveKnifeHandleMatch(row) {
+  const name = String(row?.goodsName || '');
+  const orderId = Number(row?.stockOrderId || 0);
+  if (!orderId) return { ok: true, text: '判定不要' };
+  const siblings = (candidateRows.value || []).filter((item) => Number(item?.stockOrderId) === orderId);
+  const hasKnife = siblings.some((item) => String(item?.goodsName || '').includes('刀'));
+  const hasHandle = siblings.some((item) => String(item?.goodsName || '').includes('柄'));
+  if (name.includes('刀') || name.includes('柄')) {
+    if (hasKnife && hasHandle) return { ok: true, text: 'マッチ可' };
+    return { ok: false, text: '片側不足' };
+  }
+  return { ok: true, text: '対象外' };
 }
 
 function isMultiRelationField(field) {
@@ -1254,25 +1584,10 @@ function isPriceLikeField(lowField) {
   background: #fff7e6 !important;
   transition: background-color 0.3s ease;
 }
+
+.request-candidate-summary {
+  color: #8c8c8c;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
 </style>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

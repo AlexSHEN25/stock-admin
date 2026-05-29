@@ -22,6 +22,7 @@ export function useModuleTableState(options) {
     mapNameFieldToIdField,
     moduleSubmitHandlers,
     buildQueryFieldAlias,
+    buildExtraQueryParams,
   } = options;
 
   const rows = ref([]);
@@ -75,13 +76,17 @@ export function useModuleTableState(options) {
   function buildQueryParams() {
     const params = {};
     getQueryFields().forEach((field) => {
+      if (moduleKey.value === 'message' && String(field || '').toLowerCase() === 'isread') return;
       const value = queryState[field];
       if (value === undefined || value === null || String(value).trim() === '') return;
       const aliasedField = buildQueryFieldAlias ? buildQueryFieldAlias(field) : field;
       const idField = mapNameFieldToIdField(aliasedField);
       params[idField || aliasedField] = value;
     });
-    return params;
+    const extraParams = typeof buildExtraQueryParams === 'function'
+      ? (buildExtraQueryParams() || {})
+      : {};
+    return { ...params, ...extraParams };
   }
 
   function resetQuery() {

@@ -1,4 +1,4 @@
-export const STATUS_OPTIONS = [
+﻿export const STATUS_OPTIONS = [
   { label: '有効', value: 1 },
   { label: '無効', value: 0 },
 ];
@@ -19,6 +19,7 @@ export const RELATION_FIELD_MODULE = {
   skuId: 'goodsSku',
   stockTypeId: 'stockType',
   warehouseId: 'warehouse',
+  sourceOrderId: 'stockOrder',
   customerId: 'customer',
   levelId: 'customerLevel',
   userId: 'user',
@@ -45,6 +46,7 @@ export const NAME_TO_ID_FIELD = {
   skuName: 'skuId',
   stockTypeName: 'stockTypeId',
   warehouseName: 'warehouseId',
+  sourceOrderNo: 'sourceOrderId',
   customerName: 'customerId',
   levelName: 'levelId',
   ownerUserName: 'ownerUserId',
@@ -64,9 +66,9 @@ export const FIELD_LABELS = {
   roleId: 'ロール',
   roleName: 'ロール名',
   permissionId: '権限ID',
-  permissionName: '権限名称',
+  permissionName: '権限名',
   permissionIds: '権限ID一覧',
-  permissionNames: '権限名称',
+  permissionNames: '権限名',
   name: '名称',
   englishName: '英語名',
   code: 'コード',
@@ -81,8 +83,8 @@ export const FIELD_LABELS = {
   goodsId: '商品',
   goodsName: '商品名',
   skuId: 'SKU',
-  skuCode: 'SKUコード',
-  skuName: 'SKU名',
+  skuCode: '品番',
+  skuName: '品名',
   barcode: 'バーコード',
   weight: '重量',
   volume: '体積',
@@ -126,6 +128,8 @@ export const FIELD_LABELS = {
   stockTypeId: '在庫区分',
   stockTypeName: '在庫区分',
   stockId: '在庫ID',
+  sourceOrderId: '来源出庫伝票',
+  sourceOrderNo: '来源出庫伝票番号',
   levelId: 'ランクID',
   levelName: 'ランク名',
   ownerUserId: '担当ユーザーID',
@@ -138,13 +142,13 @@ export const FIELD_LABELS = {
   orderId: '伝票ID',
   orderNo: '伝票番号',
   orderType: '伝票種別',
-  sourceType: '入庫区分',
-  sourceId: '元データID',
+  sourceType: '来源種別',
+  sourceId: '来源ID',
   orderItemId: '伝票明細ID',
-  requestId: '申請ID',
-  requestNo: '申請番号',
-  requestType: '申請種別',
-  requestStatus: '申請状態',
+  requestId: '請求書ID',
+  requestNo: '請求書番号',
+  requestType: '請求書種別',
+  requestStatus: '請求書状態',
   imageUrl: '画像URL',
   image: '画像',
   icon: 'アイコン',
@@ -167,10 +171,10 @@ export const FIELD_LABELS = {
   group: 'グループ',
   value: '値',
   tip: 'ヒント',
-  requesterId: '申請者ID',
-  requesterName: '申請者名',
-  operatorId: '操作者ID',
-  operatorName: '操作者名',
+  requesterId: '申請人ID',
+  requesterName: '申請人',
+  operatorId: '操作人ID',
+  operatorName: '操作人',
   stockRecordId: '在庫履歴ID',
   specId: '仕様ID',
   specName: '仕様名',
@@ -179,14 +183,14 @@ export const FIELD_LABELS = {
   beforeQty: '変更前数量',
   afterQty: '変更後数量',
   changeQty: '変更数量',
-  totalQty: '合計数量',
-  requestQty: '申請数量',
+  totalQty: '総数量',
+  requestQty: '請求数量',
   approveQty: '承認数量',
   outQty: '出庫数量',
-  totalAmt: '合計金額',
+  totalAmt: '総金額',
   state: '状態コード',
-  approverId: '承認者ID',
-  approverName: '承認者名',
+  approverId: '承認人ID',
+  approverName: '承認人',
   approveTime: '承認日時',
   approveRemark: '承認備考',
   finishTime: '完了日時',
@@ -202,6 +206,7 @@ export const FIELD_LABELS = {
   deleted: '削除フラグ',
   version: 'バージョン',
   bizNo: '業務番号',
+  bizDate: '納品日/出荷日',
 };
 
 export function normalizeTitle(key) {
@@ -220,7 +225,7 @@ export function mapNameFieldToIdField(field) {
 
 export function relationLabel(record) {
   if (!record) return '';
-  return record.name || record.goodsName || record.skuName || record.username || record.code || `ID:${record.id}`;
+  return record.orderNo || record.name || record.goodsName || record.skuName || record.username || record.code || `ID:${record.id}`;
 }
 
 export function displayKeys(record) {
@@ -235,6 +240,7 @@ export function displayKeys(record) {
 
   return keyList.filter((key) => {
     const low = key.toLowerCase();
+    if (low === 'beforeqty' || low === 'afterqty') return false;
     if (!low.endsWith('id') && !low.endsWith('ids')) return true;
     if (low === 'id') return true;
 
@@ -257,12 +263,12 @@ function autoLabelFromField(field) {
   if (low === 'createtime') return '作成日時';
   if (low === 'updatetime') return '更新日時';
   if (low === 'statusdesc' || low === 'status') return '状態';
-  if (field.endsWith('Names')) return `${toReadable(field.slice(0, -5))}名称`;
+  if (field.endsWith('Names')) return `${toReadable(field.slice(0, -5))}名`;
   if (field.endsWith('Name')) return `${toReadable(field.slice(0, -4))}名`;
   if (field.endsWith('Ids')) return `${toReadable(field.slice(0, -3))}ID一覧`;
   if (field.endsWith('Id')) return `${toReadable(field.slice(0, -2))}ID`;
   if (field.endsWith('Code')) return `${toReadable(field.slice(0, -4))}コード`;
-  if (field.endsWith('Time')) return `${toReadable(field.slice(0, -4))}日時`;
+  if (field.endsWith('Time') || field.endsWith('Date')) return `${toReadable(field.replace(/(Time|Date)$/, ''))}日時`;
   return toReadable(field);
 }
 

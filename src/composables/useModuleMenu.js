@@ -3,6 +3,7 @@ import { MODULE_GROUPS } from '../utils/module';
 import { MODULE_LAYOUT_CONFIG, isAdminByPermissionCodes } from '../utils/module-ui';
 
 const HIDDEN_MODULES = MODULE_LAYOUT_CONFIG.hiddenModules;
+const HIDDEN_MODULE_SET = new Set(HIDDEN_MODULES);
 const HIDDEN_MODULE_CONFIG = MODULE_LAYOUT_CONFIG.hiddenModuleMap;
 const MODULE_PERMISSION_ALIASES = MODULE_LAYOUT_CONFIG.permissionAliases;
 const ALL_MODULES = MODULE_GROUPS.flatMap((group) => group.children.map((child) => child.key));
@@ -90,7 +91,7 @@ export function useModuleMenu(options) {
     if (!isValidModule(target)) return;
 
     const hiddenConfig = HIDDEN_MODULE_CONFIG[target];
-    const menuKey = hiddenConfig?.parent || target;
+    const menuKey = HIDDEN_MODULE_SET.has(target) ? (hiddenConfig?.parent || target) : target;
     activeModule.value = target;
     selectedKeys.value = [menuKey];
     activeLabel.value = findLabelByKey(target);

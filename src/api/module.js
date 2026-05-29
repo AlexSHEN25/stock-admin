@@ -11,7 +11,7 @@ export async function fetchPage(modulePath, params) {
     response = await requestUserPageWithFallback(safeParams);
   } else {
     const url = `/api/${modulePath}/page`;
-    response = await http.get(url, { params: safeParams });
+    response = await requestPageWithSortFallback(url, safeParams);
   }
   return normalizePage(response);
 }
@@ -69,6 +69,17 @@ export async function fetchModuleOptions(modulePath) {
   const page = await fetchPage(modulePath, {
     pageNum: 1,
     pageSize: 50,
+    sortBy: 'updateTime',
+    sortOrder: 'desc',
+  });
+  return page.records || [];
+}
+
+export async function fetchOutboundStockOrderOptions() {
+  const page = await fetchPage('stockOrder', {
+    pageNum: 1,
+    pageSize: 50,
+    orderType: 2,
     sortBy: 'updateTime',
     sortOrder: 'desc',
   });
@@ -155,6 +166,20 @@ export async function fetchGoodsFormOptions() {
   return data && typeof data === 'object' ? data : {};
 }
 
+export async function getCandidateItems(id) {
+  if (id === undefined || id === null || String(id).trim() === '') return [];
+  const data = await http.get(`/api/requestForm/${id}/candidateItems`);
+  return Array.isArray(data) ? data : [];
+}
+
+export async function addRequestItems(payload) {
+  return http.post('/api/requestForm/items/add', payload || {});
+}
+
+export async function removeRequestItems(payload) {
+  return http.post('/api/requestForm/items/remove', payload || {});
+}
+
 function normalizePage(data) {
   const records = data?.records || data?.list || data?.rows || [];
   const total = Number(data?.total ?? records.length ?? 0);
@@ -196,6 +221,27 @@ async function requestWithFallback(...candidates) {
   throw lastError;
 }
 
+async function requestPageWithSortFallback(url, params) {
+  try {
+    return await http.get(url, { params });
+  } catch (error) {
+    if (!shouldRetryWithoutSort(error, params)) {
+      throw error;
+    }
+    const fallbackParams = { ...(params || {}) };
+    delete fallbackParams.sortBy;
+    delete fallbackParams.sortOrder;
+    return http.get(url, { params: fallbackParams });
+  }
+}
+
+function shouldRetryWithoutSort(error, params) {
+  const status = Number(error?.status ?? error?.response?.status ?? 0);
+  if (status !== 500) return false;
+  const sortBy = String(params?.sortBy || '').trim();
+  return sortBy !== '';
+}
+
 function shouldFallback(error) {
   const status = Number(error?.status ?? error?.response?.status ?? 0);
   if (!status) return false;
@@ -207,6 +253,3 @@ function normalizePageSize(input) {
   if (PAGE_SIZE_OPTIONS.includes(pageSize)) return pageSize;
   return PAGE_SIZE_OPTIONS[0];
 }
-
-
-

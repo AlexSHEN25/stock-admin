@@ -2,7 +2,7 @@ import { STATUS_OPTIONS } from '../utils/module';
 import { TABLE_TEXT } from '../utils/module-ui';
 
 const GOODS_TEXT_QUERY_FIELDS = new Set(['keyword', 'englishName', 'skuCode', 'skuName']);
-const READONLY_FIELDS = new Set(['id', 'createtime', 'updatetime', 'statusdesc']);
+const READONLY_FIELDS = new Set(['id', 'createtime', 'updatetime', 'statusdesc', 'beforeqty', 'afterqty']);
 const CURRENCY_OPTIONS = [
   { label: 'JPY', value: 'JPY' },
   { label: 'RMB', value: 'RMB' },
@@ -85,6 +85,8 @@ export function useModuleFieldBehavior(options) {
 
   function normalizePayload(payload) {
     const output = { ...payload };
+    delete output.beforeQty;
+    delete output.afterQty;
     Object.keys(output).forEach((key) => {
       if (mapNameFieldToIdField(key)) {
         delete output[key];

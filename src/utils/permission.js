@@ -29,27 +29,30 @@ export function hasWritePermission(moduleKey, permissionReady, permissionCodes) 
 }
 
 export function canCreateModuleRecord(moduleKey, permissionCodes) {
+  if (moduleKey === 'stockRecord' || moduleKey === 'priceRecord' || moduleKey === 'operateLog') return false;
   if (moduleKey !== 'user') return true;
   return isAdminByPermissionCodes(permissionCodes);
 }
 
 export function canBatchDeleteModuleRecord(moduleKey, permissionCodes) {
-  if (moduleKey !== 'user') return true;
+  if (!moduleKey) return false;
   return isAdminByPermissionCodes(permissionCodes);
 }
 
 export function canDeleteModuleRecord(moduleKey, permissionCodes) {
-  if (moduleKey !== 'user') return true;
+  if (!moduleKey) return false;
   return isAdminByPermissionCodes(permissionCodes);
 }
 
 export function canEditModuleRecord(moduleKey, record, currentUser, permissionCodes) {
+  if (moduleKey === 'stockRecord' || moduleKey === 'priceRecord' || moduleKey === 'operateLog') return false;
   if (moduleKey !== 'user') return true;
   if (isAdminByPermissionCodes(permissionCodes)) return true;
   return isOwnUserRecord(record, currentUser);
 }
 
 export function canInlineEditModuleRecord(moduleKey, record, currentUser, permissionCodes) {
+  if (moduleKey === 'stockRecord' || moduleKey === 'priceRecord' || moduleKey === 'operateLog') return false;
   if (moduleKey !== 'user') {
     return canEditModuleRecord(moduleKey, record, currentUser, permissionCodes);
   }

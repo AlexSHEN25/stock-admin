@@ -2,14 +2,14 @@
 
 const NAME_STATUS_QUERY_FIELDS = ['id', 'name', 'status'];
 const NAME_STATUS_FORM_FIELDS = ['name', 'status'];
-const STOCK_ORDER_ITEM_FIELDS = ['id', 'orderId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'stockTypeId', 'stockTypeName', 'makerId', 'makerName', 'beforeQty', 'changeQty', 'afterQty', 'price', 'currency', 'remark'];
-const REQUEST_FORM_FIELDS = ['id', 'bizNo', 'userId', 'username', 'deptId', 'deptName', 'customerId', 'customerName', 'warehouseId', 'totalQty', 'requestQty', 'totalAmt', 'state', 'approverId', 'approverName', 'approveTime', 'approveRemark'];
+const STOCK_ORDER_ITEM_FIELDS = ['id', 'orderId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'stockTypeId', 'stockTypeName', 'makerId', 'makerName', 'changeQty', 'price', 'currency', 'remark'];
+const REQUEST_FORM_FIELDS = ['id', 'bizNo', 'sourceOrderId', 'sourceOrderNo', 'userId', 'username', 'deptId', 'deptName', 'customerId', 'customerName', 'warehouseId', 'totalQty', 'requestQty', 'totalAmt', 'state', 'approverId', 'approverName', 'approveTime', 'approveRemark'];
 const REQUEST_ITEM_FIELDS = ['id', 'requestId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'makerId', 'makerName', 'stockTypeId', 'stockTypeName', 'warehouseId', 'price', 'currency', 'discount', 'requestQty', 'approveQty', 'outQty', 'stockRecordId', 'remark'];
 
 export const MODULE_GROUPS = [
   {
     key: 'base',
-    label: '基礎マスタ',
+    label: '基礎情報管理',
     children: [
       { key: 'user', label: 'ユーザー管理' },
       { key: 'dept', label: '部署管理' },
@@ -35,9 +35,10 @@ export const MODULE_GROUPS = [
     label: '在庫管理',
     children: [
       { key: 'stock', label: '在庫一覧' },
+      { key: 'stockOrder', label: '入出庫伝票' },
+      { key: 'stockOrderItem', label: '入出庫明細' },
       { key: 'stockType', label: '在庫区分' },
       { key: 'stockRecord', label: '在庫履歴' },
-      { key: 'stockOrder', label: '入出庫伝票' },
       { key: 'priceRecord', label: '価格履歴' },
     ],
   },
@@ -107,8 +108,8 @@ export const MODULE_PRESETS = {
     },
   },
   stockOrder: {
-    queryFields: ['id', 'orderNo', 'orderType', 'stockTypeId', 'warehouseId', 'sourceType', 'sourceId', 'totalQty', 'state', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'approverId', 'approverName', 'approveTime', 'finishTime', 'remark'],
-    formFields: ['orderNo', 'orderType', 'warehouseId', 'sourceType', 'sourceId', 'totalQty', 'stockTypeId', 'state', 'requesterId', 'operatorId', 'approverId', 'approveTime', 'finishTime', 'remark'],
+    queryFields: ['id', 'orderNo', 'orderType', 'bizDate', 'stockTypeId', 'warehouseId', 'sourceType', 'sourceId', 'totalQty', 'state', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'approverId', 'approverName', 'approveTime', 'finishTime', 'remark'],
+    formFields: ['orderNo', 'orderType', 'bizDate', 'warehouseId', 'sourceType', 'sourceId', 'totalQty', 'stockTypeId', 'state', 'requesterId', 'operatorId', 'approverId', 'approveTime', 'finishTime', 'remark'],
     fieldTypes: {
       warehouseId: 'relation',
       stockTypeId: 'relation',
@@ -120,6 +121,7 @@ export const MODULE_PRESETS = {
       sourceId: 'number',
       totalQty: 'number',
       state: 'select',
+      bizDate: 'datetime',
       approveTime: 'datetime',
       finishTime: 'datetime',
       remark: 'textarea',
@@ -127,7 +129,7 @@ export const MODULE_PRESETS = {
   },
   stockOrderItem: {
     queryFields: STOCK_ORDER_ITEM_FIELDS,
-    formFields: STOCK_ORDER_ITEM_FIELDS.filter((field) => field !== 'id'),
+    formFields: STOCK_ORDER_ITEM_FIELDS.filter((field) => !['id', 'beforeQty', 'afterQty'].includes(field)),
     fieldTypes: {
       orderId: 'number',
       goodsId: 'relation',
@@ -145,8 +147,8 @@ export const MODULE_PRESETS = {
     },
   },
   stockRecord: {
-    queryFields: ['id', 'bizNo', 'orderId', 'orderItemId', 'stockId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'stockTypeId', 'stockTypeName', 'makerId', 'makerName', 'warehouseId', 'beforeQty', 'changeQty', 'afterQty', 'sourceType', 'orderType', 'price', 'currency', 'priceUpdateTime', 'customerId', 'customerName', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'remark'],
-    formFields: ['bizNo', 'orderId', 'orderItemId', 'stockId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'stockTypeId', 'stockTypeName', 'makerId', 'makerName', 'warehouseId', 'beforeQty', 'changeQty', 'afterQty', 'sourceType', 'orderType', 'price', 'currency', 'priceUpdateTime', 'customerId', 'customerName', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'remark'],
+    queryFields: ['id', 'bizNo', 'orderId', 'orderItemId', 'stockId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'stockTypeId', 'stockTypeName', 'makerId', 'makerName', 'warehouseId', 'changeQty', 'sourceType', 'orderType', 'bizDate', 'price', 'currency', 'priceUpdateTime', 'customerId', 'customerName', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'remark'],
+    formFields: ['bizNo', 'orderId', 'orderItemId', 'stockId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'stockTypeId', 'stockTypeName', 'makerId', 'makerName', 'warehouseId', 'changeQty', 'sourceType', 'orderType', 'bizDate', 'price', 'currency', 'priceUpdateTime', 'customerId', 'customerName', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'remark'],
     fieldTypes: {
       orderId: 'number',
       orderItemId: 'number',
@@ -167,6 +169,7 @@ export const MODULE_PRESETS = {
       afterQty: 'number',
       sourceType: 'number',
       orderType: 'number',
+      bizDate: 'datetime',
       price: 'decimal',
       priceUpdateTime: 'datetime',
       remark: 'textarea',
@@ -176,6 +179,7 @@ export const MODULE_PRESETS = {
     queryFields: REQUEST_FORM_FIELDS,
     formFields: REQUEST_FORM_FIELDS.filter((field) => field !== 'id'),
     fieldTypes: {
+      sourceOrderId: 'relation',
       userId: 'relation',
       deptId: 'relation',
       customerId: 'relation',
@@ -282,7 +286,7 @@ export const MODULE_PRESETS = {
     fieldTypes: { status: 'select' },
   },
   message: {
-    queryFields: ['id', 'type', 'userId', 'message', 'sourceId', 'isRead', 'state'],
+    queryFields: ['id', 'type', 'userId', 'message', 'sourceId', 'state'],
     fieldTypes: { userId: 'relation' },
   },
   operateLog: {
@@ -309,9 +313,9 @@ export const REQUIRED_FORM_FIELDS = {
   goods: ['name', 'englishName', 'brandId', 'seriesId', 'categoryId', 'makerId', 'skuCode'],
   stock: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity'],
   stockOrder: ['orderNo', 'orderType', 'warehouseId', 'sourceType'],
-  stockOrderItem: ['orderId', 'goodsId', 'skuId', 'goodsName', 'beforeQty', 'changeQty', 'afterQty'],
-  stockRecord: ['bizNo', 'orderId', 'orderItemId', 'stockId', 'goodsId', 'skuId', 'goodsName', 'beforeQty', 'changeQty', 'afterQty', 'orderType', 'sourceType'],
-  requestForm: ['bizNo', 'userId', 'username', 'customerId', 'customerName'],
+  stockOrderItem: ['orderId', 'goodsId', 'skuId', 'goodsName', 'changeQty'],
+  stockRecord: ['bizNo', 'orderId', 'orderItemId', 'stockId', 'goodsId', 'skuId', 'goodsName', 'changeQty', 'orderType', 'sourceType'],
+  requestForm: ['bizNo', 'sourceOrderId', 'userId', 'username', 'customerId', 'customerName'],
   requestItem: ['requestId', 'goodsId', 'skuId'],
   warehouse: ['name', 'code', 'status'],
   role: ['name', 'code', 'status'],
@@ -356,5 +360,3 @@ export function buildAutoQueryFields(fields) {
     return true;
   });
 }
-
-

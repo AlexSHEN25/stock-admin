@@ -19,7 +19,7 @@ export const HEADER_UI = {
 };
 
 export const MODULE_LAYOUT_CONFIG = {
-  hiddenModules: ['stockOrderItem'],
+  hiddenModules: [],
   hiddenModuleMap: {
     stockOrderItem: {
       parent: 'stockOrder',
