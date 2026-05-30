@@ -8,6 +8,7 @@ export function useModuleActions(options) {
     emit,
     detailNavigations,
     downloadRequestFormFile,
+    downloadRequestFormPdf,
     markMessageRead,
     markAllMessagesRead,
     markMessageListRead,
@@ -31,6 +32,10 @@ export function useModuleActions(options) {
     }
     if (actionKey === 'download') {
       await downloadRequestForm(record);
+      return;
+    }
+    if (actionKey === 'pdf') {
+      await downloadRequestFormAsPdf(record);
       return;
     }
     if (actionKey === 'read') {
@@ -75,6 +80,16 @@ export function useModuleActions(options) {
     }
   }
 
+  async function downloadRequestFormAsPdf(record) {
+    const id = getRecordId(record);
+    if (!id) return;
+    try {
+      await downloadRequestFormPdf(id, TABLE_TEXT.downloadFail);
+    } catch (error) {
+      message.error(error?.message || TABLE_TEXT.downloadFail);
+    }
+  }
+
   return {
     goDetailModule,
     handleRowExtraAction,
@@ -82,5 +97,6 @@ export function useModuleActions(options) {
     onReadMessage,
     onReadAllMessages,
     downloadRequestForm,
+    downloadRequestFormAsPdf,
   };
 }

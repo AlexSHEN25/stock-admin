@@ -494,7 +494,7 @@ import { useModuleFieldBehavior } from '../composables/useModuleFieldBehavior';
 import { useRelationOptions } from '../composables/useRelationOptions';
 import { useModuleTableSchema } from '../composables/useModuleTableSchema';
 import { useModuleTableState } from '../composables/useModuleTableState';
-import { downloadRequestFormFile } from '../utils/download';
+import { downloadRequestFormFile, downloadRequestFormPdf } from '../utils/download';
 import { markAllMessageListRead, markAllMessagesRead, markMessageListRead, markMessageRead } from '../utils/message';
 import { submitStockInboundFlow } from '../utils/stock';
 import { getModulePreset, guessFieldType, isRequiredFormField, mapNameFieldToIdField, normalizeTitle, relationLabel, relationModuleByField } from '../utils/module';
@@ -1089,6 +1089,7 @@ const {
   emit,
   detailNavigations: MODULE_DETAIL_NAVIGATIONS,
   downloadRequestFormFile,
+  downloadRequestFormPdf,
   markMessageRead,
   markAllMessagesRead,
   markMessageListRead,

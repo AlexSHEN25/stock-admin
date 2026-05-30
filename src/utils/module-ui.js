@@ -88,6 +88,7 @@ export const TABLE_TEXT = {
   hotNo: '\u3044\u3044\u3048',
   readUpdateFail: '\u65e2\u8aad\u66f4\u65b0\u306b\u5931\u6557\u3057\u307e\u3057\u305f',
   download: '\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9',
+  pdf: 'PDF',
   downloadFail: '\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9\u5931\u6557',
   detail: '\u660e\u7d30',
 };
@@ -197,6 +198,7 @@ export const MODULE_ROW_EXTRA_ACTIONS = {
   requestForm: [
     { key: 'detail', label: TABLE_TEXT.detail },
     { key: 'download', label: TABLE_TEXT.download },
+    { key: 'pdf', label: TABLE_TEXT.pdf },
   ],
   message: [{ key: 'read', label: TABLE_TEXT.read }],
 };

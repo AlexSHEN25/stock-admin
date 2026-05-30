@@ -1,13 +1,10 @@
 import { TOKEN_KEY } from '../api/http';
 
-export async function downloadRequestFormFile(recordId, fallbackMessage) {
+export async function downloadRequestFormFile(recordId, fallbackMessage, format = 'excel') {
   if (!recordId) return;
 
   const token = localStorage.getItem(TOKEN_KEY) || '';
-  let response = await requestDownload(`/api/requestForm/download/${recordId}`, token);
-  if (!response.ok) {
-    response = await requestDownload(`/api/requestForm/${recordId}/download`, token);
-  }
+  let response = await requestWithFallback(recordId, token, format);
   if (!response.ok) {
     throw new Error(`${fallbackMessage}(${response.status})`);
   }
@@ -27,6 +24,10 @@ export async function downloadRequestFormFile(recordId, fallbackMessage) {
   window.URL.revokeObjectURL(url);
 }
 
+export async function downloadRequestFormPdf(recordId, fallbackMessage) {
+  return downloadRequestFormFile(recordId, fallbackMessage, 'pdf');
+}
+
 async function requestDownload(url, token) {
   return fetch(url, {
     method: 'GET',
@@ -36,6 +37,27 @@ async function requestDownload(url, token) {
       'X-Lang': 'ja-JP',
     },
   });
+}
+
+async function requestWithFallback(recordId, token, format) {
+  const safeFormat = String(format || 'excel').toLowerCase();
+  const candidates = safeFormat === 'pdf'
+    ? [
+      `/api/requestForm/${recordId}/pdf`,
+      `/api/requestForm/${recordId}/download?format=pdf`,
+      `/api/requestForm/download/${recordId}?format=pdf`,
+    ]
+    : [
+      `/api/requestForm/${recordId}/download?format=excel`,
+      `/api/requestForm/download/${recordId}`,
+      `/api/requestForm/${recordId}/download`,
+    ];
+
+  let last = await requestDownload(candidates[0], token);
+  for (let i = 1; i < candidates.length && !last.ok; i += 1) {
+    last = await requestDownload(candidates[i], token);
+  }
+  return last;
 }
 
 async function saveByFilePicker(blob, fileName) {
@@ -65,7 +87,7 @@ async function saveByFilePicker(blob, fileName) {
 }
 
 function resolveDownloadFileName(response, recordId) {
-  const fallback = `request_${recordId}.xlsx`;
+  const fallback = fallbackFileName(response, recordId);
   const disposition = response.headers.get('content-disposition') || '';
   if (!disposition) return fallback;
 
@@ -87,4 +109,10 @@ function resolveDownloadFileName(response, recordId) {
   }
 
   return fallback;
+}
+
+function fallbackFileName(response, recordId) {
+  const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+  if (contentType.includes('pdf')) return `request_${recordId}.pdf`;
+  return `request_${recordId}.xlsx`;
 }
