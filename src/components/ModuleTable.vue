@@ -42,7 +42,7 @@
         </a-button>
         <a-button
           class="search-btn"
-          :disabled="!hasAnyActiveFilter()"
+          :disabled="!hasActiveFilters(visibleQueryFields, queryState)"
           @click="resetQuery"
         >
           {{ TABLE_TEXT.reset }}
@@ -346,151 +346,56 @@
         </a-form-item>
       </a-form>
     </a-modal>
-    <a-modal
+    <request-candidate-modal
       :open="candidateModalOpen"
-      title="明細追加"
-      width="1280px"
-      :ok-text="candidateSubmitText"
-      :ok-button-props="{ disabled: candidateSelectedKeys.length === 0 }"
+      :loading="candidateLoading"
+      :submit-text="candidateSubmitText"
+      :rows="candidateRows"
+      :selected-keys="candidateSelectedKeys"
+      :qty-state="candidateQtyState"
+      :row-key="candidateRowKey"
+      :max-request-qty="maxRequestQty"
+      :format-qty="formatQty"
       @cancel="closeCandidateModal"
-      @ok="submitAddCandidates"
-    >
-      <a-spin :spinning="candidateLoading">
-        <div class="request-candidate-summary">
-          追加する明細を選択してください。選択済み: {{ candidateSelectedKeys.length }}件
-        </div>
-        <a-table
-          :row-key="candidateRowKey"
-          :data-source="candidateRows"
-          :columns="candidateColumns"
-          :pagination="{ pageSize: 10, showSizeChanger: true, pageSizeOptions: ['10', '20', '50'] }"
-          :row-selection="{ selectedRowKeys: candidateSelectedKeys, onChange: onCandidateSelectChange }"
-          :scroll="{ x: 'max-content', y: 520 }"
-        >
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'matchStatus'">
-              <a-tag :color="resolveKnifeHandleMatch(record).ok ? 'success' : 'warning'">
-                {{ resolveKnifeHandleMatch(record).text }}
-              </a-tag>
-            </template>
-            <template v-else-if="column.key === 'changeQty'">
-              {{ formatQty(record.changeQty) }}
-            </template>
-            <template v-else-if="column.key === 'requestQty'">
-              <a-input-number
-                v-model:value="candidateQtyState[candidateRowKey(record)]"
-                :min="1"
-                :max="maxRequestQty(record)"
-                :precision="0"
-                style="width: 100%"
-              />
-            </template>
-          </template>
-        </a-table>
-      </a-spin>
-    </a-modal>
-    <a-modal
+      @submit="submitAddCandidates"
+      @selection-change="onCandidateSelectChange"
+      @qty-change="onCandidateQtyChange"
+    />
+    <goods-drawer
       :open="goodsDrawerOpen"
       :title="goodsDrawerTitle"
-      width="860px"
+      :loading="goodsDrawerLoading || goodsDetailLoading"
+      :saving="goodsDetailSaving"
+      :mode="goodsDrawerMode"
+      :form="goodsForm"
+      :relation-options="relationOptions"
+      :hot-options="hotOptions"
+      :table-text="TABLE_TEXT"
+      :select-options="selectOptionsMerged"
+      :resolve-image-url="resolveGoodsImageUrl"
       @cancel="closeGoodsDrawer"
-    >
-      <a-spin :spinning="goodsDrawerLoading || goodsDetailLoading">
-        <a-form layout="vertical">
-          <a-divider orientation="left">商品基本</a-divider>
-          <a-row :gutter="12">
-            <a-col :span="12"><a-form-item label="名称" required><a-input v-model:value="goodsForm.name" /></a-form-item></a-col>
-            <a-col :span="12"><a-form-item label="英語名"><a-input v-model:value="goodsForm.englishName" /></a-form-item></a-col>
-            <a-col :span="12"><a-form-item label="ブランド" required><a-select v-model:value="goodsForm.brandId" :options="relationOptions.brandId || []" show-search allow-clear option-filter-prop="label" /></a-form-item></a-col>
-            <a-col :span="12"><a-form-item label="シリーズ" required><a-select v-model:value="goodsForm.seriesId" :options="relationOptions.seriesId || []" show-search allow-clear option-filter-prop="label" /></a-form-item></a-col>
-            <a-col :span="12"><a-form-item label="カテゴリ" required><a-select v-model:value="goodsForm.categoryId" :options="relationOptions.categoryId || []" show-search allow-clear option-filter-prop="label" /></a-form-item></a-col>
-            <a-col :span="12"><a-form-item label="メーカー" required><a-select v-model:value="goodsForm.makerId" :options="relationOptions.makerId || []" show-search allow-clear option-filter-prop="label" /></a-form-item></a-col>
-            <a-col :span="12"><a-form-item label="状態"><a-select v-model:value="goodsForm.status" :options="selectOptionsMerged('status')" allow-clear /></a-form-item></a-col>
-          </a-row>
-
-          <a-divider orientation="left">SKU情報</a-divider>
-          <a-row :gutter="12">
-            <a-col :span="12"><a-form-item label="品番" required><a-input v-model:value="goodsForm.skuCode" /></a-form-item></a-col>
-            <a-col :span="12"><a-form-item label="品名"><a-input v-model:value="goodsForm.skuName" /></a-form-item></a-col>
-            <a-col :span="12"><a-form-item label="価格" required><a-input-number v-model:value="goodsForm.price" :min="0.01" :precision="2" style="width:100%" /></a-form-item></a-col>
-            <a-col :span="12"><a-form-item label="通貨"><a-select v-model:value="goodsForm.currency" :options="selectOptionsMerged('currency')" /></a-form-item></a-col>
-            <a-col :span="12"><a-form-item label="表示順"><a-input-number v-model:value="goodsForm.sort" :min="0" style="width:100%" /></a-form-item></a-col>
-            <a-col :span="12">
-              <a-form-item label="人気商品">
-                <a-select
-                  v-model:value="goodsForm.isHot"
-                  :options="hotOptions"
-                />
-              </a-form-item>
-            </a-col>
-            <a-col :span="24"><a-form-item label="説明"><a-textarea v-model:value="goodsForm.description" :rows="3" /></a-form-item></a-col>
-          </a-row>
-
-          <a-divider orientation="left">詳細設定</a-divider>
-          <a-row :gutter="12">
-            <a-col :span="12"><a-form-item label="原価"><a-input-number v-model:value="goodsForm.costPrice" :min="0.01" :precision="2" style="width:100%" /></a-form-item></a-col>
-            <a-col :span="12"><a-form-item label="改定価格"><a-input-number v-model:value="goodsForm.updatePrice" :min="0.01" :precision="2" style="width:100%" /></a-form-item></a-col>
-            <a-col :span="12"><a-form-item :label="'価格更新日時' + (goodsForm.updatePrice ? ' *' : '')"><a-date-picker v-model:value="goodsForm.priceUpdateTime" value-format="YYYY-MM-DD HH:mm:ss" show-time style="width:100%" /></a-form-item></a-col>
-            <a-col
-              v-if="goodsDrawerMode !== 'create'"
-              :span="12"
-            >
-              <a-form-item label="バーコード">
-                <div class="barcode-readonly-wrap">
-                  <a-qrcode
-                    v-if="goodsForm.barcode"
-                    :value="String(goodsForm.barcode)"
-                    :size="96"
-                  />
-                  <span v-else>-</span>
-                </div>
-              </a-form-item>
-            </a-col>
-            <a-col :span="12"><a-form-item label="重量"><a-input-number v-model:value="goodsForm.weight" style="width:100%" /></a-form-item></a-col>
-            <a-col :span="12"><a-form-item label="体積"><a-input-number v-model:value="goodsForm.volume" style="width:100%" /></a-form-item></a-col>
-          </a-row>
-
-          <a-divider orientation="left">画像</a-divider>
-          <a-row :gutter="12">
-            <a-col :span="24">
-              <a-upload accept="image/*" :show-upload-list="false" :before-upload="beforeGoodsImageUpload">
-                <a-button>画像アップロード</a-button>
-              </a-upload>
-              <div style="margin-top:8px;">
-                <img v-if="resolveGoodsImageUrl(goodsForm)" :src="resolveGoodsImageUrl(goodsForm)" class="goods-thumb">
-              </div>
-            </a-col>
-          </a-row>
-        </a-form>
-      </a-spin>
-      <template #footer>
-        <a-space>
-          <a-button @click="closeGoodsDrawer">{{ TABLE_TEXT.cancel }}</a-button>
-          <a-button type="primary" :loading="goodsDetailSaving" @click="saveGoodsDrawer">{{ TABLE_TEXT.save }}</a-button>
-        </a-space>
-      </template>
-    </a-modal>
+      @save="saveGoodsDrawer"
+      @upload-image="beforeGoodsImageUpload"
+    />
   </a-card>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
+import { computed, reactive, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import {
-  addRequestItems,
-  createItem,
   fetchEnumOptions,
   fetchOutboundStockOrderOptions,
-  fetchGoodsDetail,
   fetchGoodsFormOptions,
   fetchModuleOptions,
-  getCandidateItems,
-  removeRequestItems,
-  updateItem,
   uploadFileByBizType,
 } from '../api/module';
+import GoodsDrawer from './GoodsDrawer.vue';
+import RequestCandidateModal from './RequestCandidateModal.vue';
+import { useGoodsDrawer } from '../composables/useGoodsDrawer';
 import { useModuleActions } from '../composables/useModuleActions';
 import { useModuleFieldBehavior } from '../composables/useModuleFieldBehavior';
+import { useRequestItemCandidates } from '../composables/useRequestItemCandidates';
 import { useRelationOptions } from '../composables/useRelationOptions';
 import { useModuleTableSchema } from '../composables/useModuleTableSchema';
 import { useModuleTableState } from '../composables/useModuleTableState';
@@ -514,6 +419,7 @@ import {
   canInlineEditModuleRecord,
   hasWritePermission,
 } from '../utils/permission';
+import { hasActiveFilters } from '../utils/table';
 
 const props = defineProps({
   moduleKey: { type: String, required: true },
@@ -527,29 +433,6 @@ const rowAutoKeyMap = new WeakMap();
 let rowAutoKeySeed = 0;
 const dynamicEnumOptions = reactive({});
 const goodsFormOptions = reactive({});
-const goodsDetailRecord = ref(null);
-const goodsDetailLoading = ref(false);
-const goodsDrawerOpen = ref(false);
-const goodsDrawerMode = ref('detail');
-const goodsDrawerLoading = ref(false);
-const goodsDetailSaving = ref(false);
-const goodsForm = reactive({});
-const candidateModalOpen = ref(false);
-const candidateLoading = ref(false);
-const candidateRows = ref([]);
-const candidateSelectedKeys = ref([]);
-const candidateQtyState = reactive({});
-const highlightedPrimaryId = ref(null);
-let highlightTimer = null;
-const goodsDrawerTitle = computed(() => {
-  if (goodsDrawerMode.value === 'create') return TABLE_TEXT.create;
-  if (goodsDrawerMode.value === 'edit') return TABLE_TEXT.edit;
-  return TABLE_TEXT.detail;
-});
-const hotOptions = computed(() => [
-  { label: '通常', value: 0 },
-  { label: '人気', value: 1 },
-]);
 
 function formatBizDate(record) {
   const raw = record?.bizDate;
@@ -559,12 +442,6 @@ function formatBizDate(record) {
   if (orderType === 1) return `納品日: ${text}`;
   if (orderType === 2) return `出荷日: ${text}`;
   return text;
-}
-
-function formatQty(value) {
-  const num = Number(value);
-  if (Number.isNaN(num)) return value ?? '-';
-  return Math.abs(num);
 }
 
 const isGoodsManagement = computed(() => props.moduleKey === 'goods');
@@ -581,8 +458,6 @@ const {
   requiredForForm,
   selectOptionsForField,
   enumOptionsForField,
-  hasEnumOptions,
-  enumLabel,
   inlineField,
   inlineInputType,
   isReadonlyField,
@@ -656,6 +531,31 @@ const {
   ),
 });
 
+const {
+  tableRows: requestItemTableRows,
+  candidateModalOpen,
+  candidateLoading,
+  candidateRows,
+  candidateSelectedKeys,
+  candidateQtyState,
+  candidateSubmitText,
+  candidateRowKey,
+  maxRequestQty,
+  formatQty,
+  openCandidateModal,
+  closeCandidateModal,
+  onCandidateSelectChange,
+  onCandidateQtyChange,
+  submitAddCandidates,
+  removeRequestItem,
+} = useRequestItemCandidates({
+  moduleKey: computed(() => props.moduleKey),
+  queryState,
+  rows,
+  reload,
+  notify: message,
+});
+
 const isUserSelfEditMode = computed(() => props.moduleKey === 'user' && editing.value && !canCreateModuleRecord(props.moduleKey, props.permissionCodes || []));
 const backendFieldSet = computed(() => new Set(Object.keys(rows.value[0] || {})));
 const {
@@ -694,6 +594,32 @@ const {
   mapNameFieldToIdField,
 });
 
+const {
+  goodsDrawerOpen,
+  goodsDrawerMode,
+  goodsDrawerLoading,
+  goodsDetailLoading,
+  goodsDetailSaving,
+  goodsForm,
+  goodsDrawerTitle,
+  hotOptions,
+  openGoodsDrawerCreate,
+  openGoodsDrawerEdit,
+  closeGoodsDrawer,
+  beforeGoodsImageUpload,
+  resolveGoodsImageUrl,
+  saveGoodsDrawer,
+  rowClassName,
+} = useGoodsDrawer({
+  normalizePayload,
+  loadRelationOptions,
+  keys,
+  pagination,
+  rows,
+  reload,
+  notify: message,
+});
+
 const visibleQueryFields = computed(() => {
   const list = queryFields.value || [];
   if (props.moduleKey !== 'stockOrderItem') return list;
@@ -707,27 +633,8 @@ const tablePagination = computed(() => ({
   pageSizeOptions: ['10', '20', '50'],
 }));
 const tableRows = computed(() => {
-  if (props.moduleKey !== 'requestItem') return rows.value;
-  return (rows.value || []).filter((item) => Number(item?.state ?? item?.requestItemState ?? 1) === 1);
+  return requestItemTableRows.value;
 });
-const candidateColumns = [
-  { title: '伝票番号', dataIndex: 'orderNo', key: 'orderNo', width: 140 },
-  { title: '商品名', dataIndex: 'goodsName', key: 'goodsName', width: 180 },
-  { title: '品番', dataIndex: 'skuCode', key: 'skuCode', width: 120 },
-  { title: 'ブランド', dataIndex: 'brandName', key: 'brandName', width: 120 },
-  { title: 'シリーズ', dataIndex: 'seriesName', key: 'seriesName', width: 120 },
-  { title: 'カテゴリ', dataIndex: 'categoryName', key: 'categoryName', width: 120 },
-  { title: '出庫数量', dataIndex: 'changeQty', key: 'changeQty', width: 90 },
-  { title: '請求数量', dataIndex: 'requestQty', key: 'requestQty', width: 120 },
-  { title: '価格', dataIndex: 'price', key: 'price', width: 100 },
-  { title: '通貨', dataIndex: 'currency', key: 'currency', width: 80 },
-  { title: '刀柄マッチ', dataIndex: 'matchStatus', key: 'matchStatus', width: 120 },
-];
-const candidateSubmitText = computed(() => (
-  candidateSelectedKeys.value.length > 0
-    ? `追加（${candidateSelectedKeys.value.length}件）`
-    : '追加'
-));
 const visibleFormKeys = computed(() => (
   editing.value ? formKeys.value : formKeys.value.filter((field) => String(field || '').toLowerCase() !== 'status')
 ));
@@ -779,15 +686,6 @@ function hasEnumOptionsMerged(field) {
 function enumLabelMerged(field, value) {
   const hit = mergedEnumOptions(field).find((item) => Number(item.value) === Number(value));
   return normalizeDisplayLabel(hit?.label || value || '-');
-}
-
-function hasAnyActiveFilter() {
-  return (queryFields.value || []).some((field) => {
-    const value = queryState[field];
-    if (value === undefined || value === null) return false;
-    if (typeof value === 'number') return true;
-    return String(value).trim() !== '';
-  });
 }
 
 async function loadGoodsFormOptions() {
@@ -911,21 +809,7 @@ async function submit() {
 
 async function onDelete(record) {
   if (props.moduleKey === 'requestItem') {
-    const requestId = resolveCurrentRequestId();
-    const stockRecordId = Number(record?.stockRecordId);
-    const requestItemId = Number(getRecordId(record));
-    if (!requestId || (!stockRecordId && !requestItemId)) return;
-    try {
-      await removeRequestItems({
-        requestId,
-        stockRecordIds: stockRecordId ? [stockRecordId] : undefined,
-        requestItemIds: requestItemId ? [requestItemId] : undefined,
-      });
-      message.success('申請明細を削除しました');
-      await refreshRequestItemContext();
-    } catch (error) {
-      message.error(error?.message || TABLE_TEXT.deleteFail);
-    }
+    await removeRequestItem(record, getRecordId);
     return;
   }
   await onDeleteState(record, getRecordId);
@@ -1097,210 +981,6 @@ const {
   getRecordId,
 });
 
-function openGoodsDrawerCreate() {
-  goodsDrawerMode.value = 'create';
-  goodsDrawerOpen.value = true;
-  goodsDetailRecord.value = null;
-  resetGoodsForm({
-    status: 1,
-    currency: 'JPY',
-  });
-  loadRelationOptions(['brandId', 'seriesId', 'categoryId', 'makerId'], keys.value);
-}
-
-async function openGoodsDrawerEdit(record) {
-  goodsDrawerMode.value = 'edit';
-  goodsDrawerOpen.value = true;
-  goodsDetailRecord.value = record || null;
-  resetGoodsForm(record || {});
-  await hydrateGoodsDetail(record);
-}
-
-async function hydrateGoodsDetail(record) {
-  const goodsId = record?.goodsId ?? record?.id;
-  if (goodsId === undefined || goodsId === null || String(goodsId).trim() === '') return;
-  goodsDetailLoading.value = true;
-  try {
-    const detail = await fetchGoodsDetail(goodsId);
-    if (!detail || typeof detail !== 'object') return;
-    goodsDetailRecord.value = { ...(record || {}), ...normalizeGoodsDetail(detail) };
-    resetGoodsForm(goodsDetailRecord.value);
-  } catch (_e) {
-    // keep fallback values from row
-  } finally {
-    goodsDetailLoading.value = false;
-  }
-}
-
-function normalizeGoodsDetail(detail) {
-  return {
-    id: pickValue(detail, 'id'),
-    goodsId: pickValue(detail, 'goodsId'),
-    costPrice: pickValue(detail, 'costPrice', 'cost_price'),
-    updatePrice: pickValue(detail, 'updatePrice', 'update_price'),
-    priceUpdateTime: pickValue(detail, 'priceUpdateTime', 'price_update_time'),
-    barcode: pickValue(detail, 'barcode'),
-    weight: pickValue(detail, 'weight'),
-    volume: pickValue(detail, 'volume'),
-    imageUrl: resolveGoodsImageUrl(detail),
-  };
-}
-
-function pickValue(source, ...keys) {
-  for (const key of keys) {
-    if (Object.prototype.hasOwnProperty.call(source, key)) return source[key];
-  }
-  return null;
-}
-
-function closeGoodsDrawer() {
-  goodsDrawerOpen.value = false;
-}
-
-function resetGoodsForm(source) {
-  const base = source || {};
-  const fields = [
-    'id', 'goodsId', 'skuId',
-    'name', 'englishName', 'brandId', 'seriesId', 'categoryId', 'makerId', 'status',
-    'description', 'sort', 'isHot',
-    'skuCode', 'skuName', 'price', 'currency',
-    'costPrice', 'updatePrice', 'priceUpdateTime', 'barcode', 'weight', 'volume', 'imageUrl',
-  ];
-  fields.forEach((field) => { goodsForm[field] = base[field] ?? null; });
-  goodsForm.imageUrl = resolveGoodsImageUrl(base);
-  goodsForm.isHot = Number(base.isHot ?? 0) === 1 ? 1 : 0;
-  if (!goodsForm.currency) goodsForm.currency = 'JPY';
-}
-
-function beforeGoodsImageUpload(file) {
-  uploadGoodsImageToBackend(file, goodsForm.imageUrl, (url) => {
-    goodsForm.imageUrl = url;
-  });
-  return false;
-}
-
-async function uploadGoodsImageToBackend(file, oldPath, onSuccess) {
-  try {
-    const imagePath = await uploadFileByBizType('GOODS', file, oldPath);
-    if (!imagePath) {
-      message.error('画像アップロードに失敗しました');
-      return;
-    }
-    onSuccess(String(imagePath || ''));
-    message.success('画像をアップロードしました');
-  } catch (error) {
-    message.error(error?.message || '画像アップロードに失敗しました');
-  }
-}
-function resolveGoodsImageUrl(source) {
-  const obj = source && typeof source === 'object' ? source : {};
-  const direct = pickValue(
-    obj,
-    'imageUrl',
-    'image_url',
-    'mainImage',
-    'mainImageUrl',
-    'image',
-    'imgUrl',
-    'img',
-    'cover',
-    'coverUrl',
-  );
-  if (direct) return String(direct);
-
-  const candidates = []
-    .concat(Array.isArray(obj.images) ? obj.images : [])
-    .concat(Array.isArray(obj.imageList) ? obj.imageList : [])
-    .concat(Array.isArray(obj.goodsImages) ? obj.goodsImages : [])
-    .concat(Array.isArray(obj.goodsImageList) ? obj.goodsImageList : []);
-  for (const item of candidates) {
-    const nested = pickValue(item || {}, 'imageUrl', 'image_url', 'url', 'imgUrl', 'path');
-    if (nested) return String(nested);
-  }
-  return '';
-}
-
-function validateGoodsForm() {
-  if (!goodsForm.name || String(goodsForm.name).trim() === '') return '名称を入力してください';
-  if (!goodsForm.skuCode || String(goodsForm.skuCode).trim() === '') return '品番を入力してください';
-  if (goodsForm.price === undefined || goodsForm.price === null || String(goodsForm.price).trim() === '') return '価格を入力してください';
-  if (!goodsForm.brandId || !goodsForm.seriesId || !goodsForm.categoryId || !goodsForm.makerId) return 'ブランド/シリーズ/カテゴリ/メーカーを選択してください';
-  if (goodsForm.updatePrice !== undefined && goodsForm.updatePrice !== null && String(goodsForm.updatePrice).trim() !== '') {
-    if (!goodsForm.priceUpdateTime || String(goodsForm.priceUpdateTime).trim() === '') return '改定価格を入力した場合、価格更新日時は必須です';
-  }
-  return '';
-}
-
-async function saveGoodsDrawer() {
-  const err = validateGoodsForm();
-  if (err) {
-    message.warning(err);
-    return;
-  }
-  goodsDetailSaving.value = true;
-  try {
-    const rawName = goodsForm.name ? String(goodsForm.name).trim() : '';
-    const rawSkuName = goodsForm.skuName ? String(goodsForm.skuName).trim() : '';
-    const payload = {
-      ...goodsDetailRecord.value,
-      ...goodsForm,
-      skuName: rawSkuName || rawName,
-      isHot: Number(goodsForm.isHot) === 1 ? 1 : 0,
-    };
-    if (!payload.updatePrice) payload.priceUpdateTime = null;
-    if (!payload.currency) payload.currency = 'JPY';
-    if (goodsDrawerMode.value === 'create') {
-      const created = await createItem('goods', normalizePayload(payload));
-      message.success(TABLE_TEXT.createSuccess);
-      goodsDrawerOpen.value = false;
-      pagination.current = 1;
-      highlightedPrimaryId.value = resolvePrimaryId(created) || null;
-    } else {
-      payload.id = payload.id || payload.goodsId;
-      await updateItem('goods', normalizePayload(payload));
-      message.success(TABLE_TEXT.updateSuccess);
-      goodsDrawerOpen.value = false;
-    }
-    await reload();
-    if (goodsDrawerMode.value === 'create') {
-      if (!highlightedPrimaryId.value && rows.value?.length) {
-        highlightedPrimaryId.value = resolvePrimaryId(rows.value[0]);
-      }
-      scheduleHighlightClear();
-    }
-  } catch (error) {
-    message.error(error?.message || TABLE_TEXT.updateFail);
-  } finally {
-    goodsDetailSaving.value = false;
-  }
-}
-
-function resolvePrimaryId(record) {
-  if (!record || typeof record !== 'object') return null;
-  return record.skuId ?? record.id ?? record.goodsId ?? null;
-}
-
-function rowClassName(record) {
-  if (!highlightedPrimaryId.value) return '';
-  const id = resolvePrimaryId(record);
-  return String(id) === String(highlightedPrimaryId.value) ? 'row-highlight-new' : '';
-}
-
-function scheduleHighlightClear() {
-  if (highlightTimer) clearTimeout(highlightTimer);
-  highlightTimer = setTimeout(() => {
-    highlightedPrimaryId.value = null;
-    highlightTimer = null;
-  }, 3000);
-}
-
-onBeforeUnmount(() => {
-  if (highlightTimer) {
-    clearTimeout(highlightTimer);
-    highlightTimer = null;
-  }
-});
-
 function canCreateInModule() {
   return canCreateModuleRecord(props.moduleKey, props.permissionCodes || []);
 }
@@ -1323,223 +1003,10 @@ function canInlineEditRecord(record) {
   return canInlineEditModuleRecord(props.moduleKey, record, props.currentUser, props.permissionCodes || []);
 }
 
-function resolveCurrentRequestId() {
-  const fromQuery = Number(queryState.requestId);
-  if (fromQuery) return fromQuery;
-  const first = rows.value?.[0];
-  const fromRow = Number(first?.requestId);
-  if (fromRow) return fromRow;
-  const raw = sessionStorage.getItem('jump_request_form_id');
-  const fromJump = Number(raw);
-  if (fromJump) return fromJump;
-  return null;
-}
-
-async function loadCandidateRows() {
-  const requestId = resolveCurrentRequestId();
-  if (!requestId) {
-    candidateRows.value = [];
-    return;
-  }
-  candidateLoading.value = true;
-  try {
-    const list = await getCandidateItems(requestId);
-    candidateRows.value = Array.isArray(list) ? list : [];
-    Object.keys(candidateQtyState).forEach((key) => delete candidateQtyState[key]);
-    candidateRows.value.forEach((item) => {
-      const key = candidateRowKey(item);
-      if (!key) return;
-      const seedQty = Number(item?.requestQty ?? item?.changeQty ?? 1);
-      candidateQtyState[key] = Math.max(1, Math.abs(seedQty || 1));
-    });
-    candidateSelectedKeys.value = candidateRows.value
-      .filter((item) => Number(item?.selected) === 1 || item?.selected === true)
-      .map((item) => candidateRowKey(item))
-      .filter((id) => id !== undefined && id !== null);
-  } catch (error) {
-    message.error(error?.message || TABLE_TEXT.fetchFail);
-  } finally {
-    candidateLoading.value = false;
-  }
-}
-
-function openCandidateModal() {
-  candidateModalOpen.value = true;
-  loadCandidateRows();
-}
-
-function closeCandidateModal() {
-  candidateModalOpen.value = false;
-}
-
-function onCandidateSelectChange(keys) {
-  candidateSelectedKeys.value = keys;
-}
-
-async function submitAddCandidates() {
-  const requestId = resolveCurrentRequestId();
-  const selectedKeys = new Set((candidateSelectedKeys.value || []).map((x) => String(x)));
-  const items = (candidateRows.value || [])
-    .filter((item) => selectedKeys.has(String(candidateRowKey(item))))
-    .map((item) => ({
-      maxQty: maxRequestQty(item),
-      stockRecordId: resolveCandidateStockRecordId(item),
-      requestQty: clampRequestQty(item, candidateQtyState[candidateRowKey(item)]),
-    }));
-  const payloadItems = items.map(({ maxQty, ...rest }) => rest);
-  if (!requestId) {
-    message.warning('請求書を選択してください');
-    return;
-  }
-  if (candidateSelectedKeys.value.length === 0) {
-    message.warning('追加する明細を選択してください');
-    return;
-  }
-  if (items.some((item) => !item.stockRecordId)) {
-    message.warning('候補データに在庫履歴IDがありません');
-    return;
-  }
-  if (items.some((item) => !item.requestQty || item.requestQty <= 0)) {
-    message.warning('請求数量を入力してください');
-    return;
-  }
-  if (items.some((item) => item.requestQty > item.maxQty)) {
-    message.warning('請求数量は出庫数量以下にしてください');
-    return;
-  }
-  candidateLoading.value = true;
-  try {
-    await addRequestItems({ requestId, items: payloadItems.filter((item) => item.stockRecordId && item.requestQty > 0) });
-    message.success('申請明細を更新しました');
-    candidateModalOpen.value = false;
-    await refreshRequestItemContext();
-  } catch (error) {
-    message.error(error?.message || TABLE_TEXT.saveFail);
-  } finally {
-    candidateLoading.value = false;
-  }
-}
-
-function candidateRowKey(record) {
-  return resolveCandidateStockRecordId(record) ?? record?.stockOrderItemId ?? record?.stock_order_item_id ?? record?.id;
-}
-
-function resolveCandidateStockRecordId(record) {
-  const raw = record?.stockRecordId
-    ?? record?.stock_record_id
-    ?? record?.stockRecordID
-    ?? record?.stockRecord?.id
-    ?? record?.recordId
-    ?? record?.record_id;
-  const id = Number(raw);
-  return Number.isNaN(id) ? 0 : id;
-}
-
-function maxRequestQty(record) {
-  const candidateMax = resolveCandidateMaxQty(record);
-  if (candidateMax > 0) return candidateMax;
-  const qty = Number(record?.changeQty ?? 0);
-  const normalized = Math.abs(qty);
-  return normalized > 0 ? normalized : 1;
-}
-
-function clampRequestQty(record, value) {
-  const raw = Math.abs(Number(value || 0));
-  if (!raw) return 0;
-  return Math.min(raw, maxRequestQty(record));
-}
-
-function resolveCandidateMaxQty(record) {
-  const sources = [
-    record?.maxRequestQty,
-    record?.max_request_qty,
-    record?.availableQty,
-    record?.available_qty,
-    record?.remainQty,
-    record?.remain_qty,
-    record?.leftQty,
-    record?.left_qty,
-    record?.canRequestQty,
-    record?.can_request_qty,
-    record?.requestableQty,
-    record?.requestable_qty,
-  ];
-  for (const value of sources) {
-    const qty = Number(value);
-    if (!Number.isNaN(qty) && qty > 0) {
-      return Math.floor(qty);
-    }
-  }
-  return 0;
-}
-
-async function refreshRequestItemContext() {
-  await reload();
-  await loadCandidateRows();
-}
-
-function resolveKnifeHandleMatch(row) {
-  const name = String(row?.goodsName || '');
-  const orderId = Number(row?.stockOrderId || 0);
-  if (!orderId) return { ok: true, text: '判定不要' };
-  const siblings = (candidateRows.value || []).filter((item) => Number(item?.stockOrderId) === orderId);
-  const hasKnife = siblings.some((item) => String(item?.goodsName || '').includes('刀'));
-  const hasHandle = siblings.some((item) => String(item?.goodsName || '').includes('柄'));
-  if (name.includes('刀') || name.includes('柄')) {
-    if (hasKnife && hasHandle) return { ok: true, text: 'マッチ可' };
-    return { ok: false, text: '片側不足' };
-  }
-  return { ok: true, text: '対象外' };
-}
-
 function isMultiRelationField(field) {
   return props.moduleKey === 'role' && String(field || '').toLowerCase() === 'permissionids';
 }
 
-
-
-let modalDragCleanup = null;
-
-function onModalTitleMouseDown(event) {
-  if (!modalOpen.value || event.button !== 0) return;
-  const modal = document.querySelector('.module-edit-modal .ant-modal');
-  if (!modal) return;
-
-  const rect = modal.getBoundingClientRect();
-  const offsetX = event.clientX - rect.left;
-  const offsetY = event.clientY - rect.top;
-
-  modal.style.position = 'fixed';
-  modal.style.margin = '0';
-  modal.style.left = `${rect.left}px`;
-  modal.style.top = `${rect.top}px`;
-
-  const onMouseMove = (moveEvent) => {
-    const maxLeft = Math.max(0, window.innerWidth - rect.width);
-    const maxTop = Math.max(0, window.innerHeight - rect.height);
-    const nextLeft = Math.min(Math.max(0, moveEvent.clientX - offsetX), maxLeft);
-    const nextTop = Math.min(Math.max(0, moveEvent.clientY - offsetY), maxTop);
-    modal.style.left = `${nextLeft}px`;
-    modal.style.top = `${nextTop}px`;
-  };
-
-  const onMouseUp = () => {
-    window.removeEventListener('mousemove', onMouseMove);
-    window.removeEventListener('mouseup', onMouseUp);
-    modalDragCleanup = null;
-  };
-
-  window.addEventListener('mousemove', onMouseMove);
-  window.addEventListener('mouseup', onMouseUp);
-  modalDragCleanup = onMouseUp;
-  event.preventDefault();
-}
-
-onBeforeUnmount(() => {
-  if (typeof modalDragCleanup === 'function') {
-    modalDragCleanup();
-  }
-});
 function isFormFieldRequired(field) {
   if (props.moduleKey === 'user' && editing.value && String(field || '').toLowerCase() === 'password') {
     return false;
@@ -1586,9 +1053,4 @@ function isPriceLikeField(lowField) {
   transition: background-color 0.3s ease;
 }
 
-.request-candidate-summary {
-  color: #8c8c8c;
-  font-size: 13px;
-  margin-bottom: 12px;
-}
 </style>
