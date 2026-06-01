@@ -159,7 +159,7 @@ export function useRequestItemCandidates(options) {
         stockRecordId: resolveCandidateStockRecordId(item),
         requestQty: clampRequestQty(item, candidateQtyState[candidateRowKey(item)]),
       }));
-    const payloadItems = items.map(({ maxQty, ...rest }) => rest);
+    const payloadItems = items.map(({ maxQty: _maxQty, ...rest }) => rest);
     if (!requestId) {
       notify.warning('請求書を選択してください');
       return;

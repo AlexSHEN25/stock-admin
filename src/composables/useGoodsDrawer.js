@@ -86,6 +86,10 @@ export function useGoodsDrawer(options) {
     goodsDrawerOpen.value = false;
   }
 
+  function updateGoodsFormField(field, value) {
+    goodsForm[field] = value;
+  }
+
   function resetGoodsForm(source) {
     const base = source || {};
     const fields = [
@@ -250,6 +254,7 @@ export function useGoodsDrawer(options) {
     openGoodsDrawerCreate,
     openGoodsDrawerEdit,
     closeGoodsDrawer,
+    updateGoodsFormField,
     beforeGoodsImageUpload,
     resolveGoodsImageUrl,
     saveGoodsDrawer,

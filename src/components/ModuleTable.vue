@@ -3,97 +3,28 @@
     :title="null"
     :bordered="false"
   >
-    <div class="search-toolbar">
-      <div class="search-filters">
-        <template
-          v-for="field in visibleQueryFields"
-          :key="field"
-        >
-          <a-select
-            v-if="queryInputType(field) === 'select'"
-            v-model:value="queryState[field]"
-            :options="queryOptions(field)"
-            :placeholder="queryPlaceholder(field)"
-            class="search-control"
-            allow-clear
-          />
-          <a-input
-            v-else-if="queryInputType(field) === 'text'"
-            v-model:value="queryState[field]"
-            :placeholder="queryPlaceholder(field)"
-            class="search-control"
-            @press-enter="reload"
-          />
-          <a-input-number
-            v-else
-            v-model:value="queryState[field]"
-            :placeholder="queryPlaceholder(field)"
-            class="search-control"
-          />
-        </template>
-      </div>
-      <div class="search-actions">
-        <a-button
-          type="primary"
-          class="search-btn search-btn-main"
-          @click="doSearch"
-        >
-          {{ TABLE_TEXT.search }}
-        </a-button>
-        <a-button
-          class="search-btn"
-          :disabled="!hasActiveFilters(visibleQueryFields, queryState)"
-          @click="resetQuery"
-        >
-          {{ TABLE_TEXT.reset }}
-        </a-button>
-        <a-popconfirm
-          v-if="canWrite && canBatchDeleteInModule() && selectedRowKeys.length > 0"
-          :title="TABLE_TEXT.confirmBatchDelete"
-          :ok-text="TABLE_TEXT.yes"
-          :cancel-text="TABLE_TEXT.no"
-          @confirm="onBatchDelete"
-        >
-          <a-button
-            danger
-            class="search-btn"
-          >
-            {{ TABLE_TEXT.batchDelete }}
-          </a-button>
-        </a-popconfirm>
-        <a-button
-          v-else-if="canWrite && canBatchDeleteInModule()"
-          danger
-          class="search-btn"
-          disabled
-        >
-          {{ TABLE_TEXT.batchDelete }}
-        </a-button>
-        <a-button
-          v-if="canWrite && canCreateInModule()"
-          type="primary"
-          class="search-btn search-btn-create"
-          @click="openCreate"
-        >
-          {{ TABLE_TEXT.create }}
-        </a-button>
-        <a-button
-          v-if="props.moduleKey === 'message'"
-          class="search-btn"
-          @click="onReadAllMessages"
-        >
-          {{ TABLE_TEXT.readAll }}
-        </a-button>
-        <a-button
-          v-if="props.moduleKey === 'requestItem'"
-          type="primary"
-          class="search-btn"
-          @click="openCandidateModal"
-        >
-          明細追加
-        </a-button>
-      </div>
-    </div>
+    <module-search-toolbar
+      :fields="visibleQueryFields"
+      :query-state="queryState"
+      :table-text="TABLE_TEXT"
+      :module-key="props.moduleKey"
+      :can-write="canWrite"
+      :can-batch-delete="canBatchDeleteInModule()"
+      :can-create="canCreateInModule()"
+      :selected-count="selectedRowKeys.length"
+      :query-input-type="queryInputType"
+      :query-options="queryOptions"
+      :query-placeholder="queryPlaceholder"
+      :has-active-filters="hasActiveFilters"
+      @search="doSearch"
+      @reload="reload"
+      @reset="resetQuery"
+      @batch-delete="onBatchDelete"
+      @create="openCreate"
+      @read-all="onReadAllMessages"
+      @open-candidates="openCandidateModal"
+      @update-field="updateQueryField"
+    />
 
     <a-table
       class="module-table"
@@ -109,59 +40,19 @@
     >
       <template #bodyCell="{ column, record }">
         <template v-if="isEditing(record) && column.key !== '__actions' && !isReadonlyField(column.key)">
-          <a-upload
-            v-if="isAvatarField(column.key)"
-            accept="image/*"
-            list-type="picture-card"
-            :show-upload-list="false"
-            :before-upload="(file) => beforeInlineAvatarUpload(column.key, file)"
-          >
-            <img
-              v-if="editState[inlineField(column.key)]"
-              :src="editState[inlineField(column.key)]"
-              class="goods-thumb"
-            >
-            <div v-else>
-              + Upload
-            </div>
-          </a-upload>
-          <a-select
-            v-else-if="inlineInputType(column.key) === 'relation'"
-            v-model:value="editState[inlineField(column.key)]"
-            :options="relationOptions[inlineField(column.key)] || []"
-            :mode="isMultiRelationField(inlineField(column.key)) ? 'multiple' : undefined"
-            show-search
-            allow-clear
-            option-filter-prop="label"
-            style="width: 100%"
-          />
-          <a-input-number
-            v-else-if="inlineInputType(column.key) === 'number' || inlineInputType(column.key) === 'decimal'"
-            v-model:value="editState[inlineField(column.key)]"
-            :min="numberMinByField(inlineField(column.key))"
-            :precision="numberPrecisionByField(inlineField(column.key))"
-            style="width: 100%"
-          />
-          <a-select
-            v-else-if="inlineInputType(column.key) === 'select'"
-            v-model:value="editState[inlineField(column.key)]"
-            :options="selectOptionsMerged(inlineField(column.key))"
-            allow-clear
-          />
-          <a-switch
-            v-else-if="inlineInputType(column.key) === 'switch'"
-            v-model:checked="editState[inlineField(column.key)]"
-          />
-          <a-date-picker
-            v-else-if="inlineInputType(column.key) === 'datetime'"
-            v-model:value="editState[inlineField(column.key)]"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            show-time
-            style="width: 100%"
-          />
-          <a-input
-            v-else
-            v-model:value="editState[inlineField(column.key)]"
+          <module-inline-editor
+            :field="column.key"
+            :edit-state="editState"
+            :relation-options="relationOptions"
+            :is-avatar-field="isAvatarField"
+            :before-avatar-upload="beforeInlineAvatarUpload"
+            :inline-field="inlineField"
+            :input-type="inlineInputType"
+            :is-multi-relation-field="isMultiRelationField"
+            :number-min-by-field="numberMinByField"
+            :number-precision-by-field="numberPrecisionByField"
+            :select-options="selectOptionsMerged"
+            @update-field="updateInlineField"
           />
         </template>
         <template v-else-if="String(column.key) === 'skuId'">
@@ -224,128 +115,49 @@
         </template>
 
         <template v-else-if="column.key === '__actions'">
-          <a-space>
-            <a
-              v-for="action in rowExtraActions"
-              v-show="canShowRowExtraAction(action.key, record)"
-              :key="action.key"
-              @click="handleRowExtraAction(action.key, record)"
-            >
-              {{ action.label }}
-            </a>
-            <a
-              v-if="canWrite && canInlineEditRecord(record) && !isEditing(record)"
-              @click="startInlineEdit(record)"
-            >{{ TABLE_TEXT.inlineEdit }}</a>
-            <a
-              v-if="canWrite && canEditRecord(record) && isEditing(record)"
-              @click="saveInlineEdit(record)"
-            >{{ TABLE_TEXT.save }}</a>
-            <a
-              v-if="canWrite && canEditRecord(record) && isEditing(record)"
-              @click="cancelInlineEdit"
-            >{{ TABLE_TEXT.cancel }}</a>
-            <a
-              v-if="canWrite && canEditRecord(record)"
-              @click="openEdit(record)"
-            >{{ TABLE_TEXT.edit }}</a>
-            <a-popconfirm
-              v-if="canWrite && canDeleteRecord(record)"
-              :title="TABLE_TEXT.confirmDelete"
-              :ok-text="TABLE_TEXT.yes"
-              :cancel-text="TABLE_TEXT.no"
-              @confirm="onDelete(record)"
-            >
-              <a>{{ TABLE_TEXT.delete }}</a>
-            </a-popconfirm>
-            <span v-if="!canWrite">{{ TABLE_TEXT.readonly }}</span>
-          </a-space>
+          <module-row-actions
+            :record="record"
+            :actions="rowExtraActions"
+            :table-text="TABLE_TEXT"
+            :can-write="canWrite"
+            :can-inline-edit="canInlineEditRecord(record)"
+            :can-edit="canEditRecord(record)"
+            :can-delete="canDeleteRecord(record)"
+            :editing="isEditing(record)"
+            :can-show-extra-action="canShowRowExtraAction"
+            @extra-action="handleRowExtraAction"
+            @inline-edit="startInlineEdit"
+            @save="saveInlineEdit"
+            @cancel="cancelInlineEdit"
+            @edit="openEdit"
+            @delete="onDelete"
+          />
         </template>
       </template>
     </a-table>
 
-    <a-modal
+    <module-edit-modal
       v-if="!isGoodsManagement"
       :open="modalOpen"
-      :title="null"
-      :ok-text="TABLE_TEXT.save"
-      :cancel-text="TABLE_TEXT.cancel"
-      :ok-button-props="{ disabled: !canWrite }"
-      wrap-class-name="module-edit-modal"
-      @ok="submit"
-      @cancel="() => (modalOpen = false)"
-    >
-      <a-form layout="vertical">
-        <a-form-item
-          v-for="field in visibleFormKeys"
-          :key="field"
-          :required="isFormFieldRequired(field)"
-        >
-          <template #label>
-            {{ normalizeTitle(field) }}
-          </template>
-          <a-upload
-            v-if="isAvatarField(field)"
-            accept="image/*"
-            list-type="picture-card"
-            :show-upload-list="false"
-            :before-upload="(file) => beforeAvatarUpload(field, file)"
-          >
-            <img
-              v-if="formState[field]"
-              :src="formState[field]"
-              class="goods-thumb"
-            >
-            <div v-else>
-              + Upload
-            </div>
-          </a-upload>
-          <a-input
-            v-else-if="inputType(field) === 'text'"
-            v-model:value="formState[field]"
-            :placeholder="formPlaceholder(field)"
-          />
-          <a-select
-            v-else-if="inputType(field) === 'relation'"
-            v-model:value="formState[field]"
-            :options="relationOptions[field] || []"
-            :mode="isMultiRelationField(field) ? 'multiple' : undefined"
-            show-search
-            allow-clear
-            option-filter-prop="label"
-          />
-          <a-input-number
-            v-else-if="inputType(field) === 'number' || inputType(field) === 'decimal'"
-            v-model:value="formState[field]"
-            :min="numberMinByField(field)"
-            :precision="numberPrecisionByField(field)"
-            style="width: 100%"
-          />
-          <a-select
-            v-else-if="inputType(field) === 'select'"
-            v-model:value="formState[field]"
-            :options="selectOptionsMerged(field)"
-            allow-clear
-          />
-          <a-switch
-            v-else-if="inputType(field) === 'switch'"
-            v-model:checked="formState[field]"
-          />
-          <a-date-picker
-            v-else-if="inputType(field) === 'datetime'"
-            v-model:value="formState[field]"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            show-time
-            style="width: 100%"
-          />
-          <a-textarea
-            v-else
-            v-model:value="formState[field]"
-            :rows="3"
-          />
-        </a-form-item>
-      </a-form>
-    </a-modal>
+      :can-write="canWrite"
+      :fields="visibleFormKeys"
+      :form-state="formState"
+      :relation-options="relationOptions"
+      :table-text="TABLE_TEXT"
+      :is-required="isFormFieldRequired"
+      :normalize-title="normalizeTitle"
+      :is-avatar-field="isAvatarField"
+      :before-avatar-upload="beforeAvatarUpload"
+      :input-type="inputType"
+      :form-placeholder="formPlaceholder"
+      :is-multi-relation-field="isMultiRelationField"
+      :number-min-by-field="numberMinByField"
+      :number-precision-by-field="numberPrecisionByField"
+      :select-options="selectOptionsMerged"
+      @save="submit"
+      @cancel="modalOpen = false"
+      @update-field="updateFormField"
+    />
     <request-candidate-modal
       :open="candidateModalOpen"
       :loading="candidateLoading"
@@ -376,12 +188,13 @@
       @cancel="closeGoodsDrawer"
       @save="saveGoodsDrawer"
       @upload-image="beforeGoodsImageUpload"
+      @update-field="updateGoodsFormField"
     />
   </a-card>
 </template>
 
 <script setup>
-import { computed, reactive, watch } from 'vue';
+import { computed, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import {
   fetchEnumOptions,
@@ -391,10 +204,17 @@ import {
   uploadFileByBizType,
 } from '../api/module';
 import GoodsDrawer from './GoodsDrawer.vue';
+import ModuleEditModal from './ModuleEditModal.vue';
+import ModuleInlineEditor from './ModuleInlineEditor.vue';
+import ModuleRowActions from './ModuleRowActions.vue';
+import ModuleSearchToolbar from './ModuleSearchToolbar.vue';
 import RequestCandidateModal from './RequestCandidateModal.vue';
 import { useGoodsDrawer } from '../composables/useGoodsDrawer';
 import { useModuleActions } from '../composables/useModuleActions';
 import { useModuleFieldBehavior } from '../composables/useModuleFieldBehavior';
+import { useModuleMedia } from '../composables/useModuleMedia';
+import { useModuleOptions } from '../composables/useModuleOptions';
+import { useModuleTablePresentation } from '../composables/useModuleTablePresentation';
 import { useRequestItemCandidates } from '../composables/useRequestItemCandidates';
 import { useRelationOptions } from '../composables/useRelationOptions';
 import { useModuleTableSchema } from '../composables/useModuleTableSchema';
@@ -429,21 +249,6 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['navigate-module']);
-const rowAutoKeyMap = new WeakMap();
-let rowAutoKeySeed = 0;
-const dynamicEnumOptions = reactive({});
-const goodsFormOptions = reactive({});
-
-function formatBizDate(record) {
-  const raw = record?.bizDate;
-  if (!raw) return '-';
-  const text = formatTime(raw);
-  const orderType = Number(record?.orderType);
-  if (orderType === 1) return `納品日: ${text}`;
-  if (orderType === 2) return `出荷日: ${text}`;
-  return text;
-}
-
 const isGoodsManagement = computed(() => props.moduleKey === 'goods');
 const modulePath = computed(() => props.moduleKey);
 const preset = computed(() => getModulePreset(props.moduleKey));
@@ -483,7 +288,6 @@ const {
   loading,
   modalOpen,
   editing,
-  editingKey,
   editingRaw,
   formState,
   editState,
@@ -593,6 +397,46 @@ const {
   inlineField,
   mapNameFieldToIdField,
 });
+const {
+  loadDynamicEnumOptions,
+  mergedEnumOptions,
+  selectOptionsMerged,
+  hasEnumOptionsMerged,
+  loadGoodsFormOptions,
+  loadSourceOrderOptions,
+} = useModuleOptions({
+  moduleKey: computed(() => props.moduleKey),
+  isGoodsManagement,
+  queryFields,
+  formKeys,
+  keys,
+  relationOptions,
+  queryRelationOptions,
+  fetchEnumOptions,
+  fetchGoodsFormOptions,
+  fetchOutboundStockOrderOptions,
+  enumOptionsForField,
+  selectOptionsForField,
+  dedupeOptions,
+  relationLabel,
+});
+const {
+  tablePagination,
+  formatBizDate,
+  enumLabelMerged,
+  getRecordId,
+  isPermissionNamesField,
+  permissionNameList,
+  getRowKey,
+  normalizeDisplayLabel,
+  numberMinByField,
+  numberPrecisionByField,
+} = useModuleTablePresentation({
+  moduleKey: computed(() => props.moduleKey),
+  pagination,
+  formatTime,
+  mergedEnumOptions,
+});
 
 const {
   goodsDrawerOpen,
@@ -609,6 +453,7 @@ const {
   beforeGoodsImageUpload,
   resolveGoodsImageUrl,
   saveGoodsDrawer,
+  updateGoodsFormField,
   rowClassName,
 } = useGoodsDrawer({
   normalizePayload,
@@ -625,113 +470,12 @@ const visibleQueryFields = computed(() => {
   if (props.moduleKey !== 'stockOrderItem') return list;
   return list.filter((field) => String(field || '').toLowerCase() !== 'orderid');
 });
-const tablePagination = computed(() => ({
-  current: pagination.current,
-  pageSize: pagination.pageSize,
-  total: pagination.total,
-  showSizeChanger: true,
-  pageSizeOptions: ['10', '20', '50'],
-}));
 const tableRows = computed(() => {
   return requestItemTableRows.value;
 });
 const visibleFormKeys = computed(() => (
   editing.value ? formKeys.value : formKeys.value.filter((field) => String(field || '').toLowerCase() !== 'status')
 ));
-
-function enumKeyByField(moduleKey, field) {
-  const low = String(field || '').toLowerCase();
-  if (low === 'status') return 'status';
-  if (moduleKey === 'permission' && low === 'type') return 'permissionType';
-  return '';
-}
-
-async function loadDynamicEnumOptions() {
-  Object.keys(dynamicEnumOptions).forEach((key) => delete dynamicEnumOptions[key]);
-  const fields = [...new Set([...(queryFields.value || []), ...(formKeys.value || []), ...(keys.value || [])])];
-  const targets = fields
-    .map((field) => ({ field, enumKey: enumKeyByField(props.moduleKey, field) }))
-    .filter((item) => item.enumKey);
-  await Promise.all(targets.map(async ({ field, enumKey }) => {
-    try {
-      dynamicEnumOptions[field] = await fetchEnumOptions(enumKey);
-    } catch (_e) {
-      dynamicEnumOptions[field] = [];
-    }
-  }));
-}
-
-function mergedEnumOptions(field) {
-  const dynamic = dedupeOptions(dynamicEnumOptions[field] || []);
-  if (dynamic.length > 0) return dynamic;
-  return dedupeOptions(enumOptionsForField(field));
-}
-
-function selectOptionsMerged(field) {
-  if (field === 'status') {
-    const dynamic = dedupeOptions(dynamicEnumOptions[field] || []);
-    if (dynamic.length > 0) return dynamic;
-  }
-  if (field !== 'status') {
-    const dynamic = dedupeOptions(dynamicEnumOptions[field] || []);
-    if (dynamic.length > 0) return dynamic;
-  }
-  return selectOptionsForField(field);
-}
-
-function hasEnumOptionsMerged(field) {
-  return mergedEnumOptions(field).length > 0;
-}
-
-function enumLabelMerged(field, value) {
-  const hit = mergedEnumOptions(field).find((item) => Number(item.value) === Number(value));
-  return normalizeDisplayLabel(hit?.label || value || '-');
-}
-
-async function loadGoodsFormOptions() {
-  if (!isGoodsManagement.value) return;
-  const data = await fetchGoodsFormOptions();
-  Object.keys(goodsFormOptions).forEach((k) => delete goodsFormOptions[k]);
-  Object.assign(goodsFormOptions, data || {});
-  applyGoodsOptionList('brandId', data?.brandOptions);
-  applyGoodsOptionList('seriesId', data?.seriesOptions);
-  applyGoodsOptionList('categoryId', data?.categoryOptions);
-  applyGoodsOptionList('makerId', data?.makerOptions);
-  applyGoodsOptionList('status', data?.statusOptions);
-  applyGoodsOptionList('currency', data?.currencyOptions);
-}
-
-function applyGoodsOptionList(field, source) {
-  const list = Array.isArray(source) ? source : [];
-  const mapped = list
-    .map((item) => {
-      const value = item?.value ?? item?.id ?? item?.code;
-      const label = item?.label ?? item?.name ?? item?.text;
-      if (value === undefined || value === null || label === undefined || label === null) return null;
-      return { value, label: String(label) };
-    })
-    .filter(Boolean);
-  if (mapped.length === 0) return;
-  if (field === 'brandId' || field === 'seriesId' || field === 'categoryId' || field === 'makerId') {
-    relationOptions[field] = mapped;
-    queryRelationOptions[field] = mapped;
-    return;
-  }
-  dynamicEnumOptions[field] = mapped;
-}
-
-async function loadSourceOrderOptions() {
-  if (props.moduleKey !== 'requestForm') return;
-  try {
-    const list = await fetchOutboundStockOrderOptions();
-    relationOptions.sourceOrderId = dedupeOptions((list || []).map((item) => ({
-      label: relationLabel(item),
-      value: item.id,
-    })));
-  } catch {
-    relationOptions.sourceOrderId = [];
-  }
-}
 
 watch(
   () => props.moduleKey,
@@ -773,6 +517,18 @@ async function submitStockFlow() {
     reload,
     notify: message,
   });
+}
+
+function updateFormField(field, value) {
+  formState[field] = value;
+}
+
+function updateQueryField(field, value) {
+  queryState[field] = value;
+}
+
+function updateInlineField(field, value) {
+  editState[field] = value;
 }
 
 function openCreate() {
@@ -837,131 +593,19 @@ function queryOptions(field) {
   return dedupeOptions(queryRelationOptions[field] || []);
 }
 
-function getRecordId(record) {
-  return record?.skuId ?? record?.id ?? record?._id ?? null;
-}
-
-function isAvatarField(field) {
-  const key = String(field || '').toLowerCase();
-  if (key === 'avatar' || key === 'avatarurl') return true;
-  if (props.moduleKey === 'brand' && (key === 'image' || key === 'imageurl')) return true;
-  return false;
-}
-
-function resolveAvatarSrc(record) {
-  if (!record) return '';
-  const raw = String(record.avatar || record.avatarUrl || record.image || record.imageUrl || '').trim();
-  if (!raw) return '';
-  if (raw.startsWith('data:') || raw.startsWith('blob:')) return raw;
-  if (/^https?:\/\//i.test(raw)) return raw;
-  if (raw.startsWith('/')) return raw;
-  return `/${raw}`;
-}
-
-function beforeAvatarUpload(field, file) {
-  if (props.moduleKey === 'brand' && isAvatarField(field)) {
-    uploadBrandImageToBackend(file, formState[field], (url) => {
-      formState[field] = url;
-    });
-    return false;
-  }
-  if (props.moduleKey === 'user' && isAvatarField(field)) {
-    uploadAvatarToBackend(file, formState[field], (url) => {
-      formState[field] = url;
-    });
-    return false;
-  }
-  setImageFieldFromFile(formState, field, file);
-  return false;
-}
-
-function beforeInlineAvatarUpload(field, file) {
-  if (props.moduleKey === 'brand' && isAvatarField(field)) {
-    uploadBrandImageToBackend(file, editState[inlineField(field)], (url) => {
-      editState[inlineField(field)] = url;
-    });
-    return false;
-  }
-  if (props.moduleKey === 'user' && isAvatarField(field)) {
-    uploadAvatarToBackend(file, editState[inlineField(field)], (url) => {
-      editState[inlineField(field)] = url;
-    });
-    return false;
-  }
-  setImageFieldFromFile(editState, inlineField(field), file);
-  return false;
-}
-
-async function uploadAvatarToBackend(file, oldPath, onSuccess) {
-  try {
-    const avatarPath = await uploadFileByBizType('AVATAR', file, oldPath);
-    onSuccess(String(avatarPath || ''));
-    message.success('アバターをアップロードしました');
-  } catch (error) {
-    message.error(error?.message || 'アバターのアップロードに失敗しました');
-  }
-}
-
-async function uploadBrandImageToBackend(file, oldPath, onSuccess) {
-  try {
-    const imagePath = await uploadFileByBizType('BRAND', file, oldPath);
-    if (!imagePath) {
-      message.error('画像アップロードに失敗しました');
-      return;
-    }
-    onSuccess(String(imagePath || ''));
-    message.success('画像をアップロードしました');
-  } catch (error) {
-    message.error(error?.message || '画像アップロードに失敗しました');
-  }
-}
-function setImageFieldFromFile(target, field, file) {
-  const reader = new FileReader();
-  reader.onload = () => {
-    target[field] = String(reader.result || '');
-  };
-  reader.readAsDataURL(file);
-}
-
-function isPermissionNamesField(field) {
-  const low = String(field || '').toLowerCase();
-  return low === 'permissionname' || low === 'permissionnames';
-}
-
-function permissionNameList(record) {
-  const raw = String(record?.permissionNames || record?.permissionName || '').trim();
-  if (!raw) return [];
-  return raw
-    .split(/[\n,，、]+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-function getRowKey(record) {
-  const primaryId = getRecordId(record);
-  const secondaryParts = [
-    record?.stockId,
-    record?.goodsId,
-    record?.skuCode,
-    record?.warehouseId,
-    record?.orderId,
-    record?.requestId,
-  ].filter((value) => value !== undefined && value !== null && String(value) !== '');
-
-  const base = (() => {
-    if (primaryId !== null && primaryId !== undefined && String(primaryId) !== '') {
-      if (secondaryParts.length > 0) return `${primaryId}:${secondaryParts.join(':')}`;
-      return String(primaryId);
-    }
-    if (secondaryParts.length > 0) return secondaryParts.join(':');
-    return `row:${props.moduleKey}`;
-  })();
-
-  if (!rowAutoKeyMap.has(record)) {
-    rowAutoKeySeed += 1;
-    rowAutoKeyMap.set(record, rowAutoKeySeed);
-  }
-  return `${base}#${rowAutoKeyMap.get(record)}`;
-}
+const {
+  isAvatarField,
+  resolveAvatarSrc,
+  beforeAvatarUpload,
+  beforeInlineAvatarUpload,
+} = useModuleMedia({
+  moduleKey: computed(() => props.moduleKey),
+  formState,
+  editState,
+  inlineField,
+  uploadFileByBizType,
+  notify: message,
+});
 
 const {
   handleRowExtraAction,
@@ -1022,29 +666,6 @@ function formPlaceholder(field) {
   return '';
 }
 
-function normalizeDisplayLabel(value) {
-  const text = String(value ?? '');
-  if (text.toLowerCase() === 'normal') return '有効';
-  return text || '-';
-}
-
-function numberMinByField(field) {
-  const low = String(field || '').toLowerCase();
-  if (low === 'sort') return 0;
-  if (isPriceLikeField(low)) return 0.01;
-  return undefined;
-}
-
-function numberPrecisionByField(field) {
-  const low = String(field || '').toLowerCase();
-  if (isPriceLikeField(low)) return 2;
-  return undefined;
-}
-
-function isPriceLikeField(lowField) {
-  const low = String(lowField || '');
-  return low.includes('price') || low.includes('amount');
-}
 </script>
 
 <style scoped>
