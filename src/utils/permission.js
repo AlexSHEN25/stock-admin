@@ -29,7 +29,7 @@ export function hasWritePermission(moduleKey, permissionReady, permissionCodes) 
 }
 
 export function canCreateModuleRecord(moduleKey, permissionCodes) {
-  if (moduleKey === 'stockRecord' || moduleKey === 'priceRecord' || moduleKey === 'operateLog') return false;
+  if (moduleKey === 'stockRecord' || moduleKey === 'priceRecord' || moduleKey === 'message' || moduleKey === 'operateLog') return false;
   if (moduleKey !== 'user') return true;
   return isAdminByPermissionCodes(permissionCodes);
 }

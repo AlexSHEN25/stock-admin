@@ -29,6 +29,8 @@ export const MODULE_LAYOUT_CONFIG = {
   permissionAliases: {
     goods: ['GOODS_MANAGEMENT', 'GOODS_BUNDLE'],
     stock: ['STOCK', 'INVENTORY'],
+    stockSelf: ['STOCK_SELF', 'STOCK', 'INVENTORY'],
+    stockHandle: ['STOCK_HANDLE', 'STOCK', 'INVENTORY'],
     stockOrder: ['STOCK_ORDER', 'STOCKORDER', 'IN_OUT_ORDER', 'INOUT_ORDER'],
     stockOrderItem: ['STOCK_ORDER_ITEM', 'STOCKORDERITEM', 'IN_OUT_ORDER_ITEM', 'INOUT_ORDER_ITEM'],
     stockRecord: ['STOCK_RECORD', 'STOCKRECORD', 'INVENTORY_RECORD'],
@@ -208,6 +210,12 @@ export const MODULE_ENUM_FIELD_OPTIONS = {
     isRead: ENUM_OPTIONS.messageRead,
   },
   stock: {
+    sourceType: ENUM_OPTIONS.stockSourceType,
+  },
+  stockSelf: {
+    sourceType: ENUM_OPTIONS.stockSourceType,
+  },
+  stockHandle: {
     sourceType: ENUM_OPTIONS.stockSourceType,
   },
   stockOrder: {

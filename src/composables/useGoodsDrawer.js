@@ -158,7 +158,7 @@ export function useGoodsDrawer(options) {
     if (!goodsForm.name || String(goodsForm.name).trim() === '') return '名称を入力してください';
     if (!goodsForm.skuCode || String(goodsForm.skuCode).trim() === '') return '品番を入力してください';
     if (goodsForm.price === undefined || goodsForm.price === null || String(goodsForm.price).trim() === '') return '価格を入力してください';
-    if (!goodsForm.brandId || !goodsForm.seriesId || !goodsForm.categoryId || !goodsForm.makerId) return 'ブランド/シリーズ/カテゴリ/メーカーを選択してください';
+    if (!goodsForm.brandId || !goodsForm.categoryId) return 'ブランド/カテゴリを選択してください';
     if (goodsForm.updatePrice !== undefined && goodsForm.updatePrice !== null && String(goodsForm.updatePrice).trim() !== '') {
       if (!goodsForm.priceUpdateTime || String(goodsForm.priceUpdateTime).trim() === '') return '改定価格を入力した場合、価格更新日時は必須です';
     }

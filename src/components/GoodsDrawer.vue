@@ -39,10 +39,7 @@
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item
-              label="シリーズ"
-              required
-            >
+            <a-form-item label="シリーズ">
               <a-select
                 v-model:value="form.seriesId"
                 :options="relationOptions.seriesId || []"
@@ -67,10 +64,7 @@
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item
-              label="メーカー"
-              required
-            >
+            <a-form-item label="メーカー">
               <a-select
                 v-model:value="form.makerId"
                 :options="relationOptions.makerId || []"

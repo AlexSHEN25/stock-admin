@@ -10,7 +10,7 @@ export async function fetchPage(modulePath, params) {
   if (isUserModule) {
     response = await requestUserPageWithFallback(safeParams);
   } else {
-    const url = `/api/${modulePath}/page`;
+    const url = `/api/${resolveModulePath(modulePath)}/page`;
     response = await requestPageWithSortFallback(url, safeParams);
   }
   return normalizePage(response);
@@ -23,7 +23,12 @@ export async function createItem(modulePath, payload) {
       () => http.post('/api/user/create', payload),
     );
   }
-  return http.post(`/api/${modulePath}`, payload);
+  return http.post(`/api/${resolveModulePath(modulePath)}`, payload);
+}
+
+export async function fetchItem(modulePath, id) {
+  if (id === undefined || id === null || String(id).trim() === '') return null;
+  return http.get(`/api/${resolveModulePath(modulePath)}/${id}`);
 }
 
 export async function updateItem(modulePath, payload) {
@@ -34,7 +39,7 @@ export async function updateItem(modulePath, payload) {
       () => http.post('/api/user/update', payload),
     );
   }
-  return http.put(`/api/${modulePath}`, payload);
+  return http.put(`/api/${resolveModulePath(modulePath)}`, payload);
 }
 
 export async function removeItem(modulePath, id) {
@@ -45,7 +50,7 @@ export async function removeItem(modulePath, id) {
       () => http.post('/api/user/delete', { id }),
     );
   }
-  return http.delete(`/api/${modulePath}/${id}`);
+  return http.delete(`/api/${resolveModulePath(modulePath)}/${id}`);
 }
 
 export async function removeItems(modulePath, ids) {
@@ -56,6 +61,9 @@ export async function removeItems(modulePath, ids) {
       () => http.delete('/api/goods/batch', { data: list }),
       () => http.post('/api/goods/batch', list),
     );
+  }
+  if (modulePath === 'stockSelf' || modulePath === 'stockHandle') {
+    return http.delete(`/api/${resolveModulePath(modulePath)}/batch`, { data: list });
   }
   for (const id of list) {
     // keep compatibility for other modules without batch endpoint
@@ -252,4 +260,10 @@ function normalizePageSize(input) {
   const pageSize = Number(input);
   if (PAGE_SIZE_OPTIONS.includes(pageSize)) return pageSize;
   return PAGE_SIZE_OPTIONS[0];
+}
+
+function resolveModulePath(modulePath) {
+  if (modulePath === 'stockSelf') return 'stock/self';
+  if (modulePath === 'stockHandle') return 'stock/handle';
+  return modulePath;
 }

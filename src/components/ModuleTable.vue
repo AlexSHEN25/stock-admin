@@ -198,9 +198,11 @@ import { computed, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import {
   fetchEnumOptions,
+  fetchItem,
   fetchOutboundStockOrderOptions,
   fetchGoodsFormOptions,
   fetchModuleOptions,
+  updateItem,
   uploadFileByBizType,
 } from '../api/module';
 import GoodsDrawer from './GoodsDrawer.vue';
@@ -241,6 +243,8 @@ import {
 } from '../utils/permission';
 import { hasActiveFilters } from '../utils/table';
 
+const STOCK_EDIT_PAYLOAD_FIELDS = ['id', 'goodsId', 'goodsName', 'skuId', 'skuCode', 'warehouseId', 'currentQty', 'lockQty', 'price', 'currency', 'stockTypeId', 'status', 'version'];
+
 const props = defineProps({
   moduleKey: { type: String, required: true },
   permissionCodes: { type: Array, default: () => [] },
@@ -250,6 +254,7 @@ const props = defineProps({
 
 const emit = defineEmits(['navigate-module']);
 const isGoodsManagement = computed(() => props.moduleKey === 'goods');
+const isSplitStockManagement = computed(() => props.moduleKey === 'stockSelf' || props.moduleKey === 'stockHandle');
 const modulePath = computed(() => props.moduleKey);
 const preset = computed(() => getModulePreset(props.moduleKey));
 const rowExtraActions = computed(() => getRowExtraActions(props.moduleKey));
@@ -281,6 +286,8 @@ const {
 
 const MODULE_SUBMIT_HANDLERS = {
   stock: submitStockFlow,
+  stockSelf: submitStockFlow,
+  stockHandle: submitStockFlow,
 };
 
 const {
@@ -320,7 +327,7 @@ const {
   canBatchDeleteRecord: () => canBatchDeleteInModule(),
   getQueryFields: () => queryFields.value,
   queryInputType,
-  getFormKeys: () => formKeys.value,
+  getFormKeys: () => activeFormKeys(),
   inputType,
   inlineField,
   isReadonlyField,
@@ -474,7 +481,7 @@ const tableRows = computed(() => {
   return requestItemTableRows.value;
 });
 const visibleFormKeys = computed(() => (
-  editing.value ? formKeys.value : formKeys.value.filter((field) => String(field || '').toLowerCase() !== 'status')
+  editing.value ? activeFormKeys() : formKeys.value.filter((field) => String(field || '').toLowerCase() !== 'status')
 ));
 
 watch(
@@ -508,7 +515,29 @@ function normalizeQueryField(field) {
   return key;
 }
 
-async function submitStockFlow() {
+async function submitStockFlow({ buildEditPayload, getRecordId, normalizePayload: normalizeSubmitPayload }) {
+  if (editing.value && isSplitStockManagement.value) {
+    try {
+      const rawPayload = buildEditPayload(getRecordId);
+      const normalizedPayload = normalizeSubmitPayload(rawPayload);
+      const payload = Object.fromEntries(
+        STOCK_EDIT_PAYLOAD_FIELDS
+          .filter((field) => Object.prototype.hasOwnProperty.call(rawPayload, field))
+          .map((field) => [
+            field,
+            Object.prototype.hasOwnProperty.call(normalizedPayload, field) ? normalizedPayload[field] : rawPayload[field],
+          ]),
+      );
+      await updateItem(modulePath.value, payload);
+      modalOpen.value = false;
+      message.success(TABLE_TEXT.updateSuccess);
+      await reload();
+    } catch (error) {
+      message.error(error.message || TABLE_TEXT.saveFail);
+    }
+    return;
+  }
+
   await submitStockInboundFlow({
     formState,
     closeModal: () => {
@@ -546,16 +575,35 @@ function openCreate() {
   }
 }
 
-function openEdit(record) {
+async function openEdit(record) {
   if (isGoodsManagement.value) {
     openGoodsDrawerEdit(record);
     return;
   }
-  const opened = openEditState(record, getRecordId);
+  const editRecord = await loadStockDetail(record);
+  const opened = openEditState(editRecord, getRecordId);
   if (opened) {
-    loadRelationOptions(formKeys.value, keys.value);
+    loadRelationOptions(activeFormKeys(), keys.value);
     loadSourceOrderOptions();
   }
+}
+
+async function loadStockDetail(record) {
+  if (!isSplitStockManagement.value) return record;
+  try {
+    const detail = await fetchItem(props.moduleKey, getRecordId(record));
+    return detail && typeof detail === 'object' ? { ...record, ...detail } : record;
+  } catch (error) {
+    message.error(error?.message || TABLE_TEXT.fetchFail);
+    return record;
+  }
+}
+
+function activeFormKeys() {
+  if (editing.value && isSplitStockManagement.value) {
+    return ['goodsId', 'skuId', 'skuCode', 'warehouseId', 'currentQty', 'lockQty', 'price', 'currency', 'stockTypeId'];
+  }
+  return formKeys.value;
 }
 
 async function submit() {
@@ -626,7 +674,8 @@ const {
 });
 
 function canCreateInModule() {
-  return canCreateModuleRecord(props.moduleKey, props.permissionCodes || []);
+  if (!canCreateModuleRecord(props.moduleKey, props.permissionCodes || [])) return false;
+  return isGoodsManagement.value || formKeys.value.length > 0;
 }
 
 function canBatchDeleteInModule() {

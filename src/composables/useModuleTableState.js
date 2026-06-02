@@ -213,7 +213,15 @@ export function useModuleTableState(options) {
 
     const submitHandler = moduleSubmitHandlers[moduleKey.value];
     if (submitHandler) {
-      await submitHandler({ formState, closeModal: () => { modalOpen.value = false; }, reload });
+      await submitHandler({
+        formState,
+        closeModal: () => { modalOpen.value = false; },
+        reload,
+        editing,
+        buildEditPayload,
+        getRecordId,
+        normalizePayload,
+      });
       return;
     }
 
