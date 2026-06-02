@@ -17,8 +17,7 @@ yarn-error.log
 /coverage
 .idea
 yarn.lock
-package-lock.json
-*bak
+*.bak
 .vscode
 
 
@@ -39,3 +38,21 @@ screenshot
 .firebase
 
 build
+
+# local environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+
+# local deployment overrides
+docker-compose.override.yml
+compose.override.yml
+
+# local temporary files
+*.tmp
+*.swp
