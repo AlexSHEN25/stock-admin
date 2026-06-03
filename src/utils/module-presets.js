@@ -47,10 +47,10 @@ export const MODULE_GROUPS = [
     label: '在庫管理',
     children: [
       { key: 'stockSelf', label: '自社在庫管理' },
-      { key: 'stockHandle', label: '柄在庫管理' },
+      { key: 'stockHandle', label: 'ハンドル在庫管理' },
       { key: 'stockOrder', label: '入出庫伝票' },
       { key: 'stockOrderItem', label: '入出庫明細' },
-      { key: 'stockType', label: '在庫区分' },
+      { key: 'stockType', label: '在庫分類' },
       { key: 'stockRecord', label: '在庫履歴' },
       { key: 'priceRecord', label: '価格履歴' },
     ],
@@ -90,8 +90,8 @@ export const MODULE_PRESETS = {
   },
   dept: {
     queryFields: ['id', 'name', 'code', 'leaderId', 'sort', 'status'],
-    formFields: ['parentId', 'name', 'code', 'leaderId', 'sort', 'status'],
-    fieldTypes: { parentId: 'relation', leaderId: 'relation', sort: 'number', status: 'select' },
+    formFields: ['name', 'code', 'leaderId', 'sort', 'status'],
+    fieldTypes: { leaderId: 'relation', sort: 'number', status: 'select' },
   },
   goods: {
     queryFields: ['id', 'name', 'englishName', 'seriesId', 'brandId', 'categoryId', 'makerId', 'sort', 'status', 'isHot'],

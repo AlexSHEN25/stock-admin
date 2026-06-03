@@ -87,6 +87,9 @@ export function useModuleFieldBehavior(options) {
     const output = { ...payload };
     delete output.beforeQty;
     delete output.afterQty;
+    if (moduleKey.value === 'dept') {
+      delete output.parentId;
+    }
     Object.keys(output).forEach((key) => {
       if (moduleKey.value === 'goods' && key === 'skuName') return;
       if (mapNameFieldToIdField(key)) {
