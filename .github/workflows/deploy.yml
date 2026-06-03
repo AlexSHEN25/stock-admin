@@ -22,4 +22,4 @@ jobs:
             git pull origin main
 
             cd /opt/stock
-            docker compose up -d --build stock-admin
+            docker compose up -d --build frontend
