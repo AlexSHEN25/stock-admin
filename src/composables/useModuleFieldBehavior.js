@@ -2,7 +2,33 @@ import { STATUS_OPTIONS } from '../utils/module';
 import { TABLE_TEXT } from '../utils/module-ui';
 
 const GOODS_TEXT_QUERY_FIELDS = new Set(['keyword', 'englishName', 'skuCode', 'skuName']);
-const READONLY_FIELDS = new Set(['id', 'createtime', 'updatetime', 'statusdesc', 'beforeqty', 'afterqty', 'sourceid']);
+const READONLY_FIELDS = new Set(['id', 'createtime', 'updatetime', 'statusdesc', 'beforeqty', 'afterqty', 'sourceid', 'lockqty']);
+const STOCK_ORDER_BACKEND_FIELDS = new Set([
+  'orderno',
+  'totalqty',
+  'requesterid',
+  'operatorid',
+  'approverid',
+  'approvetime',
+  'finishtime',
+]);
+const REQUEST_FORM_BACKEND_FIELDS = new Set([
+  'bizno',
+  'userid',
+  'username',
+  'deptid',
+  'deptname',
+  'warehouseid',
+  'warehousename',
+  'sourceorderno',
+  'totalqty',
+  'requestqty',
+  'totalamt',
+  'state',
+  'approverid',
+  'approvername',
+  'approvetime',
+]);
 const CURRENCY_OPTIONS = [
   { label: 'JPY', value: 'JPY' },
   { label: 'RMB', value: 'RMB' },
@@ -80,18 +106,50 @@ export function useModuleFieldBehavior(options) {
 
   function isReadonlyField(field) {
     if (!canWrite.value) return true;
-    return READONLY_FIELDS.has(String(field || '').toLowerCase());
+    const low = String(field || '').toLowerCase();
+    if (moduleKey.value === 'stockOrder' && STOCK_ORDER_BACKEND_FIELDS.has(low)) return true;
+    if (moduleKey.value === 'requestForm' && REQUEST_FORM_BACKEND_FIELDS.has(low)) return true;
+    return READONLY_FIELDS.has(low);
   }
 
   function normalizePayload(payload) {
     const output = { ...payload };
     delete output.beforeQty;
     delete output.afterQty;
+    delete output.lockQty;
     if (moduleKey.value === 'dept') {
       delete output.parentId;
     }
     if (moduleKey.value === 'stockOrder') {
       delete output.sourceId;
+      delete output.orderNo;
+      delete output.totalQty;
+      delete output.requesterId;
+      delete output.requesterName;
+      delete output.operatorId;
+      delete output.operatorName;
+      delete output.approverId;
+      delete output.approverName;
+      delete output.approveTime;
+      delete output.finishTime;
+    }
+    if (moduleKey.value === 'requestForm') {
+      delete output.bizNo;
+      delete output.userId;
+      delete output.username;
+      delete output.userName;
+      delete output.deptId;
+      delete output.deptName;
+      delete output.warehouseId;
+      delete output.warehouseName;
+      delete output.sourceOrderNo;
+      delete output.totalQty;
+      delete output.requestQty;
+      delete output.totalAmt;
+      delete output.state;
+      delete output.approverId;
+      delete output.approverName;
+      delete output.approveTime;
     }
     Object.keys(output).forEach((key) => {
       if (moduleKey.value === 'goods' && key === 'skuName') return;

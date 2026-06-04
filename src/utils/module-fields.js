@@ -97,7 +97,6 @@ export const FIELD_LABELS = {
   costPrice: '原価',
   updatePrice: '改定価格',
   currentQty: '現在数量',
-  lockQty: 'ロック数量',
   specSummary: '仕様摘要',
   mainImage: 'メイン画像',
   categoryId: 'カテゴリ',
@@ -262,7 +261,7 @@ export function displayKeys(record) {
 
   return keyList.filter((key) => {
     const low = key.toLowerCase();
-    if (low === 'beforeqty' || low === 'afterqty') return false;
+    if (low === 'beforeqty' || low === 'afterqty' || low === 'lockqty') return false;
     if (!low.endsWith('id') && !low.endsWith('ids')) return true;
     if (low === 'id') return true;
     if (alwaysDisplayIdFields.has(low)) return true;

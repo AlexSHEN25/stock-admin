@@ -114,7 +114,6 @@ export const GOODS_TABLE_CONFIG = {
     'discount',
     'currency',
     'currentQty',
-    'lockQty',
     'beforeQty',
     'changeQty',
     'afterQty',

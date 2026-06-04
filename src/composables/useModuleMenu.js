@@ -83,7 +83,7 @@ export function useModuleMenu(options) {
     if (!isValidModule(moduleKey)) return;
 
     activeModule.value = moduleKey;
-    activeLabel.value = findLabelByKey(key);
+    activeLabel.value = node?.label || findLabelByKey(key);
     selectedKeys.value = [key];
   }
 
@@ -93,9 +93,10 @@ export function useModuleMenu(options) {
 
     const hiddenConfig = HIDDEN_MODULE_CONFIG[target];
     const menuKey = HIDDEN_MODULE_SET.has(target) ? (hiddenConfig?.parent || target) : target;
+    const node = nodeMap.value.get(menuKey);
     activeModule.value = target;
     selectedKeys.value = [menuKey];
-    activeLabel.value = findLabelByKey(target);
+    activeLabel.value = node?.label || findLabelByKey(target);
 
     const parent = MODULE_GROUPS.find((group) => group.children.some((child) => child.key === menuKey));
     if (parent) {
@@ -142,7 +143,9 @@ export function useModuleMenu(options) {
       return;
     }
 
-    activeLabel.value = findLabelByKey(selectedKeys.value[0] || activeModule.value);
+    const selectedKey = selectedKeys.value[0] || activeModule.value;
+    const selectedNode = nodeMap.value.get(selectedKey);
+    activeLabel.value = selectedNode?.label || findLabelByKey(selectedKey);
   }
 
   function normalizeMenuScopes(source) {
@@ -155,7 +158,6 @@ export function useModuleMenu(options) {
   }
 
   function resolveMenuLabel(scope, item) {
-    if (item?.label) return item.label;
     const label = String(scope?.label || '').trim();
     if (!label || hasDanglingMenuLabelSeparator(label)) {
       return item.label;

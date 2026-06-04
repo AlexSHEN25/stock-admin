@@ -6,7 +6,7 @@ const STOCK_ORDER_ITEM_FIELDS = ['id', 'orderId', 'goodsId', 'skuId', 'skuCode',
 const REQUEST_FORM_FIELDS = ['id', 'bizNo', 'sourceOrderId', 'sourceOrderNo', 'userId', 'username', 'deptId', 'deptName', 'customerId', 'customerName', 'warehouseId', 'totalQty', 'requestQty', 'totalAmt', 'state', 'approverId', 'approverName', 'approveTime', 'approveRemark'];
 const REQUEST_ITEM_FIELDS = ['id', 'requestId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'makerId', 'makerName', 'stockTypeId', 'stockTypeName', 'warehouseId', 'price', 'currency', 'discount', 'requestQty', 'approveQty', 'outQty', 'stockRecordId', 'remark'];
 const STOCK_PRESET = {
-  queryFields: ['id', 'goodsId', 'goodsName', 'skuCode', 'skuId', 'stockTypeId', 'currentQty', 'lockQty', 'price', 'priceUpdateTime', 'currency', 'warehouseId', 'status'],
+  queryFields: ['id', 'goodsId', 'goodsName', 'skuCode', 'skuId', 'stockTypeId', 'currentQty', 'price', 'priceUpdateTime', 'currency', 'warehouseId', 'status'],
   formFields: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity', 'remark', 'status'],
   fieldTypes: {
     goodsId: 'relation',
@@ -112,7 +112,7 @@ export const MODULE_PRESETS = {
   stockHandle: STOCK_PRESET,
   stockOrder: {
     queryFields: ['id', 'orderNo', 'orderType', 'bizDate', 'stockTypeId', 'warehouseId', 'sourceType', 'sourceId', 'totalQty', 'state', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'approverId', 'approverName', 'approveTime', 'finishTime', 'remark'],
-    formFields: ['orderNo', 'orderType', 'bizDate', 'warehouseId', 'sourceType', 'totalQty', 'stockTypeId', 'state', 'requesterId', 'operatorId', 'approverId', 'approveTime', 'finishTime', 'remark'],
+    formFields: ['orderType', 'bizDate', 'warehouseId', 'sourceType', 'stockTypeId', 'state', 'remark'],
     fieldTypes: {
       warehouseId: 'relation',
       stockTypeId: 'relation',
@@ -180,7 +180,7 @@ export const MODULE_PRESETS = {
   },
   requestForm: {
     queryFields: REQUEST_FORM_FIELDS,
-    formFields: REQUEST_FORM_FIELDS.filter((field) => field !== 'id'),
+    formFields: ['sourceOrderId', 'customerId', 'approveRemark'],
     fieldTypes: {
       sourceOrderId: 'relation',
       userId: 'relation',
@@ -261,14 +261,6 @@ export const MODULE_PRESETS = {
     queryFields: ['id', 'goodsId', 'skuCode', 'skuName', 'price', 'currency', 'costPrice', 'updatePrice', 'priceUpdateTime', 'barcode', 'weight', 'volume', 'status'],
     fieldTypes: { goodsId: 'relation', status: 'select' },
   },
-  goodsSkuSpec: {
-    queryFields: ['id', 'skuId', 'skuCode', 'specId', 'specName', 'specValue', 'sort'],
-    fieldTypes: { skuId: 'relation', specId: 'number', sort: 'number' },
-  },
-  goodsImage: {
-    queryFields: ['id', 'goodsId', 'skuId', 'skuCode', 'imageUrl', 'sort'],
-    fieldTypes: { goodsId: 'relation', skuId: 'relation', sort: 'number' },
-  },
   stockType: {
     queryFields: NAME_STATUS_QUERY_FIELDS,
     formFields: NAME_STATUS_FORM_FIELDS,
@@ -296,18 +288,6 @@ export const MODULE_PRESETS = {
     queryFields: ['id', 'userId', 'username', 'module', 'operation', 'method', 'requestUrl', 'requestIp', 'requestParam', 'responseData', 'status', 'errorMsg', 'costTime'],
     fieldTypes: { userId: 'relation', status: 'select' },
   },
-  userRole: {
-    queryFields: ['id', 'userId', 'roleId'],
-    fieldTypes: { userId: 'relation', roleId: 'relation' },
-  },
-  rolePermission: {
-    queryFields: ['id', 'roleId', 'permissionId'],
-    fieldTypes: { roleId: 'relation', permissionId: 'relation' },
-  },
-  userToken: {
-    queryFields: ['id', 'token', 'userId', 'loginTime', 'expireTime', 'loginIp', 'status'],
-    fieldTypes: { userId: 'relation', status: 'select' },
-  },
 };
 
 export const REQUIRED_FORM_FIELDS = {
@@ -317,10 +297,10 @@ export const REQUIRED_FORM_FIELDS = {
   stock: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity'],
   stockSelf: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity'],
   stockHandle: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity'],
-  stockOrder: ['orderNo', 'orderType', 'warehouseId', 'sourceType'],
+  stockOrder: ['orderType', 'bizDate', 'warehouseId', 'sourceType', 'stockTypeId', 'state'],
   stockOrderItem: ['orderId', 'goodsId', 'skuId', 'goodsName', 'changeQty'],
   stockRecord: ['bizNo', 'orderId', 'orderItemId', 'stockId', 'goodsId', 'skuId', 'goodsName', 'changeQty', 'orderType', 'sourceType'],
-  requestForm: ['bizNo', 'sourceOrderId', 'userId', 'username', 'customerId', 'customerName'],
+  requestForm: ['sourceOrderId', 'customerId'],
   requestItem: ['requestId', 'goodsId', 'skuId'],
   warehouse: ['name', 'code', 'status'],
   role: ['name', 'code', 'status'],

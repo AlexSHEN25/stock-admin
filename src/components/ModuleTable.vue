@@ -51,7 +51,7 @@
             :is-multi-relation-field="isMultiRelationField"
             :number-min-by-field="numberMinByField"
             :number-precision-by-field="numberPrecisionByField"
-            :select-options="selectOptionsMerged"
+            :select-options="scopedSelectOptions"
             @update-field="updateInlineField"
           />
         </template>
@@ -153,7 +153,7 @@
       :is-multi-relation-field="isMultiRelationField"
       :number-min-by-field="numberMinByField"
       :number-precision-by-field="numberPrecisionByField"
-      :select-options="selectOptionsMerged"
+      :select-options="scopedSelectOptions"
       @save="submit"
       @cancel="modalOpen = false"
       @update-field="updateFormField"
@@ -183,7 +183,7 @@
       :relation-options="relationOptions"
       :hot-options="hotOptions"
       :table-text="TABLE_TEXT"
-      :select-options="selectOptionsMerged"
+      :select-options="scopedSelectOptions"
       :resolve-image-url="resolveGoodsImageUrl"
       @cancel="closeGoodsDrawer"
       @save="saveGoodsDrawer"
@@ -243,7 +243,12 @@ import {
 } from '../utils/permission';
 import { hasActiveFilters } from '../utils/table';
 
-const STOCK_EDIT_PAYLOAD_FIELDS = ['id', 'goodsId', 'goodsName', 'skuId', 'skuCode', 'warehouseId', 'currentQty', 'lockQty', 'price', 'currency', 'stockTypeId', 'status', 'version'];
+const STOCK_EDIT_PAYLOAD_FIELDS = ['id', 'goodsId', 'goodsName', 'skuId', 'skuCode', 'warehouseId', 'currentQty', 'price', 'currency', 'stockTypeId', 'status', 'version'];
+const STOCK_ORDER_DEFAULT_SOURCE_TYPE = 4;
+const STOCK_ORDER_DEFAULT_STATE = 0;
+const STOCK_ORDER_USER_SOURCE_TYPES = new Set([3, 4]);
+const STOCK_ORDER_USER_STATES = new Set([0, 1]);
+const NORMAL_STOCK_TYPE_KEYWORDS = ['通常', 'normal'];
 
 const props = defineProps({
   moduleKey: { type: String, required: true },
@@ -265,7 +270,7 @@ const canWrite = computed(() => {
   if (props.moduleActions) return Boolean(props.moduleActions.create || props.moduleActions.edit || props.moduleActions.delete);
   return hasWritePermission(props.moduleKey, props.permissionReady, props.permissionCodes || []);
 });
-const isAdminUser = computed(() => isAdminByPermissionCodes(props.permissionCodes || []));
+const isAdminUser = computed(() => props.allDataWrite || isAdminByPermissionCodes(props.permissionCodes || []));
 const {
   statusOptions,
   queryInputType,
@@ -577,7 +582,10 @@ function openCreate() {
     if (Object.prototype.hasOwnProperty.call(formState, 'status')) {
       formState.status = 1;
     }
-    loadScopedRelationOptions(formKeys.value, keys.value);
+    applyStockOrderCreateDefaults();
+    loadScopedRelationOptions(formKeys.value, keys.value).then(() => {
+      applyStockOrderRelationDefaults();
+    });
     loadSourceOrderOptions();
   }
 }
@@ -662,9 +670,7 @@ function scopeRelationOptionsByRecords(field, records, idField, labelFields) {
 function scopeWarehouseOptionsByModuleLabel() {
   const options = relationOptions.warehouseId || [];
   if (!Array.isArray(options) || options.length === 0) return;
-  const keywords = props.moduleKey === 'stockHandle'
-    ? ['ハンドル', 'handle', '柄']
-    : ['自社', 'self'];
+  const keywords = splitStockWarehouseKeywords();
   const matched = options.filter((option) => {
     const label = String(option?.label || '').toLowerCase();
     return keywords.some((keyword) => label.includes(String(keyword).toLowerCase()));
@@ -683,8 +689,23 @@ function applyDefaultSplitStockWarehouse() {
     && options.some((option) => String(option.value) === String(current));
   if (hasCurrent) return;
   if (options.length === 1 || !editing.value) {
-    formState.warehouseId = options[0].value;
+    const preferred = findSplitStockWarehouseOption(options);
+    formState.warehouseId = (preferred || options[0]).value;
   }
+}
+
+function findSplitStockWarehouseOption(options) {
+  const keywords = splitStockWarehouseKeywords();
+  return (options || []).find((option) => {
+    const label = String(option?.label || '').toLowerCase();
+    return keywords.some((keyword) => label.includes(String(keyword).toLowerCase()));
+  });
+}
+
+function splitStockWarehouseKeywords() {
+  return props.moduleKey === 'stockHandle'
+    ? ['ハンドル', 'handle', '柄']
+    : ['自社', 'self'];
 }
 
 function firstNonEmpty(record, fields) {
@@ -699,7 +720,7 @@ function firstNonEmpty(record, fields) {
 
 function activeFormKeys() {
   if (editing.value && isSplitStockManagement.value) {
-    return ['goodsId', 'skuId', 'skuCode', 'warehouseId', 'currentQty', 'lockQty', 'price', 'currency', 'stockTypeId'];
+    return ['goodsId', 'skuId', 'skuCode', 'warehouseId', 'currentQty', 'price', 'currency', 'stockTypeId'];
   }
   return formKeys.value;
 }
@@ -707,7 +728,7 @@ function activeFormKeys() {
 async function submit() {
   if (!canWrite.value) return;
   if (isGoodsManagement.value) return;
-  await submitState(getRecordId, normalizePayload);
+  await submitState(getRecordId, normalizeModulePayload);
 }
 
 async function onDelete(record) {
@@ -733,7 +754,7 @@ function startInlineEdit(record) {
 
 async function saveInlineEdit(record) {
   if (!canWrite.value || !canInlineEditRecord(record)) return;
-  await saveInlineEditState(record, getRecordId, normalizePayload);
+  await saveInlineEditState(record, getRecordId, normalizeModulePayload);
 }
 
 function queryOptions(field) {
@@ -741,6 +762,63 @@ function queryOptions(field) {
   if (enumOptions.length > 0) return enumOptions;
   if (field === 'status') return statusOptions;
   return dedupeOptions(queryRelationOptions[field] || []);
+}
+
+function scopedSelectOptions(field) {
+  const options = selectOptionsMerged(field);
+  if (props.moduleKey !== 'stockOrder' || isAdminUser.value) return options;
+
+  const low = String(field || '').toLowerCase();
+  if (low === 'sourcetype') {
+    return options.filter((option) => STOCK_ORDER_USER_SOURCE_TYPES.has(Number(option.value)));
+  }
+  if (low === 'state') {
+    return options.filter((option) => STOCK_ORDER_USER_STATES.has(Number(option.value)));
+  }
+  return options;
+}
+
+function normalizeModulePayload(payload) {
+  const output = normalizePayload(payload);
+  if (props.moduleKey !== 'stockOrder' || isAdminUser.value) return output;
+
+  if (Object.prototype.hasOwnProperty.call(output, 'sourceType') && !STOCK_ORDER_USER_SOURCE_TYPES.has(Number(output.sourceType))) {
+    output.sourceType = STOCK_ORDER_DEFAULT_SOURCE_TYPE;
+  }
+  if (Object.prototype.hasOwnProperty.call(output, 'state') && !STOCK_ORDER_USER_STATES.has(Number(output.state))) {
+    output.state = STOCK_ORDER_DEFAULT_STATE;
+  }
+  return output;
+}
+
+function applyStockOrderCreateDefaults() {
+  if (props.moduleKey !== 'stockOrder' || editing.value) return;
+  formState.bizDate = formatDateTime(new Date());
+  formState.sourceType = STOCK_ORDER_DEFAULT_SOURCE_TYPE;
+  formState.state = STOCK_ORDER_DEFAULT_STATE;
+}
+
+function applyStockOrderRelationDefaults() {
+  if (props.moduleKey !== 'stockOrder' || editing.value) return;
+  if (formState.stockTypeId !== undefined && formState.stockTypeId !== null && String(formState.stockTypeId).trim() !== '') return;
+  const normalStockType = findOptionByKeywords(relationOptions.stockTypeId || [], NORMAL_STOCK_TYPE_KEYWORDS);
+  if (normalStockType) {
+    formState.stockTypeId = normalStockType.value;
+  }
+}
+
+function findOptionByKeywords(options, keywords) {
+  return (Array.isArray(options) ? options : []).find((option) => {
+    const label = String(option?.label || '').toLowerCase();
+    return keywords.some((keyword) => label.includes(String(keyword).toLowerCase()));
+  });
+}
+
+function formatDateTime(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day} 00:00:00`;
 }
 
 const {
