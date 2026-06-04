@@ -26,23 +26,6 @@ export const MODULE_LAYOUT_CONFIG = {
       label: '\u5165\u51fa\u5eab\u660e\u7d30',
     },
   },
-  permissionAliases: {
-    goods: ['GOODS_MANAGEMENT', 'GOODS_BUNDLE'],
-    stock: ['STOCK', 'INVENTORY'],
-    stockSelf: ['STOCK_SELF', 'STOCK', 'INVENTORY'],
-    stockHandle: ['STOCK_HANDLE', 'STOCK', 'INVENTORY'],
-    stockOrder: ['STOCK_ORDER', 'STOCKORDER', 'IN_OUT_ORDER', 'INOUT_ORDER'],
-    stockOrderItem: ['STOCK_ORDER_ITEM', 'STOCKORDERITEM', 'IN_OUT_ORDER_ITEM', 'INOUT_ORDER_ITEM'],
-    stockRecord: ['STOCK_RECORD', 'STOCKRECORD', 'INVENTORY_RECORD'],
-    requestForm: ['REQUEST_FORM', 'REQUESTFORM', 'REQUEST'],
-    requestItem: ['REQUEST_ITEM', 'REQUESTITEM'],
-    customer: ['CUSTOMER', 'CLIENT'],
-    customerLevel: ['CUSTOMER_LEVEL', 'CUSTOMERLEVEL', 'CLIENT_LEVEL'],
-    warehouse: ['WAREHOUSE', 'WH'],
-    user: ['USER', 'ACCOUNT'],
-    role: ['ROLE'],
-    permission: ['PERMISSION', 'AUTH'],
-  },
   headerMessageSourceNavigations: {
     1: {
       storageKey: 'jump_stock_order_id',
@@ -232,14 +215,6 @@ export const MODULE_ENUM_FIELD_OPTIONS = {
     state: ENUM_OPTIONS.stockOrderState,
   },
 };
-
-export const REGULAR_USER_WRITE_MODULES = new Set([
-  'stockOrder',
-  'stockOrderItem',
-  'requestForm',
-  'requestItem',
-  'customer',
-]);
 
 export const ADMIN_PERMISSION_MARKERS = [
   'ROLE_SUPER_ADMIN',

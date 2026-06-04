@@ -4,6 +4,7 @@ import { TABLE_TEXT } from '../utils/module-ui';
 export function useModuleActions(options) {
   const {
     moduleKey,
+    canWrite,
     rows,
     emit,
     detailNavigations,
@@ -39,16 +40,18 @@ export function useModuleActions(options) {
       return;
     }
     if (actionKey === 'read') {
+      if (!canWrite?.value) return;
       await onReadMessage(record);
     }
   }
 
   function canShowRowExtraAction(actionKey, record) {
     if (actionKey !== 'read') return true;
-    return moduleKey.value === 'message' && Number(record?.isRead) !== 1;
+    return Boolean(canWrite?.value) && moduleKey.value === 'message' && Number(record?.isRead) !== 1;
   }
 
   async function onReadMessage(record) {
+    if (!canWrite?.value) return;
     const id = getRecordId(record);
     if (!id) return;
     try {
@@ -61,6 +64,7 @@ export function useModuleActions(options) {
   }
 
   async function onReadAllMessages() {
+    if (!canWrite?.value) return;
     try {
       await markAllMessagesRead();
       rows.value = markAllMessageListRead(rows.value);

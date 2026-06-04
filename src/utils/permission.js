@@ -1,46 +1,26 @@
-import { MODULE_LAYOUT_CONFIG, isAdminByPermissionCodes } from './module-ui';
-
-function moduleToUpperSnake(moduleKey) {
-  return String(moduleKey || '')
-    .replace(/([a-z])([A-Z])/g, '$1_$2')
-    .toUpperCase();
-}
-
-function moduleAliases(moduleKey) {
-  const aliases = MODULE_LAYOUT_CONFIG.permissionAliases?.[moduleKey];
-  if (Array.isArray(aliases) && aliases.length > 0) return aliases;
-  return [moduleToUpperSnake(moduleKey)];
-}
-
-function hasModuleWriteCode(moduleKey, permissionCodes) {
-  const codeSet = new Set(
-    (Array.isArray(permissionCodes) ? permissionCodes : [])
-      .map((item) => String(item || '').trim())
-      .filter(Boolean),
-  );
-  const aliases = moduleAliases(moduleKey);
-  return aliases.some((alias) => codeSet.has(`DATA_${alias}_WRITE`));
-}
+import { isAdminByPermissionCodes } from './module-ui';
 
 export function hasWritePermission(moduleKey, permissionReady, permissionCodes) {
   if (!permissionReady) return true;
   if (isAdminByPermissionCodes(permissionCodes)) return true;
-  return hasModuleWriteCode(moduleKey, permissionCodes);
+  return false;
 }
 
 export function canCreateModuleRecord(moduleKey, permissionCodes) {
-  if (moduleKey === 'stockRecord' || moduleKey === 'priceRecord' || moduleKey === 'message' || moduleKey === 'operateLog') return false;
+  if (moduleKey === 'stockRecord' || moduleKey === 'priceRecord' || moduleKey === 'operateLog') return false;
   if (moduleKey !== 'user') return true;
   return isAdminByPermissionCodes(permissionCodes);
 }
 
 export function canBatchDeleteModuleRecord(moduleKey, permissionCodes) {
   if (!moduleKey) return false;
+  if (moduleKey === 'stockRecord' || moduleKey === 'priceRecord' || moduleKey === 'operateLog') return false;
   return isAdminByPermissionCodes(permissionCodes);
 }
 
 export function canDeleteModuleRecord(moduleKey, permissionCodes) {
   if (!moduleKey) return false;
+  if (moduleKey === 'stockRecord' || moduleKey === 'priceRecord' || moduleKey === 'operateLog') return false;
   return isAdminByPermissionCodes(permissionCodes);
 }
 

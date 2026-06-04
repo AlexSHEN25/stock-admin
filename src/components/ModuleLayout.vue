@@ -126,6 +126,8 @@
           v-if="hasMenus && activeModule"
           :module-key="activeModule"
           :permission-codes="permissionCodes"
+          :module-actions="activeModuleActions"
+          :all-data-write="allDataWrite"
           :permission-ready="permissionReady"
           :current-user="currentUser"
           @navigate-module="onNavigateModule"
@@ -171,7 +173,7 @@
 </template>
 
 <script setup>
-import { toRef } from 'vue';
+import { computed, toRef } from 'vue';
 import { useHeaderMessages } from '../composables/useHeaderMessages';
 import { useModuleMenu } from '../composables/useModuleMenu';
 import { usePasswordChange } from '../composables/usePasswordChange';
@@ -182,6 +184,8 @@ const props = defineProps({
   darkMode: { type: Boolean, default: false },
   menuCodes: { type: Array, default: () => [] },
   permissionCodes: { type: Array, default: () => [] },
+  menuScopes: { type: Array, default: () => [] },
+  allDataWrite: { type: Boolean, default: false },
   permissionReady: { type: Boolean, default: false },
   currentUser: { type: String, default: '' },
 });
@@ -200,7 +204,33 @@ const {
 } = useModuleMenu({
   menuCodes: toRef(props, 'menuCodes'),
   permissionCodes: toRef(props, 'permissionCodes'),
+  menuScopes: toRef(props, 'menuScopes'),
   permissionReady: toRef(props, 'permissionReady'),
+});
+
+const activeModuleActions = computed(() => {
+  if (props.allDataWrite) {
+    return {
+      read: true,
+      create: true,
+      edit: true,
+      delete: true,
+      batchDelete: true,
+      inlineEdit: true,
+    };
+  }
+  const key = activeModule.value === 'stockSelf' || activeModule.value === 'stockHandle'
+    ? 'stock'
+    : activeModule.value;
+  const scope = (props.menuScopes || []).find((item) => item?.key === key);
+  return scope?.actions || {
+    read: true,
+    create: false,
+    edit: false,
+    delete: false,
+    batchDelete: false,
+    inlineEdit: false,
+  };
 });
 
 const {

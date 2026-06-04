@@ -248,6 +248,8 @@ const STOCK_EDIT_PAYLOAD_FIELDS = ['id', 'goodsId', 'goodsName', 'skuId', 'skuCo
 const props = defineProps({
   moduleKey: { type: String, required: true },
   permissionCodes: { type: Array, default: () => [] },
+  moduleActions: { type: Object, default: null },
+  allDataWrite: { type: Boolean, default: false },
   permissionReady: { type: Boolean, default: false },
   currentUser: { type: String, default: '' },
 });
@@ -258,7 +260,11 @@ const isSplitStockManagement = computed(() => props.moduleKey === 'stockSelf' ||
 const modulePath = computed(() => props.moduleKey);
 const preset = computed(() => getModulePreset(props.moduleKey));
 const rowExtraActions = computed(() => getRowExtraActions(props.moduleKey));
-const canWrite = computed(() => hasWritePermission(props.moduleKey, props.permissionReady, props.permissionCodes || []));
+const canWrite = computed(() => {
+  if (props.allDataWrite) return true;
+  if (props.moduleActions) return Boolean(props.moduleActions.create || props.moduleActions.edit || props.moduleActions.delete);
+  return hasWritePermission(props.moduleKey, props.permissionReady, props.permissionCodes || []);
+});
 const isAdminUser = computed(() => isAdminByPermissionCodes(props.permissionCodes || []));
 const {
   statusOptions,
@@ -497,7 +503,7 @@ watch(
     await loadDynamicEnumOptions();
     if (!isGoodsManagement.value) {
       await loadQueryRelationOptions(queryFields.value);
-      await loadRelationOptions(formKeys.value, keys.value);
+      await loadScopedRelationOptions(formKeys.value, keys.value);
       await loadSourceOrderOptions();
     }
     await reload();
@@ -561,6 +567,7 @@ function updateInlineField(field, value) {
 }
 
 function openCreate() {
+  if (!canWrite.value || !canCreateInModule()) return;
   if (isGoodsManagement.value) {
     openGoodsDrawerCreate();
     return;
@@ -570,12 +577,13 @@ function openCreate() {
     if (Object.prototype.hasOwnProperty.call(formState, 'status')) {
       formState.status = 1;
     }
-    loadRelationOptions(formKeys.value, keys.value);
+    loadScopedRelationOptions(formKeys.value, keys.value);
     loadSourceOrderOptions();
   }
 }
 
 async function openEdit(record) {
+  if (!canWrite.value || !canEditRecord(record)) return;
   if (isGoodsManagement.value) {
     openGoodsDrawerEdit(record);
     return;
@@ -583,7 +591,7 @@ async function openEdit(record) {
   const editRecord = await loadStockDetail(record);
   const opened = openEditState(editRecord, getRecordId);
   if (opened) {
-    loadRelationOptions(activeFormKeys(), keys.value);
+    loadScopedRelationOptions(activeFormKeys(), keys.value);
     loadSourceOrderOptions();
   }
 }
@@ -599,6 +607,96 @@ async function loadStockDetail(record) {
   }
 }
 
+async function loadScopedRelationOptions(formFields, tableKeys) {
+  await loadRelationOptions(formFields, tableKeys);
+  if (!isSplitStockManagement.value) return;
+  if (!editing.value) {
+    applyDefaultSplitStockWarehouse();
+    return;
+  }
+
+  try {
+    const scopedRows = await fetchModuleOptions(props.moduleKey);
+    applySplitStockRelationScope(scopedRows);
+  } catch (_error) {
+    applySplitStockRelationScope(rows.value);
+  }
+}
+
+function applySplitStockRelationScope(scopedRows) {
+  const list = Array.isArray(scopedRows) ? scopedRows : [];
+  scopeRelationOptionsByRecords('goodsId', list, 'goodsId', ['goodsName', 'name', 'skuCode']);
+  scopeRelationOptionsByRecords('warehouseId', list, 'warehouseId', ['warehouseName', 'name', 'code']);
+  scopeWarehouseOptionsByModuleLabel();
+  applyDefaultSplitStockWarehouse();
+}
+
+function scopeRelationOptionsByRecords(field, records, idField, labelFields) {
+  const idSet = new Set(records
+    .map((item) => item?.[idField])
+    .filter((value) => value !== undefined && value !== null && String(value).trim() !== '')
+    .map((value) => String(value)));
+  if (idSet.size === 0 || !Array.isArray(relationOptions[field])) return;
+
+  const existingOptions = relationOptions[field] || [];
+  const existingByValue = new Map(existingOptions.map((option) => [String(option.value), option]));
+  const scopedOptions = [];
+  const seen = new Set();
+
+  records.forEach((record) => {
+    const rawValue = record?.[idField];
+    if (rawValue === undefined || rawValue === null || String(rawValue).trim() === '') return;
+    const valueKey = String(rawValue);
+    if (seen.has(valueKey)) return;
+    seen.add(valueKey);
+    const existing = existingByValue.get(valueKey);
+    scopedOptions.push(existing || {
+      value: rawValue,
+      label: firstNonEmpty(record, labelFields) || `ID:${rawValue}`,
+    });
+  });
+
+  relationOptions[field] = dedupeOptions(scopedOptions);
+}
+
+function scopeWarehouseOptionsByModuleLabel() {
+  const options = relationOptions.warehouseId || [];
+  if (!Array.isArray(options) || options.length === 0) return;
+  const keywords = props.moduleKey === 'stockHandle'
+    ? ['ハンドル', 'handle', '柄']
+    : ['自社', 'self'];
+  const matched = options.filter((option) => {
+    const label = String(option?.label || '').toLowerCase();
+    return keywords.some((keyword) => label.includes(String(keyword).toLowerCase()));
+  });
+  if (matched.length > 0) {
+    relationOptions.warehouseId = dedupeOptions(matched);
+  }
+}
+
+function applyDefaultSplitStockWarehouse() {
+  const options = relationOptions.warehouseId || [];
+  if (!Array.isArray(options) || options.length === 0) return;
+  const current = formState.warehouseId;
+  const hasCurrent = current !== undefined
+    && current !== null
+    && options.some((option) => String(option.value) === String(current));
+  if (hasCurrent) return;
+  if (options.length === 1 || !editing.value) {
+    formState.warehouseId = options[0].value;
+  }
+}
+
+function firstNonEmpty(record, fields) {
+  for (const field of fields || []) {
+    const value = record?.[field];
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      return String(value);
+    }
+  }
+  return '';
+}
+
 function activeFormKeys() {
   if (editing.value && isSplitStockManagement.value) {
     return ['goodsId', 'skuId', 'skuCode', 'warehouseId', 'currentQty', 'lockQty', 'price', 'currency', 'stockTypeId'];
@@ -607,11 +705,13 @@ function activeFormKeys() {
 }
 
 async function submit() {
+  if (!canWrite.value) return;
   if (isGoodsManagement.value) return;
   await submitState(getRecordId, normalizePayload);
 }
 
 async function onDelete(record) {
+  if (!canWrite.value || !canDeleteRecord(record)) return;
   if (props.moduleKey === 'requestItem') {
     await removeRequestItem(record, getRecordId);
     return;
@@ -624,13 +724,15 @@ function isEditing(record) {
 }
 
 function startInlineEdit(record) {
+  if (!canWrite.value || !canInlineEditRecord(record)) return;
   const started = startInlineEditState(record, getRecordId);
   if (started) {
-    loadRelationOptions(formKeys.value, keys.value);
+    loadScopedRelationOptions(formKeys.value, keys.value);
   }
 }
 
 async function saveInlineEdit(record) {
+  if (!canWrite.value || !canInlineEditRecord(record)) return;
   await saveInlineEditState(record, getRecordId, normalizePayload);
 }
 
@@ -661,6 +763,7 @@ const {
   onReadAllMessages,
 } = useModuleActions({
   moduleKey: computed(() => props.moduleKey),
+  canWrite,
   rows,
   emit,
   detailNavigations: MODULE_DETAIL_NAVIGATIONS,
@@ -674,24 +777,34 @@ const {
 });
 
 function canCreateInModule() {
+  if (props.allDataWrite) return isGoodsManagement.value || formKeys.value.length > 0;
+  if (props.moduleActions && !props.moduleActions.create) return false;
   if (!canCreateModuleRecord(props.moduleKey, props.permissionCodes || [])) return false;
   return isGoodsManagement.value || formKeys.value.length > 0;
 }
 
 function canBatchDeleteInModule() {
+  if (props.allDataWrite) return props.moduleKey !== 'requestItem';
+  if (props.moduleActions && !props.moduleActions.batchDelete) return false;
   if (props.moduleKey === 'requestItem') return false;
   return canBatchDeleteModuleRecord(props.moduleKey, props.permissionCodes || []);
 }
 
 function canDeleteRecord(_record) {
+  if (props.allDataWrite) return true;
+  if (props.moduleActions && !props.moduleActions.delete) return false;
   return canDeleteModuleRecord(props.moduleKey, props.permissionCodes || []);
 }
 
 function canEditRecord(record) {
+  if (props.allDataWrite) return true;
+  if (props.moduleActions && !props.moduleActions.edit) return false;
   return canEditModuleRecord(props.moduleKey, record, props.currentUser, props.permissionCodes || []);
 }
 
 function canInlineEditRecord(record) {
+  if (props.allDataWrite) return props.moduleKey !== 'goods';
+  if (props.moduleActions && !props.moduleActions.inlineEdit) return false;
   if (props.moduleKey === 'goods') return false;
   return canInlineEditModuleRecord(props.moduleKey, record, props.currentUser, props.permissionCodes || []);
 }

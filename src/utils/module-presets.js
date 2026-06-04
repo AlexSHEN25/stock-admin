@@ -112,7 +112,7 @@ export const MODULE_PRESETS = {
   stockHandle: STOCK_PRESET,
   stockOrder: {
     queryFields: ['id', 'orderNo', 'orderType', 'bizDate', 'stockTypeId', 'warehouseId', 'sourceType', 'sourceId', 'totalQty', 'state', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'approverId', 'approverName', 'approveTime', 'finishTime', 'remark'],
-    formFields: ['orderNo', 'orderType', 'bizDate', 'warehouseId', 'sourceType', 'sourceId', 'totalQty', 'stockTypeId', 'state', 'requesterId', 'operatorId', 'approverId', 'approveTime', 'finishTime', 'remark'],
+    formFields: ['orderNo', 'orderType', 'bizDate', 'warehouseId', 'sourceType', 'totalQty', 'stockTypeId', 'state', 'requesterId', 'operatorId', 'approverId', 'approveTime', 'finishTime', 'remark'],
     fieldTypes: {
       warehouseId: 'relation',
       stockTypeId: 'relation',
@@ -121,7 +121,7 @@ export const MODULE_PRESETS = {
       approverId: 'relation',
       orderType: 'select',
       sourceType: 'select',
-      sourceId: 'number',
+      sourceId: 'relation',
       totalQty: 'number',
       state: 'select',
       bizDate: 'datetime',
@@ -134,7 +134,7 @@ export const MODULE_PRESETS = {
     queryFields: STOCK_ORDER_ITEM_FIELDS,
     formFields: STOCK_ORDER_ITEM_FIELDS.filter((field) => !['id', 'beforeQty', 'afterQty'].includes(field)),
     fieldTypes: {
-      orderId: 'number',
+      orderId: 'relation',
       goodsId: 'relation',
       skuId: 'relation',
       brandId: 'relation',
@@ -153,9 +153,9 @@ export const MODULE_PRESETS = {
     queryFields: ['id', 'bizNo', 'orderId', 'orderItemId', 'stockId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'stockTypeId', 'stockTypeName', 'makerId', 'makerName', 'warehouseId', 'changeQty', 'sourceType', 'orderType', 'bizDate', 'price', 'currency', 'priceUpdateTime', 'customerId', 'customerName', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'remark'],
     formFields: ['bizNo', 'orderId', 'orderItemId', 'stockId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'stockTypeId', 'stockTypeName', 'makerId', 'makerName', 'warehouseId', 'changeQty', 'sourceType', 'orderType', 'bizDate', 'price', 'currency', 'priceUpdateTime', 'customerId', 'customerName', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'remark'],
     fieldTypes: {
-      orderId: 'number',
-      orderItemId: 'number',
-      stockId: 'number',
+      orderId: 'relation',
+      orderItemId: 'relation',
+      stockId: 'relation',
       goodsId: 'relation',
       skuId: 'relation',
       brandId: 'relation',
@@ -200,7 +200,7 @@ export const MODULE_PRESETS = {
     queryFields: REQUEST_ITEM_FIELDS,
     formFields: REQUEST_ITEM_FIELDS.filter((field) => field !== 'id'),
     fieldTypes: {
-      requestId: 'number',
+      requestId: 'relation',
       goodsId: 'relation',
       skuId: 'relation',
       brandId: 'relation',
@@ -209,7 +209,7 @@ export const MODULE_PRESETS = {
       makerId: 'relation',
       stockTypeId: 'relation',
       warehouseId: 'relation',
-      stockRecordId: 'number',
+      stockRecordId: 'relation',
       price: 'decimal',
       discount: 'decimal',
       requestQty: 'number',
@@ -288,8 +288,9 @@ export const MODULE_PRESETS = {
     fieldTypes: { status: 'select' },
   },
   message: {
-    queryFields: ['id', 'type', 'userId', 'message', 'sourceId', 'state'],
-    fieldTypes: { userId: 'relation' },
+    queryFields: ['id', 'type', 'userId', 'message', 'sourceId', 'isRead', 'state'],
+    formFields: ['type', 'userId', 'message', 'sourceId', 'isRead', 'state'],
+    fieldTypes: { userId: 'relation', type: 'number', sourceId: 'relation', isRead: 'select', state: 'select' },
   },
   operateLog: {
     queryFields: ['id', 'userId', 'username', 'module', 'operation', 'method', 'requestUrl', 'requestIp', 'requestParam', 'responseData', 'status', 'errorMsg', 'costTime'],

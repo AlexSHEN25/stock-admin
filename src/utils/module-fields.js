@@ -19,6 +19,12 @@ export const RELATION_FIELD_MODULE = {
   skuId: 'goodsSku',
   stockTypeId: 'stockType',
   warehouseId: 'warehouse',
+  orderId: 'stockOrder',
+  orderItemId: 'stockOrderItem',
+  stockId: 'stock',
+  requestId: 'requestForm',
+  stockRecordId: 'stockRecord',
+  sourceId: 'stockOrder',
   sourceOrderId: 'stockOrder',
   customerId: 'customer',
   levelId: 'customerLevel',
@@ -65,9 +71,9 @@ export const FIELD_LABELS = {
   deptName: '部署名',
   roleId: 'ロール',
   roleName: 'ロール名',
-  permissionId: '権限ID',
+  permissionId: '権限',
   permissionName: '権限名',
-  permissionIds: '権限ID一覧',
+  permissionIds: '権限',
   permissionNames: '権限名',
   name: '名称',
   englishName: '英語名',
@@ -117,35 +123,35 @@ export const FIELD_LABELS = {
   updateTime: '更新日時',
   createdBy: '作成者',
   updatedBy: '更新者',
-  parentId: '親ID',
+  parentId: '親',
   parentName: '親名称',
-  leaderId: '責任者ID',
+  leaderId: '責任者',
   leaderName: '責任者名',
-  managerId: '管理者ID',
+  managerId: '管理者',
   managerName: '管理者名',
-  userId: 'ユーザーID',
+  userId: 'ユーザー',
   userName: 'ユーザー名',
   stockTypeId: '在庫分類',
   stockTypeName: '在庫分類',
-  stockId: '在庫ID',
+  stockId: '在庫',
   sourceOrderId: '来源出庫伝票',
   sourceOrderNo: '来源出庫伝票番号',
-  levelId: 'ランクID',
+  levelId: 'ランク',
   levelName: 'ランク名',
-  ownerUserId: '担当ユーザーID',
+  ownerUserId: '担当ユーザー',
   ownerUserName: '担当ユーザー名',
-  ownerDeptId: '担当部署ID',
+  ownerDeptId: '担当部署',
   ownerDeptName: '担当部署名',
-  customerId: '顧客ID',
+  customerId: '顧客',
   customerName: '顧客名',
   customerCode: '顧客コード',
-  orderId: '伝票ID',
+  orderId: '伝票',
   orderNo: '伝票番号',
   orderType: '伝票種別',
   sourceType: '来源種別',
   sourceId: '来源ID',
-  orderItemId: '伝票明細ID',
-  requestId: '請求書ID',
+  orderItemId: '伝票明細',
+  requestId: '請求書',
   requestNo: '請求書番号',
   requestType: '請求書種別',
   requestStatus: '請求書状態',
@@ -171,12 +177,12 @@ export const FIELD_LABELS = {
   group: 'グループ',
   value: '値',
   tip: 'ヒント',
-  requesterId: '申請人ID',
+  requesterId: '申請人',
   requesterName: '申請人',
-  operatorId: '操作人ID',
+  operatorId: '操作人',
   operatorName: '操作人',
-  stockRecordId: '在庫履歴ID',
-  specId: '仕様ID',
+  stockRecordId: '在庫履歴',
+  specId: '仕様',
   specName: '仕様名',
   specValue: '仕様値',
   currency: '通貨',
@@ -189,7 +195,7 @@ export const FIELD_LABELS = {
   outQty: '出庫数量',
   totalAmt: '総金額',
   state: '状態コード',
-  approverId: '承認人ID',
+  approverId: '承認人',
   approverName: '承認人',
   approveTime: '承認日時',
   approveRemark: '承認備考',
@@ -225,7 +231,22 @@ export function mapNameFieldToIdField(field) {
 
 export function relationLabel(record) {
   if (!record) return '';
-  return record.orderNo || record.name || record.goodsName || record.skuName || record.username || record.code || `ID:${record.id}`;
+  return record.orderNo
+    || record.bizNo
+    || record.requestNo
+    || record.name
+    || record.deptName
+    || record.roleName
+    || record.permissionName
+    || record.goodsName
+    || record.skuName
+    || record.warehouseName
+    || record.customerName
+    || record.username
+    || record.userName
+    || record.code
+    || record.skuCode
+    || `ID:${record.id}`;
 }
 
 export function displayKeys(record) {
@@ -233,6 +254,7 @@ export function displayKeys(record) {
   const keyList = Object.keys(record);
   const lowerKeySet = new Set(keyList.map((key) => String(key || '').toLowerCase()));
   const relationIdSet = new Set(Object.keys(RELATION_FIELD_MODULE).map((key) => String(key || '').toLowerCase()));
+  const alwaysDisplayIdFields = new Set(['sourceid']);
   const mappedIdToName = Object.entries(NAME_TO_ID_FIELD).reduce((acc, [nameField, idField]) => {
     acc[String(idField).toLowerCase()] = nameField;
     return acc;
@@ -243,6 +265,7 @@ export function displayKeys(record) {
     if (low === 'beforeqty' || low === 'afterqty') return false;
     if (!low.endsWith('id') && !low.endsWith('ids')) return true;
     if (low === 'id') return true;
+    if (alwaysDisplayIdFields.has(low)) return true;
 
     const base = String(key).replace(/ids?$/i, '');
     const nameKey = `${base}Name`;
@@ -265,8 +288,8 @@ function autoLabelFromField(field) {
   if (low === 'statusdesc' || low === 'status') return '状態';
   if (field.endsWith('Names')) return `${toReadable(field.slice(0, -5))}名`;
   if (field.endsWith('Name')) return `${toReadable(field.slice(0, -4))}名`;
-  if (field.endsWith('Ids')) return `${toReadable(field.slice(0, -3))}ID一覧`;
-  if (field.endsWith('Id')) return `${toReadable(field.slice(0, -2))}ID`;
+  if (field.endsWith('Ids')) return toReadable(field.slice(0, -3));
+  if (field.endsWith('Id')) return toReadable(field.slice(0, -2));
   if (field.endsWith('Code')) return `${toReadable(field.slice(0, -4))}コード`;
   if (field.endsWith('Time') || field.endsWith('Date')) return `${toReadable(field.replace(/(Time|Date)$/, ''))}日時`;
   return toReadable(field);

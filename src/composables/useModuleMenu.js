@@ -1,11 +1,10 @@
 import { computed, ref, watch } from 'vue';
 import { MODULE_GROUPS } from '../utils/module';
-import { MODULE_LAYOUT_CONFIG, isAdminByPermissionCodes } from '../utils/module-ui';
+import { MODULE_LAYOUT_CONFIG } from '../utils/module-ui';
 
 const HIDDEN_MODULES = MODULE_LAYOUT_CONFIG.hiddenModules;
 const HIDDEN_MODULE_SET = new Set(HIDDEN_MODULES);
 const HIDDEN_MODULE_CONFIG = MODULE_LAYOUT_CONFIG.hiddenModuleMap;
-const MODULE_PERMISSION_ALIASES = MODULE_LAYOUT_CONFIG.permissionAliases;
 const ALL_MODULES = MODULE_GROUPS.flatMap((group) => group.children.map((child) => child.key));
 const DEFAULT_MODULE = MODULE_GROUPS[0]?.children?.[0]?.key || '';
 
@@ -13,6 +12,7 @@ export function useModuleMenu(options) {
   const {
     menuCodes,
     permissionCodes,
+    menuScopes,
     permissionReady,
   } = options;
 
@@ -30,6 +30,7 @@ export function useModuleMenu(options) {
     () => [
       menuCodes?.value || [],
       permissionCodes?.value || [],
+      menuScopes?.value || [],
       permissionReady?.value || false,
     ],
     () => initMenus(),
@@ -103,31 +104,26 @@ export function useModuleMenu(options) {
   }
 
   function initMenus() {
-    const allowed = buildAllowedModulesByCodes();
-    const mergedAllowed = allowed.size > 0 ? allowed : new Set(ALL_MODULES);
+    const scopeItems = normalizeMenuScopes(menuScopes?.value || []);
+    const mergedAllowed = new Set(ALL_MODULES);
     HIDDEN_MODULES.forEach((moduleKey) => mergedAllowed.add(moduleKey));
     allowedModules.value = mergedAllowed;
 
-    let filtered = MODULE_GROUPS
+    const filtered = MODULE_GROUPS
       .map((group) => ({
         ...group,
-        children: group.children.filter((item) => allowedModules.value.has(item.key)),
+        children: group.children.filter((item) => allowedModules.value.has(item.key) || scopeItems.some((scope) => expandModuleKey(scope.key).includes(item.key))),
       }))
       .filter((group) => group.children.length > 0);
 
-    // Safety fallback: never leave UI without visible modules after login.
-    if (filtered.length === 0) {
-      filtered = MODULE_GROUPS.map((group) => ({
-        ...group,
-        children: [...group.children],
-      }));
-      allowedModules.value = new Set([...ALL_MODULES, ...HIDDEN_MODULES]);
-    }
-
+    const scopeMap = new Map(scopeItems.map((item) => [item.key, item]));
     menuItems.value = filtered.map((group) => ({
       key: group.key,
       label: group.label,
-      children: group.children.map((item) => ({ key: item.key, label: item.label })),
+      children: group.children.map((item) => ({
+        key: item.key,
+        label: resolveMenuLabel(scopeMap.get(item.key), item),
+      })),
     }));
 
     rebuildMap(menuItems.value);
@@ -149,58 +145,31 @@ export function useModuleMenu(options) {
     activeLabel.value = findLabelByKey(selectedKeys.value[0] || activeModule.value);
   }
 
-  function buildAllowedModulesByCodes() {
-    if (!permissionReady?.value) {
-      return new Set(ALL_MODULES);
-    }
-
-    const allowedMenuCodes = new Set(
-      (menuCodes?.value || [])
-        .map((item) => String(item || '').trim())
-        .filter(Boolean),
-    );
-    const allowedPermissionCodes = new Set(
-      (permissionCodes?.value || [])
-        .map((item) => String(item || '').trim())
-        .filter(Boolean),
-    );
-    if (isAdminByPermissionCodes([...allowedPermissionCodes])) {
-      return new Set(ALL_MODULES);
-    }
-    const hasMenuScope = allowedMenuCodes.size > 0;
-    const allowed = new Set();
-
-    ALL_MODULES.forEach((moduleKey) => {
-      const aliases = MODULE_PERMISSION_ALIASES[moduleKey] || [moduleToUpperSnake(moduleKey)];
-      const hasMenu = hasMenuScope
-        ? aliases.some((alias) => allowedMenuCodes.has(`MENU_${alias}`))
-        : true;
-      const hasData = aliases.some((alias) => (
-        allowedPermissionCodes.has(`DATA_${alias}_READ`) ||
-        allowedPermissionCodes.has(`DATA_${alias}_WRITE`)
-      ));
-
-      // Visibility and data access are separated:
-      // - MENU_* controls whether module appears in navigation
-      // - DATA_* controls operation ability inside module
-      if (hasMenuScope ? hasMenu : hasData) {
-        allowed.add(moduleKey);
-      }
-    });
-
-    // Global fallback: never return empty set, avoid blank menu after login
-    // when backend permission code format is temporarily inconsistent.
-    if (allowed.size === 0 && !hasMenuScope && allowedPermissionCodes.size === 0) {
-      return new Set(ALL_MODULES);
-    }
-
-    return allowed;
+  function normalizeMenuScopes(source) {
+    return (Array.isArray(source) ? source : [])
+      .map((item) => ({
+        key: normalizeModuleKey(item?.key),
+        label: String(item?.label || '').trim(),
+      }))
+      .filter((item) => item.key);
   }
 
-  function moduleToUpperSnake(moduleKey) {
-    return String(moduleKey || '')
-      .replace(/([a-z])([A-Z])/g, '$1_$2')
-      .toUpperCase();
+  function resolveMenuLabel(scope, item) {
+    if (item?.label) return item.label;
+    const label = String(scope?.label || '').trim();
+    if (!label || hasDanglingMenuLabelSeparator(label)) {
+      return item.label;
+    }
+    return label;
+  }
+
+  function hasDanglingMenuLabelSeparator(label) {
+    return /[-－ー]\s*$/.test(String(label || ''));
+  }
+
+  function expandModuleKey(key) {
+    if (key === 'stock') return ['stockSelf', 'stockHandle'];
+    return [key];
   }
 
   return {

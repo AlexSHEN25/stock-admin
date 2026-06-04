@@ -74,14 +74,14 @@
         {{ tableText.create }}
       </a-button>
       <a-button
-        v-if="moduleKey === 'message'"
+        v-if="moduleKey === 'message' && canWrite"
         class="search-btn"
         @click="$emit('read-all')"
       >
         {{ tableText.readAll }}
       </a-button>
       <a-button
-        v-if="moduleKey === 'requestItem'"
+        v-if="moduleKey === 'requestItem' && canWrite && canCreate"
         type="primary"
         class="search-btn"
         @click="$emit('open-candidates')"

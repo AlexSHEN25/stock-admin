@@ -18,6 +18,8 @@
       :dark-mode="darkMode"
       :menu-codes="menuCodes"
       :permission-codes="permissionCodes"
+      :menu-scopes="menuScopes"
+      :all-data-write="allDataWrite"
       :permission-ready="permissionReady"
       :current-user="currentUser"
       @toggle-theme="onToggleTheme"
@@ -33,8 +35,6 @@ import { fetchPermissionScope, logout } from './api/auth';
 import { TOKEN_KEY } from './api/http';
 import LoginForm from './components/LoginForm.vue';
 import ModuleLayout from './components/ModuleLayout.vue';
-import { MODULE_GROUPS } from './utils/module';
-import { MODULE_LAYOUT_CONFIG } from './utils/module-ui';
 
 const THEME_KEY = 'stock_admin_theme_dark';
 const USERNAME_KEY = 'stock_admin_username';
@@ -52,6 +52,8 @@ const darkMode = ref(localStorage.getItem(THEME_KEY) === '1');
 const currentUser = ref(localStorage.getItem(USERNAME_KEY) || '');
 const menuCodes = ref([]);
 const permissionCodes = ref([]);
+const menuScopes = ref([]);
+const allDataWrite = ref(false);
 const permissionReady = ref(false);
 
 const themeConfig = computed(() => ({
@@ -74,6 +76,8 @@ function handleAuthExpired() {
   localStorage.removeItem(USERNAME_KEY);
   menuCodes.value = [];
   permissionCodes.value = [];
+  menuScopes.value = [];
+  allDataWrite.value = false;
   permissionReady.value = false;
   message.warning(APP_MESSAGES.authExpired);
 }
@@ -126,6 +130,8 @@ async function onLogout() {
   currentUser.value = '';
   menuCodes.value = [];
   permissionCodes.value = [];
+  menuScopes.value = [];
+  allDataWrite.value = false;
   permissionReady.value = false;
 }
 
@@ -134,11 +140,14 @@ async function loadPermissions() {
     const scope = await withTimeout(fetchPermissionScope(), PERMISSION_TIMEOUT_MS);
     menuCodes.value = scope.menuCodes || [];
     permissionCodes.value = scope.permissionCodes || [];
+    menuScopes.value = scope.menus || [];
+    allDataWrite.value = Boolean(scope.allDataWrite || scope.superAdmin);
     permissionReady.value = true;
-    logPermissionMapping(menuCodes.value, permissionCodes.value);
   } catch (error) {
     menuCodes.value = [];
     permissionCodes.value = [];
+    menuScopes.value = [];
+    allDataWrite.value = false;
     permissionReady.value = false;
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USERNAME_KEY);
@@ -165,50 +174,6 @@ function withTimeout(promise, timeoutMs) {
         reject(error);
       });
   });
-}
-
-function logPermissionMapping(menuCodeList, permissionCodeList) {
-  const menuSet = new Set((menuCodeList || []).map((item) => String(item || '').trim()).filter(Boolean));
-  const permSet = new Set((permissionCodeList || []).map((item) => String(item || '').trim()).filter(Boolean));
-  const aliasesByModule = MODULE_LAYOUT_CONFIG.permissionAliases || {};
-  const moduleKeys = MODULE_GROUPS.flatMap((group) => group.children.map((child) => child.key));
-
-  const rows = moduleKeys.map((moduleKey) => {
-    const aliases = aliasesByModule[moduleKey] || [moduleToUpperSnake(moduleKey)];
-    const menuHits = aliases
-      .map((alias) => `MENU_${alias}`)
-      .filter((code) => menuSet.has(code));
-    const permHits = aliases.flatMap((alias) => {
-      const read = `DATA_${alias}_READ`;
-      const write = `DATA_${alias}_WRITE`;
-      return [read, write].filter((code) => permSet.has(code));
-    });
-    return {
-      moduleKey,
-      aliases: aliases.join(','),
-      menuHits: menuHits.join(','),
-      permHits: permHits.join(','),
-      visible: menuSet.size > 0 ? (menuHits.length > 0 && permHits.length > 0) : permHits.length > 0,
-    };
-  });
-
-  const hitCodes = new Set(rows.flatMap((row) => row.permHits ? row.permHits.split(',').filter(Boolean) : []));
-  const unmatchedPermCodes = [...permSet].filter((code) => !hitCodes.has(code));
-
-  console.groupCollapsed('[Permission Mapping]');
-  console.table(rows);
-  if (unmatchedPermCodes.length > 0) {
-    console.log('[Unmatched Permission Codes]', unmatchedPermCodes);
-  } else {
-    console.log('[Unmatched Permission Codes] none');
-  }
-  console.groupEnd();
-}
-
-function moduleToUpperSnake(moduleKey) {
-  return String(moduleKey || '')
-    .replace(/([a-z])([A-Z])/g, '$1_$2')
-    .toUpperCase();
 }
 </script>
 

@@ -15,7 +15,7 @@ export function logout() {
 }
 
 export async function fetchPermissionScope() {
-  const response = await http.get('/api/user/permissions');
+  const response = await http.get('/api/user/permission-scope');
   return normalizePermissionPayload(response);
 }
 
@@ -40,18 +40,26 @@ export async function changeMyPassword(currentUsername, newPassword) {
 
 function normalizePermissionPayload(payload) {
   if (Array.isArray(payload)) {
-    return splitScopeCodes(payload);
+    return { ...splitScopeCodes(payload), menus: [] };
   }
 
   const explicitMenuCodes = Array.isArray(payload?.menuCodes) ? payload.menuCodes : [];
   const explicitPermissionCodes = Array.isArray(payload?.permissionCodes) ? payload.permissionCodes : [];
+  const explicitRoleCodes = Array.isArray(payload?.roleCodes) ? payload.roleCodes : [];
   const merged = [
     ...explicitMenuCodes,
     ...explicitPermissionCodes,
+    ...explicitRoleCodes,
     ...(Array.isArray(payload?.codes) ? payload.codes : []),
   ];
 
-  return splitScopeCodes(merged);
+  return {
+    ...splitScopeCodes(merged),
+    roleCodes: [...new Set(explicitRoleCodes.map((code) => String(code || '').trim()).filter(Boolean))],
+    superAdmin: Boolean(payload?.superAdmin),
+    allDataWrite: Boolean(payload?.allDataWrite),
+    menus: normalizeMenuScopes(payload?.menus),
+  };
 }
 
 function splitScopeCodes(source) {
@@ -62,5 +70,32 @@ function splitScopeCodes(source) {
   const menuCodes = [...new Set(raw.filter((code) => code.startsWith('MENU_')))];
   const permissionCodes = [...new Set(raw.filter((code) => !code.startsWith('MENU_')))];
 
-  return { menuCodes, permissionCodes };
+  const roleCodes = [...new Set(raw.filter((code) => code.startsWith('ROLE_')))];
+  return { menuCodes, permissionCodes, roleCodes };
+}
+
+function normalizeMenuScopes(source) {
+  if (!Array.isArray(source)) return [];
+  return source
+    .map((item) => ({
+      key: String(item?.key || '').trim(),
+      label: String(item?.label || '').trim(),
+      module: String(item?.module || '').trim(),
+      path: String(item?.path || '').trim(),
+      sort: Number.isFinite(Number(item?.sort)) ? Number(item.sort) : 0,
+      actions: normalizeActions(item?.actions),
+    }))
+    .filter((item) => item.key);
+}
+
+function normalizeActions(source) {
+  const actions = source && typeof source === 'object' ? source : {};
+  return {
+    read: Boolean(actions.read),
+    create: Boolean(actions.create),
+    edit: Boolean(actions.edit),
+    delete: Boolean(actions.delete),
+    batchDelete: Boolean(actions.batchDelete),
+    inlineEdit: Boolean(actions.inlineEdit),
+  };
 }
