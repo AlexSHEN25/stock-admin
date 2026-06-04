@@ -2,9 +2,10 @@
 
 const NAME_STATUS_QUERY_FIELDS = ['id', 'name', 'status'];
 const NAME_STATUS_FORM_FIELDS = ['name', 'status'];
-const STOCK_ORDER_ITEM_FIELDS = ['id', 'orderId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'stockTypeId', 'stockTypeName', 'makerId', 'makerName', 'changeQty', 'price', 'currency', 'remark'];
-const REQUEST_FORM_FIELDS = ['id', 'bizNo', 'sourceOrderId', 'sourceOrderNo', 'userId', 'username', 'deptId', 'deptName', 'customerId', 'customerName', 'warehouseId', 'totalQty', 'requestQty', 'totalAmt', 'state', 'approverId', 'approverName', 'approveTime', 'approveRemark'];
-const REQUEST_ITEM_FIELDS = ['id', 'requestId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'makerId', 'makerName', 'stockTypeId', 'stockTypeName', 'warehouseId', 'price', 'currency', 'discount', 'requestQty', 'approveQty', 'outQty', 'stockRecordId', 'remark'];
+const STOCK_ORDER_ITEM_FIELDS = ['id', 'orderId', 'orderType', 'state', 'bizDate', 'warehouseId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'stockTypeId', 'stockTypeName', 'makerId', 'makerName', 'changeQty', 'price', 'currency', 'remark'];
+const REQUEST_FINANCE_FIELDS = ['exchangeRate', 'currency', 'paymentDate', 'hasFee', 'feeAmount', 'hasUnpaid', 'unpaidAmount'];
+const REQUEST_FORM_FIELDS = ['id', 'bizNo', 'sourceOrderId', 'sourceOrderNo', 'userId', 'username', 'deptId', 'deptName', 'customerId', 'customerName', 'warehouseId', 'totalQty', 'requestQty', 'totalAmt', ...REQUEST_FINANCE_FIELDS, 'state', 'approverId', 'approverName', 'approveTime', 'approveRemark'];
+const REQUEST_ITEM_QUERY_FIELDS = ['requestId', 'goodsName', 'skuCode', 'brandName', 'seriesName', 'categoryName', 'makerName', 'stockTypeName', 'warehouseId', 'requestQty', 'approveQty', 'outQty', 'remark'];
 const STOCK_PRESET = {
   queryFields: ['id', 'goodsId', 'goodsName', 'skuCode', 'skuId', 'stockTypeId', 'currentQty', 'price', 'priceUpdateTime', 'currency', 'warehouseId', 'status'],
   formFields: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity', 'remark', 'status'],
@@ -132,9 +133,13 @@ export const MODULE_PRESETS = {
   },
   stockOrderItem: {
     queryFields: STOCK_ORDER_ITEM_FIELDS,
-    formFields: STOCK_ORDER_ITEM_FIELDS.filter((field) => !['id', 'beforeQty', 'afterQty'].includes(field)),
+    formFields: STOCK_ORDER_ITEM_FIELDS.filter((field) => !['id', 'orderType', 'state', 'bizDate', 'warehouseId', 'beforeQty', 'afterQty'].includes(field)),
     fieldTypes: {
       orderId: 'relation',
+      orderType: 'select',
+      state: 'select',
+      bizDate: 'datetime',
+      warehouseId: 'relation',
       goodsId: 'relation',
       skuId: 'relation',
       brandId: 'relation',
@@ -180,7 +185,7 @@ export const MODULE_PRESETS = {
   },
   requestForm: {
     queryFields: REQUEST_FORM_FIELDS,
-    formFields: ['sourceOrderId', 'customerId', 'approveRemark'],
+    formFields: ['sourceOrderId', 'customerId', ...REQUEST_FINANCE_FIELDS, 'state', 'approveRemark'],
     fieldTypes: {
       sourceOrderId: 'relation',
       userId: 'relation',
@@ -191,14 +196,21 @@ export const MODULE_PRESETS = {
       totalQty: 'number',
       requestQty: 'number',
       totalAmt: 'decimal',
-      state: 'number',
+      exchangeRate: 'decimal',
+      currency: 'select',
+      paymentDate: 'datetime',
+      hasFee: 'switch',
+      feeAmount: 'decimal',
+      hasUnpaid: 'switch',
+      unpaidAmount: 'decimal',
+      state: 'select',
       approveTime: 'datetime',
       approveRemark: 'textarea',
     },
   },
   requestItem: {
-    queryFields: REQUEST_ITEM_FIELDS,
-    formFields: REQUEST_ITEM_FIELDS.filter((field) => field !== 'id'),
+    queryFields: REQUEST_ITEM_QUERY_FIELDS,
+    formFields: REQUEST_FINANCE_FIELDS,
     fieldTypes: {
       requestId: 'relation',
       goodsId: 'relation',
@@ -211,6 +223,13 @@ export const MODULE_PRESETS = {
       warehouseId: 'relation',
       stockRecordId: 'relation',
       price: 'decimal',
+      exchangeRate: 'decimal',
+      currency: 'select',
+      paymentDate: 'datetime',
+      hasFee: 'switch',
+      feeAmount: 'decimal',
+      hasUnpaid: 'switch',
+      unpaidAmount: 'decimal',
       discount: 'decimal',
       requestQty: 'number',
       approveQty: 'number',
@@ -301,7 +320,7 @@ export const REQUIRED_FORM_FIELDS = {
   stockOrderItem: ['orderId', 'goodsId', 'skuId', 'goodsName', 'changeQty'],
   stockRecord: ['bizNo', 'orderId', 'orderItemId', 'stockId', 'goodsId', 'skuId', 'goodsName', 'changeQty', 'orderType', 'sourceType'],
   requestForm: ['sourceOrderId', 'customerId'],
-  requestItem: ['requestId', 'goodsId', 'skuId'],
+  requestItem: [],
   warehouse: ['name', 'code', 'status'],
   role: ['name', 'code', 'status'],
   maker: ['name', 'status'],

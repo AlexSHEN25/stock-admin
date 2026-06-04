@@ -1,7 +1,7 @@
-<template>
+﻿<template>
   <a-modal
     :open="open"
-    title="明細追加"
+    title="&#20986;&#24235;&#26126;&#32048;&#36861;&#21152;"
     width="1280px"
     :ok-text="submitText"
     :ok-button-props="{ disabled: selectedKeys.length === 0 }"
@@ -10,7 +10,7 @@
   >
     <a-spin :spinning="loading">
       <div class="request-candidate-summary">
-        追加する明細を選択してください。選択済み: {{ selectedKeys.length }}件
+        &#23436;&#20102;&#28168;&#12415;&#12398;&#20986;&#24235;&#22312;&#24235;&#12363;&#12425;&#35531;&#27714;&#26360;&#12408;&#36861;&#21152;&#12377;&#12427;&#26126;&#32048;&#12434;&#36984;&#25246;&#12375;&#12390;&#12367;&#12384;&#12373;&#12356;&#12290;&#36984;&#25246;&#28168;&#12415;: {{ selectedKeys.length }}&#20214;
       </div>
       <a-table
         :row-key="rowKey"
@@ -49,7 +49,7 @@
 const props = defineProps({
   open: { type: Boolean, default: false },
   loading: { type: Boolean, default: false },
-  submitText: { type: String, default: '追加' },
+  submitText: { type: String, default: '\u8ffd\u52a0' },
   rows: { type: Array, default: () => [] },
   selectedKeys: { type: Array, default: () => [] },
   qtyState: { type: Object, default: () => ({}) },
@@ -61,31 +61,56 @@ const props = defineProps({
 defineEmits(['cancel', 'submit', 'selection-change', 'qty-change']);
 
 const columns = [
-  { title: '伝票番号', dataIndex: 'orderNo', key: 'orderNo', width: 140 },
-  { title: '商品名', dataIndex: 'goodsName', key: 'goodsName', width: 180 },
-  { title: '品番', dataIndex: 'skuCode', key: 'skuCode', width: 120 },
-  { title: 'ブランド', dataIndex: 'brandName', key: 'brandName', width: 120 },
-  { title: 'シリーズ', dataIndex: 'seriesName', key: 'seriesName', width: 120 },
-  { title: 'カテゴリ', dataIndex: 'categoryName', key: 'categoryName', width: 120 },
-  { title: '出庫数量', dataIndex: 'changeQty', key: 'changeQty', width: 90 },
-  { title: '請求数量', dataIndex: 'requestQty', key: 'requestQty', width: 120 },
-  { title: '価格', dataIndex: 'price', key: 'price', width: 100 },
-  { title: '通貨', dataIndex: 'currency', key: 'currency', width: 80 },
-  { title: '刀柄マッチ', dataIndex: 'matchStatus', key: 'matchStatus', width: 120 },
+  { title: '\u4f1d\u7968\u756a\u53f7', dataIndex: 'orderNo', key: 'orderNo', width: 140 },
+  { title: '\u5546\u54c1\u540d', dataIndex: 'goodsName', key: 'goodsName', width: 180 },
+  { title: '\u54c1\u756a', dataIndex: 'skuCode', key: 'skuCode', width: 120 },
+  { title: '\u30d6\u30e9\u30f3\u30c9', dataIndex: 'brandName', key: 'brandName', width: 120 },
+  { title: '\u30b7\u30ea\u30fc\u30ba', dataIndex: 'seriesName', key: 'seriesName', width: 120 },
+  { title: '\u30ab\u30c6\u30b4\u30ea', dataIndex: 'categoryName', key: 'categoryName', width: 120 },
+  { title: '\u51fa\u5eab\u6570\u91cf', dataIndex: 'changeQty', key: 'changeQty', width: 90 },
+  { title: '\u8acb\u6c42\u6570\u91cf', dataIndex: 'requestQty', key: 'requestQty', width: 120 },
+  { title: '\u4fa1\u683c', dataIndex: 'price', key: 'price', width: 100 },
+  { title: '\u901a\u8ca8', dataIndex: 'currency', key: 'currency', width: 80 },
+  { title: '\u5200/\u30cf\u30f3\u30c9\u30eb', dataIndex: 'matchStatus', key: 'matchStatus', width: 130 },
 ];
 
 function resolveKnifeHandleMatch(row) {
-  const name = String(row?.goodsName || '');
-  const orderId = Number(row?.stockOrderId || 0);
-  if (!orderId) return { ok: true, text: '判定不要' };
-  const siblings = (props.rows || []).filter((item) => Number(item?.stockOrderId) === orderId);
-  const hasKnife = siblings.some((item) => String(item?.goodsName || '').includes('刀'));
-  const hasHandle = siblings.some((item) => String(item?.goodsName || '').includes('柄'));
-  if (name.includes('刀') || name.includes('柄')) {
-    if (hasKnife && hasHandle) return { ok: true, text: 'マッチ可' };
-    return { ok: false, text: '片側不足' };
+  const orderKey = resolveOrderKey(row);
+  if (!orderKey) return { ok: true, text: '\u5224\u5b9a\u4e0d\u8981' };
+
+  const siblings = (props.rows || []).filter((item) => resolveOrderKey(item) === orderKey);
+  const hasKnife = siblings.some(isKnifeItem);
+  const hasHandle = siblings.some(isHandleItem);
+  if (isKnifeItem(row) || isHandleItem(row)) {
+    if (hasKnife && hasHandle) return { ok: true, text: '\u30de\u30c3\u30c1\u53ef' };
+    return { ok: false, text: '\u7247\u65b9\u4e0d\u8db3' };
   }
-  return { ok: true, text: '対象外' };
+  return { ok: true, text: '\u5bfe\u8c61\u5916' };
+}
+
+function resolveOrderKey(row) {
+  const raw = row?.stockOrderId ?? row?.stock_order_id ?? row?.orderId ?? row?.order_id ?? row?.orderNo;
+  return raw === undefined || raw === null || String(raw).trim() === '' ? '' : String(raw);
+}
+
+function isKnifeItem(row) {
+  const text = rowText(row);
+  return text.includes('\u5200') || text.toLowerCase().includes('knife');
+}
+
+function isHandleItem(row) {
+  const text = rowText(row).toLowerCase();
+  return text.includes('\u30cf\u30f3\u30c9') || text.includes('handle') || text.includes('\u67c4');
+}
+
+function rowText(row) {
+  return [
+    row?.goodsName,
+    row?.skuName,
+    row?.categoryName,
+    row?.seriesName,
+    row?.remark,
+  ].map((value) => String(value || '')).join(' ');
 }
 </script>
 

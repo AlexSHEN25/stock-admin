@@ -88,6 +88,7 @@ export async function fetchOutboundStockOrderOptions() {
     pageNum: 1,
     pageSize: 50,
     orderType: 2,
+    state: 2,
     sortBy: 'updateTime',
     sortOrder: 'desc',
   });
@@ -186,6 +187,18 @@ export async function addRequestItems(payload) {
 
 export async function removeRequestItems(payload) {
   return http.post('/api/requestForm/items/remove', payload || {});
+}
+
+export async function reapplyRequestInbound(id) {
+  if (id === undefined || id === null || String(id).trim() === '') return null;
+  return http.post(`/api/requestForm/reapplyInbound/${id}`);
+}
+
+export async function addRequestItemsFromStockOrder(payload) {
+  return requestWithFallback(
+    () => http.post('/api/requestForm/items/add', payload || {}),
+    () => http.post('/api/requestForm/items/addFromStockOrder', payload || {}),
+  );
 }
 
 function normalizePage(data) {

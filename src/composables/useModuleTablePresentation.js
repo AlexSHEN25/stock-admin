@@ -35,7 +35,10 @@ export function useModuleTablePresentation(options) {
   }
 
   function getRecordId(record) {
-    return record?.skuId ?? record?.id ?? record?._id ?? null;
+    if (moduleKey.value === 'goods') {
+      return record?.skuId ?? record?.id ?? record?._id ?? null;
+    }
+    return record?.id ?? record?._id ?? record?.skuId ?? null;
   }
 
   function isPermissionNamesField(field) {
@@ -88,17 +91,24 @@ export function useModuleTablePresentation(options) {
   function numberMinByField(field) {
     const low = String(field || '').toLowerCase();
     if (low === 'sort') return 0;
+    if (isRateLikeField(low)) return 0.0001;
     if (isPriceLikeField(low)) return 0.01;
     return undefined;
   }
 
   function numberPrecisionByField(field) {
+    if (isRateLikeField(field)) return 4;
     return isPriceLikeField(field) ? 2 : undefined;
   }
 
   function isPriceLikeField(field) {
     const low = String(field || '').toLowerCase();
     return low.includes('price') || low.includes('amount');
+  }
+
+  function isRateLikeField(field) {
+    const low = String(field || '').toLowerCase();
+    return low.includes('rate');
   }
 
   return {

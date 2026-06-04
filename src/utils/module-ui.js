@@ -76,6 +76,11 @@ export const TABLE_TEXT = {
   pdf: 'PDF',
   downloadFail: '\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9\u5931\u6557',
   detail: '\u660e\u7d30',
+  addOutboundDetail: '\u51fa\u5eab\u660e\u7d30\u8ffd\u52a0',
+  returnInbound: '\u8fd4\u5374\u5165\u5eab',
+  reapplyInbound: '\u518d\u5165\u5eab\u7533\u8acb',
+  reapplyInboundSuccess: '\u5165\u5eab\u7533\u8acb\u3092\u4f5c\u6210\u3057\u307e\u3057\u305f',
+  reapplyInboundFail: '\u5165\u5eab\u7533\u8acb\u4f5c\u6210\u5931\u6557',
 };
 
 export const PASSWORD_MESSAGES = {
@@ -160,6 +165,14 @@ export const ENUM_OPTIONS = {
     { label: '\u5b8c\u4e86', value: 2 },
     { label: '\u53d6\u6d88', value: 3 },
   ],
+  requestFormState: [
+    { label: '\u8349\u7a3f', value: 0 },
+    { label: '\u5df2\u63d0\u51fa', value: 1 },
+    { label: '\u5be9\u6838\u901a\u904e\u30fb\u5b8c\u4e86', value: 2 },
+    { label: '\u5df2\u9a73\u56de', value: 3 },
+    { label: '\u5df2\u9a73\u56de', value: 4 },
+    { label: '\u5df2\u53d6\u6d88', value: 5 },
+  ],
   messageRead: [
     { label: '\u672a\u8aad', value: 0 },
     { label: '\u65e2\u8aad', value: 1 },
@@ -179,6 +192,7 @@ export const MODULE_DETAIL_NAVIGATIONS = {
 
 export const MODULE_ROW_EXTRA_ACTIONS = {
   stockOrder: [{ key: 'detail', label: TABLE_TEXT.detail }],
+  stockOrderItem: [{ key: 'returnInbound', label: TABLE_TEXT.returnInbound }],
   requestForm: [
     { key: 'detail', label: TABLE_TEXT.detail },
     { key: 'download', label: TABLE_TEXT.download },
@@ -205,13 +219,17 @@ export const MODULE_ENUM_FIELD_OPTIONS = {
     sourceType: ENUM_OPTIONS.stockOrderSourceType,
     state: ENUM_OPTIONS.stockOrderState,
   },
+  stockOrderItem: {
+    orderType: ENUM_OPTIONS.stockOrderType,
+    state: ENUM_OPTIONS.stockOrderState,
+  },
   stockRecord: {
     orderType: ENUM_OPTIONS.stockOrderType,
     sourceType: ENUM_OPTIONS.stockOrderSourceType,
     state: ENUM_OPTIONS.stockOrderState,
   },
   requestForm: {
-    state: ENUM_OPTIONS.stockOrderState,
+    state: ENUM_OPTIONS.requestFormState,
   },
 };
 

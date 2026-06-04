@@ -24,10 +24,19 @@ const REQUEST_FORM_BACKEND_FIELDS = new Set([
   'totalqty',
   'requestqty',
   'totalamt',
-  'state',
   'approverid',
   'approvername',
   'approvetime',
+]);
+const REQUEST_ITEM_FINANCE_FIELDS = new Set([
+  'id',
+  'exchangeRate',
+  'currency',
+  'paymentDate',
+  'hasFee',
+  'feeAmount',
+  'hasUnpaid',
+  'unpaidAmount',
 ]);
 const CURRENCY_OPTIONS = [
   { label: 'JPY', value: 'JPY' },
@@ -146,10 +155,27 @@ export function useModuleFieldBehavior(options) {
       delete output.totalQty;
       delete output.requestQty;
       delete output.totalAmt;
-      delete output.state;
       delete output.approverId;
       delete output.approverName;
       delete output.approveTime;
+    }
+    if (moduleKey.value === 'requestItem') {
+      Object.keys(output).forEach((key) => {
+        if (!REQUEST_ITEM_FINANCE_FIELDS.has(key)) {
+          delete output[key];
+        }
+      });
+    }
+    if (moduleKey.value === 'requestForm' || moduleKey.value === 'requestItem') {
+      if (!output.hasFee) {
+        output.feeAmount = null;
+      }
+      if (!output.hasUnpaid) {
+        output.unpaidAmount = null;
+      }
+      if (!output.currency) {
+        output.currency = 'JPY';
+      }
     }
     Object.keys(output).forEach((key) => {
       if (moduleKey.value === 'goods' && key === 'skuName') return;

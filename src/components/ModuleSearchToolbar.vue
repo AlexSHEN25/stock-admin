@@ -66,7 +66,7 @@
         {{ tableText.batchDelete }}
       </a-button>
       <a-button
-        v-if="canWrite && canCreate"
+        v-if="showCreateButton"
         type="primary"
         class="search-btn search-btn-create"
         @click="$emit('create')"
@@ -86,7 +86,7 @@
         class="search-btn"
         @click="$emit('open-candidates')"
       >
-        明細追加
+        {{ tableText.addOutboundDetail }}
       </a-button>
     </div>
   </div>
@@ -120,6 +120,11 @@ const emit = defineEmits([
   'open-candidates',
   'update-field',
 ]);
+const showCreateButton = computed(() => (
+  props.canWrite
+  && props.canCreate
+  && String(props.moduleKey || '') !== 'requestItem'
+));
 const query = computed(() => new Proxy(props.queryState, {
   set(_target, field, value) {
     emit('update-field', field, value);

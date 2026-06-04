@@ -10,6 +10,7 @@
       v-if="value"
       :src="value"
       class="goods-thumb"
+      alt="avatar"
     >
     <div v-else>
       + Upload

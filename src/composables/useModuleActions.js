@@ -1,4 +1,5 @@
 import { message } from 'ant-design-vue';
+import { reapplyRequestInbound } from '../api/module';
 import { TABLE_TEXT } from '../utils/module-ui';
 
 export function useModuleActions(options) {
@@ -15,6 +16,7 @@ export function useModuleActions(options) {
     markMessageListRead,
     markAllMessageListRead,
     getRecordId,
+    reload,
   } = options;
 
   function goDetailModule(record) {
@@ -39,6 +41,10 @@ export function useModuleActions(options) {
       await downloadRequestFormAsPdf(record);
       return;
     }
+    if (actionKey === 'reapplyInbound') {
+      await onReapplyInbound(record);
+      return;
+    }
     if (actionKey === 'read') {
       if (!canWrite?.value) return;
       await onReadMessage(record);
@@ -46,8 +52,26 @@ export function useModuleActions(options) {
   }
 
   function canShowRowExtraAction(actionKey, record) {
+    if (actionKey === 'reapplyInbound') {
+      return Boolean(canWrite?.value) && moduleKey.value === 'requestForm' && Number(record?.state) !== 2;
+    }
     if (actionKey !== 'read') return true;
     return Boolean(canWrite?.value) && moduleKey.value === 'message' && Number(record?.isRead) !== 1;
+  }
+
+  async function onReapplyInbound(record) {
+    if (!canWrite?.value) return;
+    const id = getRecordId(record);
+    if (!id) return;
+    try {
+      await reapplyRequestInbound(id);
+      message.success(TABLE_TEXT.reapplyInboundSuccess);
+      if (typeof reload === 'function') {
+        await reload();
+      }
+    } catch (error) {
+      message.error(error?.message || TABLE_TEXT.reapplyInboundFail);
+    }
   }
 
   async function onReadMessage(record) {
@@ -100,6 +124,7 @@ export function useModuleActions(options) {
     canShowRowExtraAction,
     onReadMessage,
     onReadAllMessages,
+    onReapplyInbound,
     downloadRequestForm,
     downloadRequestFormAsPdf,
   };

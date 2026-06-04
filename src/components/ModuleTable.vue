@@ -22,7 +22,7 @@
       @batch-delete="onBatchDelete"
       @create="openCreate"
       @read-all="onReadAllMessages"
-      @open-candidates="openCandidateModal"
+      @open-candidates="openRequestItemCandidateModal"
       @update-field="updateQueryField"
     />
 
@@ -223,7 +223,7 @@ import { useModuleTableSchema } from '../composables/useModuleTableSchema';
 import { useModuleTableState } from '../composables/useModuleTableState';
 import { downloadRequestFormFile, downloadRequestFormPdf } from '../utils/download';
 import { markAllMessageListRead, markAllMessagesRead, markMessageListRead, markMessageRead } from '../utils/message';
-import { submitStockInboundFlow } from '../utils/stock';
+import { submitStockInboundFlow, submitStockOrderItemReturnFlow } from '../utils/stock';
 import { getModulePreset, guessFieldType, isRequiredFormField, mapNameFieldToIdField, normalizeTitle, relationLabel, relationModuleByField } from '../utils/module';
 import {
   MODULE_DETAIL_NAVIGATIONS,
@@ -248,6 +248,9 @@ const STOCK_ORDER_DEFAULT_SOURCE_TYPE = 4;
 const STOCK_ORDER_DEFAULT_STATE = 0;
 const STOCK_ORDER_USER_SOURCE_TYPES = new Set([3, 4]);
 const STOCK_ORDER_USER_STATES = new Set([0, 1]);
+const REQUEST_FORM_DEFAULT_STATE = 0;
+const REQUEST_FORM_COMPLETED_STATE = 2;
+const REQUEST_FORM_USER_STATES = new Set([0, 1]);
 const NORMAL_STOCK_TYPE_KEYWORDS = ['通常', 'normal'];
 
 const props = defineProps({
@@ -485,15 +488,19 @@ const {
 
 const visibleQueryFields = computed(() => {
   const list = queryFields.value || [];
+  if (props.moduleKey === 'requestItem') {
+    return list.filter((field) => String(field || '').toLowerCase() !== 'requestid');
+  }
   if (props.moduleKey !== 'stockOrderItem') return list;
   return list.filter((field) => String(field || '').toLowerCase() !== 'orderid');
 });
 const tableRows = computed(() => {
   return requestItemTableRows.value;
 });
-const visibleFormKeys = computed(() => (
-  editing.value ? activeFormKeys() : formKeys.value.filter((field) => String(field || '').toLowerCase() !== 'status')
-));
+const visibleFormKeys = computed(() => {
+  const list = editing.value ? activeFormKeys() : formKeys.value.filter((field) => String(field || '').toLowerCase() !== 'status');
+  return filterFinanceFormKeys(list, formState);
+});
 
 watch(
   () => props.moduleKey,
@@ -561,6 +568,7 @@ async function submitStockFlow({ buildEditPayload, getRecordId, normalizePayload
 
 function updateFormField(field, value) {
   formState[field] = value;
+  applyFinanceToggleState(formState, field, value);
 }
 
 function updateQueryField(field, value) {
@@ -569,10 +577,23 @@ function updateQueryField(field, value) {
 
 function updateInlineField(field, value) {
   editState[field] = value;
+  applyFinanceToggleState(editState, field, value);
+}
+
+function openRequestItemCandidateModal() {
+  if (props.moduleKey === 'requestItem' && isCurrentRequestCompleted()) {
+    message.warning('\u5b8c\u4e86\u6e08\u307f\u306e\u8acb\u6c42\u66f8\u306f\u660e\u7d30\u3092\u5909\u66f4\u3067\u304d\u307e\u305b\u3093');
+    return;
+  }
+  openCandidateModal();
 }
 
 function openCreate() {
   if (!canWrite.value || !canCreateInModule()) return;
+  if (props.moduleKey === 'requestItem') {
+    openRequestItemCandidateModal();
+    return;
+  }
   if (isGoodsManagement.value) {
     openGoodsDrawerCreate();
     return;
@@ -583,6 +604,7 @@ function openCreate() {
       formState.status = 1;
     }
     applyStockOrderCreateDefaults();
+    applyRequestFormCreateDefaults();
     loadScopedRelationOptions(formKeys.value, keys.value).then(() => {
       applyStockOrderRelationDefaults();
     });
@@ -722,7 +744,29 @@ function activeFormKeys() {
   if (editing.value && isSplitStockManagement.value) {
     return ['goodsId', 'skuId', 'skuCode', 'warehouseId', 'currentQty', 'price', 'currency', 'stockTypeId'];
   }
+  if (editing.value && props.moduleKey === 'requestForm' && isAdminUser.value) {
+    return [...new Set([...formKeys.value, 'state'])];
+  }
   return formKeys.value;
+}
+
+function filterFinanceFormKeys(fields, state) {
+  if (props.moduleKey !== 'requestForm' && props.moduleKey !== 'requestItem') return fields;
+  return (fields || []).filter((field) => {
+    if (field === 'feeAmount') return Boolean(state.hasFee);
+    if (field === 'unpaidAmount') return Boolean(state.hasUnpaid);
+    return true;
+  });
+}
+
+function applyFinanceToggleState(target, field, value) {
+  if (props.moduleKey !== 'requestForm' && props.moduleKey !== 'requestItem') return;
+  if (field === 'hasFee' && !value) {
+    target.feeAmount = null;
+  }
+  if (field === 'hasUnpaid' && !value) {
+    target.unpaidAmount = null;
+  }
 }
 
 async function submit() {
@@ -766,9 +810,14 @@ function queryOptions(field) {
 
 function scopedSelectOptions(field) {
   const options = selectOptionsMerged(field);
+  const low = String(field || '').toLowerCase();
+
+  if (props.moduleKey === 'requestForm' && low === 'state' && !isAdminUser.value) {
+    return options.filter((option) => REQUEST_FORM_USER_STATES.has(Number(option.value)));
+  }
+
   if (props.moduleKey !== 'stockOrder' || isAdminUser.value) return options;
 
-  const low = String(field || '').toLowerCase();
   if (low === 'sourcetype') {
     return options.filter((option) => STOCK_ORDER_USER_SOURCE_TYPES.has(Number(option.value)));
   }
@@ -780,6 +829,13 @@ function scopedSelectOptions(field) {
 
 function normalizeModulePayload(payload) {
   const output = normalizePayload(payload);
+  if (props.moduleKey === 'requestForm' && !isAdminUser.value) {
+    if (Object.prototype.hasOwnProperty.call(output, 'state') && !REQUEST_FORM_USER_STATES.has(Number(output.state))) {
+      output.state = REQUEST_FORM_DEFAULT_STATE;
+    }
+    return output;
+  }
+
   if (props.moduleKey !== 'stockOrder' || isAdminUser.value) return output;
 
   if (Object.prototype.hasOwnProperty.call(output, 'sourceType') && !STOCK_ORDER_USER_SOURCE_TYPES.has(Number(output.sourceType))) {
@@ -796,6 +852,11 @@ function applyStockOrderCreateDefaults() {
   formState.bizDate = formatDateTime(new Date());
   formState.sourceType = STOCK_ORDER_DEFAULT_SOURCE_TYPE;
   formState.state = STOCK_ORDER_DEFAULT_STATE;
+}
+
+function applyRequestFormCreateDefaults() {
+  if (props.moduleKey !== 'requestForm' || editing.value) return;
+  formState.state = REQUEST_FORM_DEFAULT_STATE;
 }
 
 function applyStockOrderRelationDefaults() {
@@ -836,8 +897,8 @@ const {
 });
 
 const {
-  handleRowExtraAction,
-  canShowRowExtraAction,
+  handleRowExtraAction: handleDefaultRowExtraAction,
+  canShowRowExtraAction: canShowDefaultRowExtraAction,
   onReadAllMessages,
 } = useModuleActions({
   moduleKey: computed(() => props.moduleKey),
@@ -852,13 +913,79 @@ const {
   markMessageListRead,
   markAllMessageListRead,
   getRecordId,
+  reload,
 });
 
+async function handleRowExtraAction(actionKey, record) {
+  if (actionKey === 'returnInbound') {
+    await submitStockOrderItemReturnFlow({
+      record,
+      reload,
+      notify: message,
+    });
+    return;
+  }
+  if (actionKey === 'detail' && props.moduleKey === 'requestForm') {
+    rememberRequestFormState(record);
+  }
+  await handleDefaultRowExtraAction(actionKey, record);
+}
+
+function canShowRowExtraAction(actionKey, record) {
+  if (actionKey === 'returnInbound') {
+    return props.moduleKey === 'stockOrderItem' && isCompletedOutboundRecord(record);
+  }
+  return canShowDefaultRowExtraAction(actionKey, record);
+}
+
 function canCreateInModule() {
+  if (props.moduleKey === 'requestItem' && isCurrentRequestCompleted()) return false;
   if (props.allDataWrite) return isGoodsManagement.value || formKeys.value.length > 0;
   if (props.moduleActions && !props.moduleActions.create) return false;
   if (!canCreateModuleRecord(props.moduleKey, props.permissionCodes || [])) return false;
   return isGoodsManagement.value || formKeys.value.length > 0;
+}
+
+function isCompletedOutboundRecord(record) {
+  const orderType = Number(record?.orderType ?? record?.stockOrderType);
+  const state = Number(record?.state ?? record?.orderState);
+  const changeQty = Number(record?.changeQty ?? 0);
+  const isOutbound = orderType === 2 || changeQty < 0;
+  return isOutbound && state === 2;
+}
+
+function rememberRequestFormState(record) {
+  const state = resolveRequestFormState(record);
+  if (state === null) {
+    sessionStorage.removeItem('jump_request_form_state');
+    return;
+  }
+  sessionStorage.setItem('jump_request_form_state', String(state));
+}
+
+function resolveRequestFormState(record) {
+  const raw = record?.state
+    ?? record?.requestState
+    ?? record?.requestFormState
+    ?? record?.requestStatus
+    ?? record?.requestFormStatus;
+  if (raw === undefined || raw === null || String(raw).trim() === '') return null;
+  const state = Number(raw);
+  return Number.isNaN(state) ? null : state;
+}
+
+function isCompletedRequestRecord(record) {
+  const state = resolveRequestFormState(record);
+  return state === REQUEST_FORM_COMPLETED_STATE;
+}
+
+function isCurrentRequestCompleted() {
+  if (props.moduleKey !== 'requestItem') return false;
+  const rowCompleted = (rows.value || []).some((row) => isCompletedRequestRecord(row));
+  if (rowCompleted) return true;
+  const raw = sessionStorage.getItem('jump_request_form_state');
+  const state = Number(raw);
+  return !Number.isNaN(state) && state === REQUEST_FORM_COMPLETED_STATE;
 }
 
 function canBatchDeleteInModule() {
@@ -869,18 +996,25 @@ function canBatchDeleteInModule() {
 }
 
 function canDeleteRecord(_record) {
+  if (props.moduleKey === 'requestForm' && isCompletedRequestRecord(_record)) return false;
+  if (props.moduleKey === 'requestItem' && (isCompletedRequestRecord(_record) || isCurrentRequestCompleted())) return false;
   if (props.allDataWrite) return true;
   if (props.moduleActions && !props.moduleActions.delete) return false;
   return canDeleteModuleRecord(props.moduleKey, props.permissionCodes || []);
 }
 
 function canEditRecord(record) {
+  if (props.moduleKey === 'requestForm' && isCompletedRequestRecord(record)) return false;
+  if (props.moduleKey === 'requestItem' && (isCompletedRequestRecord(record) || isCurrentRequestCompleted())) return false;
   if (props.allDataWrite) return true;
   if (props.moduleActions && !props.moduleActions.edit) return false;
   return canEditModuleRecord(props.moduleKey, record, props.currentUser, props.permissionCodes || []);
 }
 
 function canInlineEditRecord(record) {
+  if (props.moduleKey === 'requestForm' && isCompletedRequestRecord(record)) return false;
+  if (props.moduleKey === 'requestItem' && (isCompletedRequestRecord(record) || isCurrentRequestCompleted())) return false;
+  if (props.moduleKey === 'requestItem') return false;
   if (props.allDataWrite) return props.moduleKey !== 'goods';
   if (props.moduleActions && !props.moduleActions.inlineEdit) return false;
   if (props.moduleKey === 'goods') return false;
