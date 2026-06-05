@@ -1,6 +1,6 @@
 import { computed, reactive, ref } from 'vue';
 import { addRequestItemsFromStockOrder, getCandidateItems, removeRequestItems } from '../api/module';
-import { TABLE_TEXT } from '../utils/module-ui';
+import TABLE_TEXT from '../utils/module-ui';
 
 export function useRequestItemCandidates(options) {
   const {

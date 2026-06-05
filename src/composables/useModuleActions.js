@@ -1,6 +1,6 @@
 import { message } from 'ant-design-vue';
 import { reapplyRequestInbound } from '../api/module';
-import { TABLE_TEXT } from '../utils/module-ui';
+import TABLE_TEXT from '../utils/module-ui';
 
 export function useModuleActions(options) {
   const {

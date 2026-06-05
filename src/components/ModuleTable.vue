@@ -124,7 +124,12 @@
             :can-edit="canEditRecord(record)"
             :can-delete="canDeleteRecord(record)"
             :editing="isEditing(record)"
+            :show-inbound="isGoodsManagement"
+            :inbound-done="isGoodsInboundDone(record)"
+            :can-outbound="canGoodsOutbound(record)"
             :can-show-extra-action="canShowRowExtraAction"
+            @inbound="openGoodsInboundModal"
+            @outbound="openGoodsOutboundModal"
             @extra-action="handleRowExtraAction"
             @inline-edit="startInlineEdit"
             @save="saveInlineEdit"
@@ -157,6 +162,52 @@
       @save="submit"
       @cancel="modalOpen = false"
       @update-field="updateFormField"
+    />
+    <module-edit-modal
+      v-if="isGoodsManagement"
+      :open="goodsInboundModalOpen"
+      :can-write="true"
+      :fields="GOODS_INBOUND_FIELDS"
+      :form-state="goodsInboundForm"
+      :relation-options="relationOptions"
+      :table-text="TABLE_TEXT"
+      :is-required="isGoodsInboundFieldRequired"
+      :normalize-title="normalizeTitle"
+      :is-avatar-field="() => false"
+      :before-avatar-upload="() => false"
+      :input-type="goodsInboundInputType"
+      :form-placeholder="() => ''"
+      :is-multi-relation-field="() => false"
+      :number-min-by-field="goodsInboundNumberMin"
+      :number-max-by-field="() => undefined"
+      :number-precision-by-field="numberPrecisionByField"
+      :select-options="goodsInboundSelectOptions"
+      @save="submitGoodsInbound"
+      @cancel="goodsInboundModalOpen = false"
+      @update-field="updateGoodsInboundField"
+    />
+    <module-edit-modal
+      v-if="isGoodsManagement"
+      :open="goodsOutboundModalOpen"
+      :can-write="true"
+      :fields="visibleGoodsOutboundFields"
+      :form-state="goodsOutboundForm"
+      :relation-options="relationOptions"
+      :table-text="TABLE_TEXT"
+      :is-required="isGoodsOutboundFieldRequired"
+      :normalize-title="normalizeTitle"
+      :is-avatar-field="() => false"
+      :before-avatar-upload="() => false"
+      :input-type="goodsOutboundInputType"
+      :form-placeholder="goodsOutboundPlaceholder"
+      :is-multi-relation-field="() => false"
+      :number-min-by-field="goodsOutboundNumberMin"
+      :number-max-by-field="goodsOutboundNumberMax"
+      :number-precision-by-field="numberPrecisionByField"
+      :select-options="goodsOutboundSelectOptions"
+      @save="submitGoodsOutbound"
+      @cancel="goodsOutboundModalOpen = false"
+      @update-field="updateGoodsOutboundField"
     />
     <request-candidate-modal
       :open="candidateModalOpen"
@@ -194,7 +245,7 @@
 </template>
 
 <script setup>
-import { computed, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import {
   fetchEnumOptions,
@@ -202,6 +253,7 @@ import {
   fetchOutboundStockOrderOptions,
   fetchGoodsFormOptions,
   fetchModuleOptions,
+  removeItem,
   updateItem,
   uploadFileByBizType,
 } from '../api/module';
@@ -223,12 +275,11 @@ import { useModuleTableSchema } from '../composables/useModuleTableSchema';
 import { useModuleTableState } from '../composables/useModuleTableState';
 import { downloadRequestFormFile, downloadRequestFormPdf } from '../utils/download';
 import { markAllMessageListRead, markAllMessagesRead, markMessageListRead, markMessageRead } from '../utils/message';
-import { submitStockInboundFlow, submitStockOrderItemReturnFlow } from '../utils/stock';
+import { submitGoodsStockOutboundFlow, submitStockInboundFlow, submitStockOrderItemReturnFlow, submitStockQuantityAdjustment } from '../utils/stock';
 import { getModulePreset, guessFieldType, isRequiredFormField, mapNameFieldToIdField, normalizeTitle, relationLabel, relationModuleByField } from '../utils/module';
-import {
+import TABLE_TEXT, {
   MODULE_DETAIL_NAVIGATIONS,
   MODULE_QUERY_JUMPS,
-  TABLE_TEXT,
   getModuleEnumOptions,
   getRowExtraActions,
   isAdminByPermissionCodes,
@@ -243,7 +294,11 @@ import {
 } from '../utils/permission';
 import { hasActiveFilters } from '../utils/table';
 
-const STOCK_EDIT_PAYLOAD_FIELDS = ['id', 'goodsId', 'goodsName', 'skuId', 'skuCode', 'warehouseId', 'currentQty', 'price', 'currency', 'stockTypeId', 'status', 'version'];
+const STOCK_EDIT_PAYLOAD_FIELDS = ['id', 'goodsId', 'goodsName', 'skuId', 'skuCode', 'warehouseId', 'price', 'currency', 'stockTypeId', 'status', 'version'];
+const GOODS_INBOUND_FIELDS = ['sourceType', 'warehouseId', 'stockTypeId', 'quantity', 'remark'];
+const GOODS_OUTBOUND_FIELDS = ['outboundMode', 'customerId', 'deptId', 'warehouseId', 'stockTypeId', 'quantity', 'remark'];
+const GOODS_OUTBOUND_MODE_CUSTOMER = 'customer';
+const GOODS_OUTBOUND_MODE_DEPT = 'dept';
 const STOCK_ORDER_DEFAULT_SOURCE_TYPE = 4;
 const STOCK_ORDER_DEFAULT_STATE = 0;
 const STOCK_ORDER_USER_SOURCE_TYPES = new Set([3, 4]);
@@ -263,8 +318,14 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['navigate-module']);
+const goodsInboundModalOpen = ref(false);
+const goodsOutboundModalOpen = ref(false);
+const goodsInboundForm = reactive({});
+const goodsOutboundForm = reactive({});
+const goodsFlowByRowKey = reactive({});
+const activeGoodsRowKey = ref('');
 const isGoodsManagement = computed(() => props.moduleKey === 'goods');
-const isSplitStockManagement = computed(() => props.moduleKey === 'stockSelf' || props.moduleKey === 'stockHandle');
+const isSplitStockManagement = computed(() => props.moduleKey === 'stock');
 const modulePath = computed(() => props.moduleKey);
 const preset = computed(() => getModulePreset(props.moduleKey));
 const rowExtraActions = computed(() => getRowExtraActions(props.moduleKey));
@@ -300,8 +361,6 @@ const {
 
 const MODULE_SUBMIT_HANDLERS = {
   stock: submitStockFlow,
-  stockSelf: submitStockFlow,
-  stockHandle: submitStockFlow,
 };
 
 const {
@@ -501,6 +560,11 @@ const visibleFormKeys = computed(() => {
   const list = editing.value ? activeFormKeys() : formKeys.value.filter((field) => String(field || '').toLowerCase() !== 'status');
   return filterFinanceFormKeys(list, formState);
 });
+const visibleGoodsOutboundFields = computed(() => GOODS_OUTBOUND_FIELDS.filter((field) => {
+  if (field === 'customerId') return goodsOutboundForm.outboundMode === GOODS_OUTBOUND_MODE_CUSTOMER;
+  if (field === 'deptId') return goodsOutboundForm.outboundMode === GOODS_OUTBOUND_MODE_DEPT;
+  return true;
+}));
 
 watch(
   () => props.moduleKey,
@@ -538,6 +602,8 @@ async function submitStockFlow({ buildEditPayload, getRecordId, normalizePayload
     try {
       const rawPayload = buildEditPayload(getRecordId);
       const normalizedPayload = normalizeSubmitPayload(rawPayload);
+      const beforeQty = Number(editingRaw.value?.currentQty ?? 0);
+      const afterQty = Number(rawPayload.currentQty ?? beforeQty);
       const payload = Object.fromEntries(
         STOCK_EDIT_PAYLOAD_FIELDS
           .filter((field) => Object.prototype.hasOwnProperty.call(rawPayload, field))
@@ -547,6 +613,11 @@ async function submitStockFlow({ buildEditPayload, getRecordId, normalizePayload
           ]),
       );
       await updateItem(modulePath.value, payload);
+      await submitStockQuantityAdjustment({
+        beforeQty,
+        afterQty,
+        record: rawPayload,
+      });
       modalOpen.value = false;
       message.success(TABLE_TEXT.updateSuccess);
       await reload();
@@ -578,6 +649,185 @@ function updateQueryField(field, value) {
 function updateInlineField(field, value) {
   editState[field] = value;
   applyFinanceToggleState(editState, field, value);
+}
+
+async function openGoodsInboundModal(record) {
+  const rowKey = goodsRowKey(record);
+  Object.keys(goodsInboundForm).forEach((key) => delete goodsInboundForm[key]);
+  activeGoodsRowKey.value = rowKey;
+  goodsInboundForm.goodsId = record?.goodsId ?? record?.id;
+  goodsInboundForm.skuId = record?.skuId ?? null;
+  goodsInboundForm.sourceType = 2;
+  goodsInboundForm.warehouseId = null;
+  goodsInboundForm.stockTypeId = null;
+  goodsInboundForm.quantity = null;
+  goodsInboundForm.remark = null;
+  await loadRelationOptions(['warehouseId', 'stockTypeId'], keys.value);
+  goodsInboundModalOpen.value = true;
+}
+
+function updateGoodsInboundField(field, value) {
+  goodsInboundForm[field] = value;
+}
+
+function goodsInboundInputType(field) {
+  if (field === 'sourceType') return 'select';
+  if (field === 'warehouseId' || field === 'stockTypeId') return 'relation';
+  if (field === 'quantity') return 'number';
+  return 'textarea';
+}
+
+function goodsInboundSelectOptions(field) {
+  if (field === 'sourceType') return getModuleEnumOptions('stock', 'sourceType');
+  return scopedSelectOptions(field);
+}
+
+function isGoodsInboundFieldRequired(field) {
+  return ['sourceType', 'warehouseId', 'stockTypeId', 'quantity'].includes(field);
+}
+
+function goodsInboundNumberMin(field) {
+  if (field === 'quantity') return 1;
+  return numberMinByField(field);
+}
+
+async function submitGoodsInbound() {
+  const rowKey = activeGoodsRowKey.value;
+  const success = await submitStockInboundFlow({
+    formState: goodsInboundForm,
+    closeModal: () => {
+      goodsInboundModalOpen.value = false;
+    },
+    reload,
+    notify: message,
+  });
+  if (success && rowKey) {
+    goodsFlowByRowKey[rowKey] = {
+      goodsId: Number(goodsInboundForm.goodsId),
+      skuId: goodsInboundForm.skuId ? Number(goodsInboundForm.skuId) : null,
+      sourceType: Number(goodsInboundForm.sourceType),
+      warehouseId: Number(goodsInboundForm.warehouseId),
+      stockTypeId: Number(goodsInboundForm.stockTypeId),
+      inboundQty: Number(goodsInboundForm.quantity),
+      outboundQty: Number(goodsFlowByRowKey[rowKey]?.outboundQty || 0),
+    };
+  }
+}
+
+async function openGoodsOutboundModal(record) {
+  const rowKey = goodsRowKey(record);
+  const inboundState = goodsFlowByRowKey[rowKey];
+  if (!isGoodsInboundDone(record)) {
+    message.warning('先に入庫を完了してください');
+    return;
+  }
+  Object.keys(goodsOutboundForm).forEach((key) => delete goodsOutboundForm[key]);
+  activeGoodsRowKey.value = rowKey;
+  goodsOutboundForm.goodsId = inboundState?.goodsId || Number(record?.goodsId ?? record?.id);
+  goodsOutboundForm.skuId = inboundState?.skuId ?? record?.skuId ?? null;
+  goodsOutboundForm.sourceType = inboundState?.sourceType || 2;
+  goodsOutboundForm.warehouseId = inboundState?.warehouseId ?? null;
+  goodsOutboundForm.stockTypeId = inboundState?.stockTypeId ?? null;
+  goodsOutboundForm.outboundMode = GOODS_OUTBOUND_MODE_CUSTOMER;
+  goodsOutboundForm.customerId = null;
+  goodsOutboundForm.deptId = null;
+  goodsOutboundForm.quantity = Math.max(1, availableGoodsOutboundQty(rowKey));
+  goodsOutboundForm.remark = null;
+  await loadRelationOptions(['customerId', 'deptId'], keys.value);
+  goodsOutboundModalOpen.value = true;
+}
+
+function updateGoodsOutboundField(field, value) {
+  goodsOutboundForm[field] = value;
+  if (field === 'outboundMode') {
+    goodsOutboundForm.customerId = null;
+    goodsOutboundForm.deptId = null;
+  }
+}
+
+function goodsOutboundInputType(field) {
+  if (field === 'outboundMode') return 'select';
+  if (['customerId', 'deptId', 'warehouseId', 'stockTypeId'].includes(field)) return 'relation';
+  if (field === 'quantity') return 'number';
+  return 'textarea';
+}
+
+function goodsOutboundSelectOptions(field) {
+  if (field === 'outboundMode') {
+    return [
+      { label: '顧客出庫', value: GOODS_OUTBOUND_MODE_CUSTOMER },
+      { label: '組別分貨', value: GOODS_OUTBOUND_MODE_DEPT },
+    ];
+  }
+  return scopedSelectOptions(field);
+}
+
+function isGoodsOutboundFieldRequired(field) {
+  if (field === 'customerId') return goodsOutboundForm.outboundMode === GOODS_OUTBOUND_MODE_CUSTOMER;
+  if (field === 'deptId') return goodsOutboundForm.outboundMode === GOODS_OUTBOUND_MODE_DEPT;
+  return ['outboundMode', 'warehouseId', 'stockTypeId', 'quantity'].includes(field);
+}
+
+function goodsOutboundPlaceholder(field) {
+  if (field === 'quantity') return `最大 ${availableGoodsOutboundQty(activeGoodsRowKey.value)}`;
+  return '';
+}
+
+function goodsOutboundNumberMin(field) {
+  if (field === 'quantity') return 1;
+  return numberMinByField(field);
+}
+
+function goodsOutboundNumberMax(field) {
+  if (field === 'quantity') return availableGoodsOutboundQty(activeGoodsRowKey.value);
+  return undefined;
+}
+
+async function submitGoodsOutbound() {
+  const rowKey = activeGoodsRowKey.value;
+  const maxQty = availableGoodsOutboundQty(rowKey);
+  const quantity = Number(goodsOutboundForm.quantity);
+  if (!maxQty || quantity > maxQty) {
+    message.warning(`出庫数量は${maxQty}以下で入力してください`);
+    return;
+  }
+  const success = await submitGoodsStockOutboundFlow({
+    formState: goodsOutboundForm,
+    maxQuantity: maxQty,
+    closeModal: () => {
+      goodsOutboundModalOpen.value = false;
+    },
+    reload,
+    notify: message,
+  });
+  if (success && rowKey) {
+    goodsFlowByRowKey[rowKey].outboundQty = Number(goodsFlowByRowKey[rowKey]?.outboundQty || 0) + quantity;
+  }
+}
+
+function isGoodsInboundDone(record) {
+  const state = goodsFlowByRowKey[goodsRowKey(record)];
+  return Boolean(state && Number(state.inboundQty) > 0);
+}
+
+function canGoodsOutbound(record) {
+  return isGoodsInboundDone(record) && availableGoodsOutboundQty(goodsRowKey(record)) > 0;
+}
+
+function availableGoodsOutboundQty(rowKey) {
+  const state = goodsFlowByRowKey[rowKey] || {};
+  const inboundQty = Number(state.inboundQty || 0);
+  const outboundQty = Number(state.outboundQty || 0);
+  if (inboundQty > 0) {
+    return Math.max(0, inboundQty - outboundQty);
+  }
+  const record = rows.value.find((item) => goodsRowKey(item) === rowKey);
+  return Math.max(0, Number(record?.currentQty || 0));
+}
+
+function goodsRowKey(record) {
+  const key = getRecordId(record) ?? record?.goodsId ?? record?.id;
+  return key === undefined || key === null ? '' : String(key);
 }
 
 function openRequestItemCandidateModal() {
@@ -629,7 +879,7 @@ async function openEdit(record) {
 async function loadStockDetail(record) {
   if (!isSplitStockManagement.value) return record;
   try {
-    const detail = await fetchItem(props.moduleKey, getRecordId(record));
+    const detail = await fetchItem(modulePath.value, getRecordId(record));
     return detail && typeof detail === 'object' ? { ...record, ...detail } : record;
   } catch (error) {
     message.error(error?.message || TABLE_TEXT.fetchFail);
@@ -710,7 +960,7 @@ function applyDefaultSplitStockWarehouse() {
     && current !== null
     && options.some((option) => String(option.value) === String(current));
   if (hasCurrent) return;
-  if (options.length === 1 || !editing.value) {
+  if (options.length === 1 || (!editing.value && props.moduleKey !== 'stock')) {
     const preferred = findSplitStockWarehouseOption(options);
     formState.warehouseId = (preferred || options[0]).value;
   }
@@ -725,9 +975,7 @@ function findSplitStockWarehouseOption(options) {
 }
 
 function splitStockWarehouseKeywords() {
-  return props.moduleKey === 'stockHandle'
-    ? ['ハンドル', 'handle', '柄']
-    : ['自社', 'self'];
+  return [];
 }
 
 function firstNonEmpty(record, fields) {
@@ -779,6 +1027,16 @@ async function onDelete(record) {
   if (!canWrite.value || !canDeleteRecord(record)) return;
   if (props.moduleKey === 'requestItem') {
     await removeRequestItem(record, getRecordId);
+    return;
+  }
+  if (isSplitStockManagement.value) {
+    try {
+      await removeItem(modulePath.value, getRecordId(record));
+      message.success(TABLE_TEXT.deleteSuccess);
+      await reload();
+    } catch (error) {
+      message.error(error.message || TABLE_TEXT.deleteFail);
+    }
     return;
   }
   await onDeleteState(record, getRecordId);
@@ -917,6 +1175,10 @@ const {
 });
 
 async function handleRowExtraAction(actionKey, record) {
+  if (actionKey === 'inbound') {
+    await openGoodsInboundModal(record);
+    return;
+  }
   if (actionKey === 'returnInbound') {
     await submitStockOrderItemReturnFlow({
       record,
@@ -932,6 +1194,9 @@ async function handleRowExtraAction(actionKey, record) {
 }
 
 function canShowRowExtraAction(actionKey, record) {
+  if (actionKey === 'inbound') {
+    return props.moduleKey === 'goods' && Boolean(record);
+  }
   if (actionKey === 'returnInbound') {
     return props.moduleKey === 'stockOrderItem' && isCompletedOutboundRecord(record);
   }
@@ -939,6 +1204,7 @@ function canShowRowExtraAction(actionKey, record) {
 }
 
 function canCreateInModule() {
+  if (props.moduleKey === 'stock') return false;
   if (props.moduleKey === 'requestItem' && isCurrentRequestCompleted()) return false;
   if (props.allDataWrite) return isGoodsManagement.value || formKeys.value.length > 0;
   if (props.moduleActions && !props.moduleActions.create) return false;
@@ -989,6 +1255,7 @@ function isCurrentRequestCompleted() {
 }
 
 function canBatchDeleteInModule() {
+  if (props.moduleKey === 'stock') return false;
   if (props.allDataWrite) return props.moduleKey !== 'requestItem';
   if (props.moduleActions && !props.moduleActions.batchDelete) return false;
   if (props.moduleKey === 'requestItem') return false;

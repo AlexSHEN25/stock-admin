@@ -62,9 +62,6 @@ export async function removeItems(modulePath, ids) {
       () => http.post('/api/goods/batch', list),
     );
   }
-  if (modulePath === 'stockSelf' || modulePath === 'stockHandle') {
-    return http.delete(`/api/${resolveModulePath(modulePath)}/batch`, { data: list });
-  }
   for (const id of list) {
     // keep compatibility for other modules without batch endpoint
     // eslint-disable-next-line no-await-in-loop
@@ -276,7 +273,5 @@ function normalizePageSize(input) {
 }
 
 function resolveModulePath(modulePath) {
-  if (modulePath === 'stockSelf') return 'stock/self';
-  if (modulePath === 'stockHandle') return 'stock/handle';
   return modulePath;
 }

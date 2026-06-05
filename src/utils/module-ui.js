@@ -38,7 +38,7 @@ export const MODULE_LAYOUT_CONFIG = {
   },
 };
 
-export const TABLE_TEXT = {
+const TABLE_TEXT = {
   search: '\u691c\u7d22',
   reset: '\u30ea\u30bb\u30c3\u30c8',
   confirmBatchDelete: '\u9078\u629e\u884c\u3092\u524a\u9664\u3057\u307e\u3059\u304b',
@@ -76,12 +76,18 @@ export const TABLE_TEXT = {
   pdf: 'PDF',
   downloadFail: '\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9\u5931\u6557',
   detail: '\u660e\u7d30',
+  inbound: '\u5165\u5eab',
+  inboundDone: '\u5165\u5eab\u6e08\u307f',
+  outbound: '\u51fa\u5eab',
   addOutboundDetail: '\u51fa\u5eab\u660e\u7d30\u8ffd\u52a0',
   returnInbound: '\u8fd4\u5374\u5165\u5eab',
   reapplyInbound: '\u518d\u5165\u5eab\u7533\u8acb',
   reapplyInboundSuccess: '\u5165\u5eab\u7533\u8acb\u3092\u4f5c\u6210\u3057\u307e\u3057\u305f',
   reapplyInboundFail: '\u5165\u5eab\u7533\u8acb\u4f5c\u6210\u5931\u6557',
+  stockOutboundSuccess: '出庫を登録しました',
+  outboundQuantityInvalid: '出庫数量は1以上で入力してください',
 };
+export default TABLE_TEXT
 
 export const PASSWORD_MESSAGES = {
   empty: '\u65b0\u3057\u3044\u30d1\u30b9\u30ef\u30fc\u30c9\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044',
@@ -208,12 +214,6 @@ export const MODULE_ENUM_FIELD_OPTIONS = {
   stock: {
     sourceType: ENUM_OPTIONS.stockSourceType,
   },
-  stockSelf: {
-    sourceType: ENUM_OPTIONS.stockSourceType,
-  },
-  stockHandle: {
-    sourceType: ENUM_OPTIONS.stockSourceType,
-  },
   stockOrder: {
     orderType: ENUM_OPTIONS.stockOrderType,
     sourceType: ENUM_OPTIONS.stockOrderSourceType,
@@ -235,6 +235,9 @@ export const MODULE_ENUM_FIELD_OPTIONS = {
 
 export const ADMIN_PERMISSION_MARKERS = [
   'ROLE_SUPER_ADMIN',
+  'ROLE_ADMIN',
+  'SUPER_ADMIN',
+  'ADMIN',
   'DATA_ALL_WRITE',
 ];
 

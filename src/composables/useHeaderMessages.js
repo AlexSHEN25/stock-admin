@@ -2,7 +2,7 @@ import { ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import { fetchPage } from '../api/module';
 import { filterUnreadMessages, markAllMessagesRead, markMessageRead, removeMessageById } from '../utils/message';
-import { HEADER_UI, MODULE_LAYOUT_CONFIG, TABLE_TEXT } from '../utils/module-ui';
+import TABLE_TEXT, { HEADER_UI, MODULE_LAYOUT_CONFIG } from '../utils/module-ui';
 
 const HEADER_MESSAGE_SOURCE_NAVIGATIONS = MODULE_LAYOUT_CONFIG.headerMessageSourceNavigations || {};
 

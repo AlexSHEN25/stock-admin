@@ -1,6 +1,6 @@
 import { computed, onBeforeUnmount, reactive, ref } from 'vue';
 import { createItem, fetchGoodsDetail, updateItem, uploadFileByBizType } from '../api/module';
-import { TABLE_TEXT } from '../utils/module-ui';
+import TABLE_TEXT from '../utils/module-ui';
 
 export function useGoodsDrawer(options) {
   const {

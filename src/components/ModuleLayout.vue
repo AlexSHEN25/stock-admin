@@ -219,10 +219,7 @@ const activeModuleActions = computed(() => {
       inlineEdit: true,
     };
   }
-  const key = activeModule.value === 'stockSelf' || activeModule.value === 'stockHandle'
-    ? 'stock'
-    : activeModule.value;
-  const scope = (props.menuScopes || []).find((item) => item?.key === key);
+  const scope = (props.menuScopes || []).find((item) => item?.key === activeModule.value);
   return scope?.actions || {
     read: true,
     create: false,

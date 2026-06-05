@@ -198,6 +198,7 @@ export const FIELD_LABELS = {
   requestQty: '請求数量',
   approveQty: '承認数量',
   outQty: '出庫数量',
+  outboundMode: '出庫区分',
   totalAmt: '総金額',
   state: '状態コード',
   approverId: '承認人',
@@ -267,6 +268,7 @@ export function displayKeys(record) {
 
   return keyList.filter((key) => {
     const low = key.toLowerCase();
+    if (String(key).startsWith('__')) return false;
     if (low === 'beforeqty' || low === 'afterqty' || low === 'lockqty') return false;
     if (!low.endsWith('id') && !low.endsWith('ids')) return true;
     if (low === 'id') return true;

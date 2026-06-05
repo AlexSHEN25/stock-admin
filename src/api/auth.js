@@ -52,10 +52,10 @@ function normalizePermissionPayload(payload) {
     ...explicitRoleCodes,
     ...(Array.isArray(payload?.codes) ? payload.codes : []),
   ];
+  const normalizedCodes = splitScopeCodes(merged);
 
   return {
-    ...splitScopeCodes(merged),
-    roleCodes: [...new Set(explicitRoleCodes.map((code) => String(code || '').trim()).filter(Boolean))],
+    ...normalizedCodes,
     superAdmin: Boolean(payload?.superAdmin),
     allDataWrite: Boolean(payload?.allDataWrite),
     menus: normalizeMenuScopes(payload?.menus),

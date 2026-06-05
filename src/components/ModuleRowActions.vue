@@ -1,5 +1,25 @@
 <template>
   <a-space>
+    <a-button
+      v-if="showInbound"
+      type="primary"
+      size="small"
+      @click="$emit('inbound', record)"
+    >
+      {{ inboundDone ? tableText.inboundDone : tableText.inbound }}
+    </a-button>
+
+    <a-button
+      v-if="showInbound"
+      type="primary"
+      size="small"
+      danger
+      :disabled="!canOutbound"
+      @click="$emit('outbound', record)"
+    >
+      {{ tableText.outbound }}
+    </a-button>
+
     <a
       v-for="action in actions"
       v-show="canShowExtraAction(action.key, record)"
@@ -47,6 +67,9 @@ defineProps({
   canEdit: { type: Boolean, default: false },
   canDelete: { type: Boolean, default: false },
   editing: { type: Boolean, default: false },
+  showInbound: { type: Boolean, default: false },
+  inboundDone: { type: Boolean, default: false },
+  canOutbound: { type: Boolean, default: false },
   canShowExtraAction: { type: Function, required: true },
 });
 
@@ -57,5 +80,7 @@ defineEmits([
   'cancel',
   'edit',
   'delete',
+  'inbound',
+  'outbound',
 ]);
 </script>

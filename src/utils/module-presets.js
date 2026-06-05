@@ -47,8 +47,7 @@ export const MODULE_GROUPS = [
     key: 'stock',
     label: '在庫管理',
     children: [
-      { key: 'stockSelf', label: '自社在庫管理' },
-      { key: 'stockHandle', label: 'ハンドル在庫管理' },
+      { key: 'stock', label: '自社在庫管理' },
       { key: 'stockOrder', label: '入出庫伝票' },
       { key: 'stockOrderItem', label: '入出庫明細' },
       { key: 'stockType', label: '在庫分類' },
@@ -95,7 +94,7 @@ export const MODULE_PRESETS = {
     fieldTypes: { leaderId: 'relation', sort: 'number', status: 'select' },
   },
   goods: {
-    queryFields: ['id', 'name', 'englishName', 'seriesId', 'brandId', 'categoryId', 'makerId', 'sort', 'status', 'isHot'],
+    queryFields: ['id', 'name', 'englishName', 'seriesId', 'brandId', 'categoryId', 'makerId', 'currentQty', 'sort', 'status', 'isHot'],
     formFields: ['name', 'englishName', 'brandId', 'seriesId', 'categoryId', 'makerId', 'description', 'isHot', 'skuCode', 'skuName', 'price', 'status'],
     fieldTypes: {
       brandId: 'relation',
@@ -109,8 +108,6 @@ export const MODULE_PRESETS = {
     },
   },
   stock: STOCK_PRESET,
-  stockSelf: STOCK_PRESET,
-  stockHandle: STOCK_PRESET,
   stockOrder: {
     queryFields: ['id', 'orderNo', 'orderType', 'bizDate', 'stockTypeId', 'warehouseId', 'sourceType', 'sourceId', 'totalQty', 'state', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'approverId', 'approverName', 'approveTime', 'finishTime', 'remark'],
     formFields: ['orderType', 'bizDate', 'warehouseId', 'sourceType', 'stockTypeId', 'state', 'remark'],
@@ -314,8 +311,6 @@ export const REQUIRED_FORM_FIELDS = {
   dept: ['name', 'code', 'status'],
   goods: ['name', 'englishName', 'brandId', 'seriesId', 'categoryId', 'makerId', 'skuCode'],
   stock: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity'],
-  stockSelf: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity'],
-  stockHandle: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity'],
   stockOrder: ['orderType', 'bizDate', 'warehouseId', 'sourceType', 'stockTypeId', 'state'],
   stockOrderItem: ['orderId', 'goodsId', 'skuId', 'goodsName', 'changeQty'],
   stockRecord: ['bizNo', 'orderId', 'orderItemId', 'stockId', 'goodsId', 'skuId', 'goodsName', 'changeQty', 'orderType', 'sourceType'],

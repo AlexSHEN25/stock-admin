@@ -32,9 +32,10 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { message, theme } from 'ant-design-vue';
 import { fetchPermissionScope, logout } from './api/auth';
-import { TOKEN_KEY } from './api/http';
+import { clearAuthToken, getStoredToken, saveAuthToken } from './api/http';
 import LoginForm from './components/LoginForm.vue';
 import ModuleLayout from './components/ModuleLayout.vue';
+import { isAdminByPermissionCodes } from './utils/module-ui';
 
 const THEME_KEY = 'stock_admin_theme_dark';
 const USERNAME_KEY = 'stock_admin_username';
@@ -47,7 +48,7 @@ const APP_MESSAGES = {
   loginSuccess: 'ログインしました',
 };
 
-const token = ref(localStorage.getItem(TOKEN_KEY));
+const token = ref(getStoredToken());
 const darkMode = ref(localStorage.getItem(THEME_KEY) === '1');
 const currentUser = ref(localStorage.getItem(USERNAME_KEY) || '');
 const menuCodes = ref([]);
@@ -73,6 +74,7 @@ onBeforeUnmount(() => {
 function handleAuthExpired() {
   token.value = null;
   currentUser.value = '';
+  clearAuthToken();
   localStorage.removeItem(USERNAME_KEY);
   menuCodes.value = [];
   permissionCodes.value = [];
@@ -83,7 +85,7 @@ function handleAuthExpired() {
 }
 
 function onLoginSuccess(payload) {
-  localStorage.setItem(TOKEN_KEY, payload.token);
+  saveAuthToken(payload.token);
 
   const displayName = String(
     payload?.username
@@ -124,7 +126,7 @@ async function onLogout() {
     // noop
   }
 
-  localStorage.removeItem(TOKEN_KEY);
+  clearAuthToken();
   localStorage.removeItem(USERNAME_KEY);
   token.value = null;
   currentUser.value = '';
@@ -141,7 +143,14 @@ async function loadPermissions() {
     menuCodes.value = scope.menuCodes || [];
     permissionCodes.value = scope.permissionCodes || [];
     menuScopes.value = scope.menus || [];
-    allDataWrite.value = Boolean(scope.allDataWrite || scope.superAdmin);
+    allDataWrite.value = Boolean(
+      scope.allDataWrite
+      || scope.superAdmin
+      || isAdminByPermissionCodes([
+        ...(scope.permissionCodes || []),
+        ...(scope.roleCodes || []),
+      ])
+    );
     permissionReady.value = true;
   } catch (error) {
     menuCodes.value = [];
@@ -149,7 +158,7 @@ async function loadPermissions() {
     menuScopes.value = [];
     allDataWrite.value = false;
     permissionReady.value = false;
-    localStorage.removeItem(TOKEN_KEY);
+    clearAuthToken();
     localStorage.removeItem(USERNAME_KEY);
     token.value = null;
     currentUser.value = '';

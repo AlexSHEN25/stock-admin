@@ -1,9 +1,13 @@
-import { TOKEN_KEY } from '../api/http';
+import { getStoredToken } from '../api/http';
 
 export async function downloadRequestFormFile(recordId, fallbackMessage, format = 'excel') {
   if (!recordId) return;
 
-  const token = localStorage.getItem(TOKEN_KEY) || '';
+  const token = getStoredToken();
+  if (!token) {
+    window.dispatchEvent(new CustomEvent('auth-expired'));
+    throw new Error('ログインの有効期限が切れました');
+  }
   let response = await requestWithFallback(recordId, token, format);
   if (!response.ok) {
     throw new Error(`${fallbackMessage}(${response.status})`);

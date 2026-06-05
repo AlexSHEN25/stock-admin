@@ -1,7 +1,7 @@
 ﻿import { reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
 import { createItem, fetchPage, removeItem, removeItems, updateItem } from '../api/module';
-import { TABLE_TEXT } from '../utils/module-ui';
+import TABLE_TEXT from '../utils/module-ui';
 
 export function useModuleTableState(options) {
   const {

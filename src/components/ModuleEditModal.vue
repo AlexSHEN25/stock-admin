@@ -52,6 +52,7 @@
           v-else-if="inputType(field) === 'number' || inputType(field) === 'decimal'"
           v-model:value="form[field]"
           :min="numberMinByField(field)"
+          :max="numberMaxByField(field)"
           :precision="numberPrecisionByField(field)"
           style="width: 100%"
         />
@@ -100,6 +101,7 @@ const props = defineProps({
   formPlaceholder: { type: Function, required: true },
   isMultiRelationField: { type: Function, required: true },
   numberMinByField: { type: Function, required: true },
+  numberMaxByField: { type: Function, default: () => undefined },
   numberPrecisionByField: { type: Function, required: true },
   selectOptions: { type: Function, required: true },
 });

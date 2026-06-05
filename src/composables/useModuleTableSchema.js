@@ -1,5 +1,5 @@
 import { computed } from 'vue';
-import { GOODS_TABLE_CONFIG, TABLE_TEXT } from '../utils/module-ui';
+import TABLE_TEXT, { GOODS_TABLE_CONFIG } from '../utils/module-ui';
 import { buildAutoQueryFields, displayKeys } from '../utils/module';
 
 export function useModuleTableSchema(options) {
@@ -79,7 +79,7 @@ export function useModuleTableSchema(options) {
       {
         title: TABLE_TEXT.actions,
         key: '__actions',
-        width: 140,
+        width: isGoodsManagement.value ? 220 : 140,
         fixed: 'right',
       },
     ];

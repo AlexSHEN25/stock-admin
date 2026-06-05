@@ -113,7 +113,7 @@ export function useModuleMenu(options) {
     const filtered = MODULE_GROUPS
       .map((group) => ({
         ...group,
-        children: group.children.filter((item) => allowedModules.value.has(item.key) || scopeItems.some((scope) => expandModuleKey(scope.key).includes(item.key))),
+        children: group.children.filter((item) => allowedModules.value.has(item.key) || scopeItems.some((scope) => scope.key === item.key)),
       }))
       .filter((group) => group.children.length > 0);
 
@@ -167,11 +167,6 @@ export function useModuleMenu(options) {
 
   function hasDanglingMenuLabelSeparator(label) {
     return /[-－ー]\s*$/.test(String(label || ''));
-  }
-
-  function expandModuleKey(key) {
-    if (key === 'stock') return ['stockSelf', 'stockHandle'];
-    return [key];
   }
 
   return {
