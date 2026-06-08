@@ -118,7 +118,7 @@ export const MODULE_PRESETS = {
   stockGroupC: STOCK_PRESET,
   stockOrder: {
     queryFields: ['id', 'orderNo', 'orderType', 'bizDate', 'stockTypeId', 'warehouseId', 'sourceType', 'sourceId', 'totalQty', 'state', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'approverId', 'approverName', 'approveTime', 'finishTime', 'remark'],
-    formFields: ['orderType', 'bizDate', 'warehouseId', 'sourceType', 'stockTypeId', 'state', 'remark'],
+    formFields: ['orderType', 'bizDate', 'warehouseId', 'sourceType', 'stockTypeId', 'remark'],
     fieldTypes: {
       warehouseId: 'relation',
       stockTypeId: 'relation',

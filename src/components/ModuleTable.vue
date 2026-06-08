@@ -296,6 +296,7 @@ import { useRequestItemCandidates } from '../composables/useRequestItemCandidate
 import { useRelationOptions } from '../composables/useRelationOptions';
 import { useModuleTableSchema } from '../composables/useModuleTableSchema';
 import { useModuleTableState } from '../composables/useModuleTableState';
+import { approveStockOrder } from '../api/module';
 import { downloadRequestFormFile, downloadRequestFormPdf } from '../utils/download';
 import { markAllMessageListRead, markAllMessagesRead, markMessageListRead, markMessageRead } from '../utils/message';
 import { submitDeliveryAllocationFlow, submitGoodsStockOutboundFlow, submitSheetStockInboundFlow, submitSheetStockOutboundFlow, submitStockInboundFlow, submitStockOrderItemReturnFlow, submitStockQuantityAdjustment } from '../utils/stock';
@@ -1542,6 +1543,10 @@ const {
 });
 
 async function handleRowExtraAction(actionKey, record) {
+  if (props.moduleKey === 'stockOrder' && (actionKey === 'approve' || actionKey === 'reject')) {
+    await submitStockOrderApproval(record, actionKey === 'approve');
+    return;
+  }
   if (actionKey === 'inbound') {
     await openGoodsInboundModal(record);
     return;
@@ -1561,6 +1566,9 @@ async function handleRowExtraAction(actionKey, record) {
 }
 
 function canShowRowExtraAction(actionKey, record) {
+  if (props.moduleKey === 'stockOrder' && (actionKey === 'approve' || actionKey === 'reject')) {
+    return Boolean(props.allDataWrite) && Number(record?.state ?? record?.orderState) !== 2;
+  }
   if (actionKey === 'inbound') {
     return props.moduleKey === 'goods' && Boolean(record);
   }
@@ -1640,6 +1648,7 @@ function canDeleteRecord(_record) {
 function canEditRecord(record) {
   if (props.moduleKey === 'requestForm' && isCompletedRequestRecord(record)) return false;
   if (props.moduleKey === 'requestItem' && (isCompletedRequestRecord(record) || isCurrentRequestCompleted())) return false;
+  if (props.moduleKey === 'stockOrder' && Number(record?.state ?? record?.orderState) === 2) return false;
   if (props.allDataWrite) return true;
   if (props.moduleActions && !props.moduleActions.edit) return false;
   return canEditModuleRecord(props.moduleKey, record, props.currentUser, props.permissionCodes || []);
@@ -1649,10 +1658,23 @@ function canInlineEditRecord(record) {
   if (props.moduleKey === 'requestForm' && isCompletedRequestRecord(record)) return false;
   if (props.moduleKey === 'requestItem' && (isCompletedRequestRecord(record) || isCurrentRequestCompleted())) return false;
   if (props.moduleKey === 'requestItem') return false;
+  if (props.moduleKey === 'stockOrder' && Number(record?.state ?? record?.orderState) === 2) return false;
   if (props.allDataWrite) return props.moduleKey !== 'goods';
   if (props.moduleActions && !props.moduleActions.inlineEdit) return false;
   if (props.moduleKey === 'goods') return false;
   return canInlineEditModuleRecord(props.moduleKey, record, props.currentUser, props.permissionCodes || []);
+}
+
+async function submitStockOrderApproval(record, approved) {
+  const orderId = getRecordId(record);
+  if (!orderId) return;
+  try {
+    await approveStockOrder(orderId, approved);
+    message.success(approved ? '承認しました' : '拒否しました');
+    await reload();
+  } catch (error) {
+    message.error(error?.message || TABLE_TEXT.saveFail);
+  }
 }
 
 function isMultiRelationField(field) {

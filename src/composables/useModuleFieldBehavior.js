@@ -11,6 +11,7 @@ const STOCK_ORDER_BACKEND_FIELDS = new Set([
   'approverid',
   'approvetime',
   'finishtime',
+  'state',
 ]);
 const REQUEST_FORM_BACKEND_FIELDS = new Set([
   'bizno',
@@ -133,6 +134,7 @@ export function useModuleFieldBehavior(options) {
       delete output.sourceId;
       delete output.orderNo;
       delete output.totalQty;
+      delete output.state;
       delete output.requesterId;
       delete output.requesterName;
       delete output.operatorId;

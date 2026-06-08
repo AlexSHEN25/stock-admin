@@ -257,7 +257,7 @@ export function useRequestItemCandidates(options) {
     if (!key || candidateInboundLoadingKeys.value.some((item) => String(item) === String(key))) return;
     if (isCandidateInboundApplied(record)) return;
     if (!requestId || !isCandidateAdded(record)) {
-      notify.warning('蜈医↓邏榊刀莠亥ｮ壹∈霑ｽ蜉縺励※縺上□縺輔＞');
+      notify.warning('表示する請求書を選択してください');
       return;
     }
 
@@ -276,7 +276,7 @@ export function useRequestItemCandidates(options) {
       ];
       record.inboundApplied = true;
       record.inboundOrderId = inboundOrderId || record.inboundOrderId;
-      notify.success('邏榊刀莠亥ｮ壹°繧牙・蠎ｫ逕ｳ隲九ｒ菴懈・縺励∪縺励◆');
+      notify.success('納品予定から入庫申請を作成しました');
       await refreshRequestItemContext();
     } catch (error) {
       notify.error(error?.message || TABLE_TEXT.saveFail);
@@ -334,7 +334,7 @@ export function useRequestItemCandidates(options) {
         orderItemIds: stockOrderItemId ? [stockOrderItemId] : undefined,
         requestItemIds: requestItemId ? [requestItemId] : undefined,
       });
-      notify.success('邏榊刀莠亥ｮ壹°繧牙膚蜩√ｒ蜑企勁縺励∪縺励◆');
+      notify.success('納品予定から商品を削除しました');
       await refreshRequestItemContext();
     } catch (error) {
       notify.error(error?.message || TABLE_TEXT.deleteFail);

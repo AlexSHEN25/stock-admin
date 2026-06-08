@@ -198,7 +198,11 @@ export const MODULE_DETAIL_NAVIGATIONS = {
 };
 
 export const MODULE_ROW_EXTRA_ACTIONS = {
-  stockOrder: [{ key: 'detail', label: TABLE_TEXT.detail }],
+  stockOrder: [
+    { key: 'approve', label: '承認' },
+    { key: 'reject', label: '拒否' },
+    { key: 'detail', label: TABLE_TEXT.detail },
+  ],
   stockOrderItem: [{ key: 'returnInbound', label: TABLE_TEXT.returnInbound }],
   requestForm: [
     { key: 'detail', label: TABLE_TEXT.detail },

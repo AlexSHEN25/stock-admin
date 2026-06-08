@@ -96,6 +96,13 @@ export async function fetchOutboundStockOrderOptions() {
   return page.records || [];
 }
 
+export async function approveStockOrder(orderId, approved) {
+  if (orderId === undefined || orderId === null || String(orderId).trim() === '') return null;
+  return http.post(`/api/stock/approve/${orderId}`, null, {
+    params: { approved: Boolean(approved) },
+  });
+}
+
 export async function fetchEnumOptions(enumKey) {
   if (!enumKey) return [];
   const data = await http.get('/api/meta/enum-options', { params: { enumKey } });
