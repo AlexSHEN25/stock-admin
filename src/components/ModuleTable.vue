@@ -105,12 +105,6 @@
             {{ normalizeDisplayLabel(record.statusDesc || (Number(record.status) === 1 ? 'ON' : 'OFF')) }}
           </a-tag>
         </template>
-        <template v-else-if="column.key === 'updateTime'">
-          {{ formatTime(record.updateTime) }}
-        </template>
-        <template v-else-if="String(column.key) === 'bizDate'">
-          {{ formatBizDate(record) }}
-        </template>
         <template v-else-if="String(column.key) === 'isHot'">
           {{ Number(record.isHot) === 1 ? TABLE_TEXT.hotYes : TABLE_TEXT.hotNo }}
         </template>
@@ -558,7 +552,6 @@ const {
 });
 const {
   tablePagination,
-  formatBizDate,
   enumLabelMerged,
   getRecordId,
   isPermissionNamesField,

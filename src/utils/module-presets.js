@@ -48,7 +48,7 @@ export const MODULE_GROUPS = [
     label: '在庫管理',
     children: [
       { key: 'stockSelf', label: '自社在庫管理' },
-      { key: 'stockSummary', label: 'まとめ納品書' },
+      { key: 'stockSummary', label: 'まとめ納品書明細' },
       { key: 'stockGroupA', label: 'A組在庫管理', groupCode: 'A' },
       { key: 'stockGroupB', label: 'B組在庫管理', groupCode: 'B' },
       { key: 'stockGroupC', label: 'C組在庫管理', groupCode: 'C' },
@@ -63,7 +63,7 @@ export const MODULE_GROUPS = [
     key: 'request',
     label: '請求書管理',
     children: [
-      { key: 'requestForm', label: '請求書管理' },
+      { key: 'requestForm', label: '請求書明細' },
       { key: 'requestItem', label: '請求書明細' },
     ],
   },
