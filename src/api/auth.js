@@ -58,8 +58,25 @@ function normalizePermissionPayload(payload) {
     ...normalizedCodes,
     superAdmin: Boolean(payload?.superAdmin),
     allDataWrite: Boolean(payload?.allDataWrite),
+    userId: Number(payload?.userId ?? payload?.user?.id ?? 0) || null,
+    deptId: Number(payload?.deptId ?? payload?.user?.deptId ?? payload?.dept?.id ?? 0) || null,
+    deptName: String(payload?.deptName ?? payload?.user?.deptName ?? payload?.dept?.name ?? '').trim(),
+    groupCode: normalizeGroupCode(
+      payload?.groupCode
+      ?? payload?.stockGroup
+      ?? payload?.user?.groupCode
+      ?? payload?.dept?.groupCode
+      ?? payload?.deptName
+      ?? payload?.dept?.name,
+    ),
     menus: normalizeMenuScopes(payload?.menus),
   };
+}
+
+function normalizeGroupCode(value) {
+  const text = String(value || '').trim().toUpperCase();
+  const match = text.match(/(?:^|[^A-Z])([ABC])(?:組|组|GROUP|$)/i);
+  return match ? match[1].toUpperCase() : '';
 }
 
 function splitScopeCodes(source) {

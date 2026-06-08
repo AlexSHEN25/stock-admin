@@ -87,7 +87,7 @@ const TABLE_TEXT = {
   stockOutboundSuccess: '出庫を登録しました',
   outboundQuantityInvalid: '出庫数量は1以上で入力してください',
 };
-export default TABLE_TEXT
+export default TABLE_TEXT;
 
 export const PASSWORD_MESSAGES = {
   empty: '\u65b0\u3057\u3044\u30d1\u30b9\u30ef\u30fc\u30c9\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044',
@@ -124,6 +124,7 @@ export const GOODS_TABLE_CONFIG = {
     'newPrice',
     'discount',
     'currency',
+    'inventoryStatus',
     'currentQty',
     'beforeQty',
     'changeQty',

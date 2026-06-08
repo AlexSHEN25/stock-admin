@@ -4,6 +4,7 @@
       v-if="showInbound"
       type="primary"
       size="small"
+      :disabled="inboundDone"
       @click="$emit('inbound', record)"
     >
       {{ inboundDone ? tableText.inboundDone : tableText.inbound }}

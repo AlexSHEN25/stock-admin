@@ -80,6 +80,10 @@ export async function fetchModuleOptions(modulePath) {
   return page.records || [];
 }
 
+export async function fetchMyGroupStockAvailable(params) {
+  return Number(await http.get('/api/stock/group/available', { params })) || 0;
+}
+
 export async function fetchOutboundStockOrderOptions() {
   const page = await fetchPage('stockOrder', {
     pageNum: 1,
@@ -189,6 +193,10 @@ export async function removeRequestItems(payload) {
 export async function reapplyRequestInbound(id) {
   if (id === undefined || id === null || String(id).trim() === '') return null;
   return http.post(`/api/requestForm/reapplyInbound/${id}`);
+}
+
+export async function reapplyRequestItemInbound(payload) {
+  return http.post('/api/requestForm/items/reapplyInbound', payload || {});
 }
 
 export async function addRequestItemsFromStockOrder(payload) {

@@ -130,6 +130,9 @@
           :all-data-write="allDataWrite"
           :permission-ready="permissionReady"
           :current-user="currentUser"
+          :current-dept-id="currentDeptId"
+          :current-dept-name="currentDeptName"
+          :current-group-code="currentGroupCode"
           @navigate-module="onNavigateModule"
         />
         <a-empty
@@ -188,6 +191,9 @@ const props = defineProps({
   allDataWrite: { type: Boolean, default: false },
   permissionReady: { type: Boolean, default: false },
   currentUser: { type: String, default: '' },
+  currentDeptId: { type: Number, default: null },
+  currentDeptName: { type: String, default: '' },
+  currentGroupCode: { type: String, default: '' },
 });
 
 defineEmits(['logout', 'toggle-theme']);
@@ -206,6 +212,8 @@ const {
   permissionCodes: toRef(props, 'permissionCodes'),
   menuScopes: toRef(props, 'menuScopes'),
   permissionReady: toRef(props, 'permissionReady'),
+  allDataWrite: toRef(props, 'allDataWrite'),
+  currentGroupCode: toRef(props, 'currentGroupCode'),
 });
 
 const activeModuleActions = computed(() => {
@@ -219,7 +227,10 @@ const activeModuleActions = computed(() => {
       inlineEdit: true,
     };
   }
-  const scope = (props.menuScopes || []).find((item) => item?.key === activeModule.value);
+  const permissionKey = ['stockSelf', 'stockSummary', 'stockGroupA', 'stockGroupB', 'stockGroupC'].includes(activeModule.value)
+    ? 'stock'
+    : activeModule.value;
+  const scope = (props.menuScopes || []).find((item) => item?.key === permissionKey);
   return scope?.actions || {
     read: true,
     create: false,

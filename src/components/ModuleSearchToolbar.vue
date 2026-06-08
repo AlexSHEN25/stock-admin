@@ -74,19 +74,27 @@
         {{ tableText.create }}
       </a-button>
       <a-button
+        v-if="canWrite && canSheetInbound"
+        type="primary"
+        class="search-btn"
+        @click="$emit('sheet-inbound')"
+      >
+        表格式入庫
+      </a-button>
+      <a-button
+        v-if="canWrite && canSheetOutbound"
+        type="primary"
+        class="search-btn"
+        @click="$emit('sheet-outbound')"
+      >
+        納品振分
+      </a-button>
+      <a-button
         v-if="moduleKey === 'message' && canWrite"
         class="search-btn"
         @click="$emit('read-all')"
       >
         {{ tableText.readAll }}
-      </a-button>
-      <a-button
-        v-if="moduleKey === 'requestItem' && canWrite && canCreate"
-        type="primary"
-        class="search-btn"
-        @click="$emit('open-candidates')"
-      >
-        {{ tableText.addOutboundDetail }}
       </a-button>
     </div>
   </div>
@@ -103,6 +111,8 @@ const props = defineProps({
   canWrite: { type: Boolean, default: false },
   canBatchDelete: { type: Boolean, default: false },
   canCreate: { type: Boolean, default: false },
+  canSheetInbound: { type: Boolean, default: false },
+  canSheetOutbound: { type: Boolean, default: false },
   selectedCount: { type: Number, default: 0 },
   queryInputType: { type: Function, required: true },
   queryOptions: { type: Function, required: true },
@@ -116,8 +126,9 @@ const emit = defineEmits([
   'reset',
   'batch-delete',
   'create',
+  'sheet-inbound',
+  'sheet-outbound',
   'read-all',
-  'open-candidates',
   'update-field',
 ]);
 const showCreateButton = computed(() => (

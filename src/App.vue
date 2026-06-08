@@ -22,6 +22,9 @@
       :all-data-write="allDataWrite"
       :permission-ready="permissionReady"
       :current-user="currentUser"
+      :current-dept-id="currentDeptId"
+      :current-dept-name="currentDeptName"
+      :current-group-code="currentGroupCode"
       @toggle-theme="onToggleTheme"
       @logout="onLogout"
     />
@@ -51,6 +54,9 @@ const APP_MESSAGES = {
 const token = ref(getStoredToken());
 const darkMode = ref(localStorage.getItem(THEME_KEY) === '1');
 const currentUser = ref(localStorage.getItem(USERNAME_KEY) || '');
+const currentDeptId = ref(null);
+const currentDeptName = ref('');
+const currentGroupCode = ref('');
 const menuCodes = ref([]);
 const permissionCodes = ref([]);
 const menuScopes = ref([]);
@@ -74,6 +80,9 @@ onBeforeUnmount(() => {
 function handleAuthExpired() {
   token.value = null;
   currentUser.value = '';
+  currentDeptId.value = null;
+  currentDeptName.value = '';
+  currentGroupCode.value = '';
   clearAuthToken();
   localStorage.removeItem(USERNAME_KEY);
   menuCodes.value = [];
@@ -130,6 +139,9 @@ async function onLogout() {
   localStorage.removeItem(USERNAME_KEY);
   token.value = null;
   currentUser.value = '';
+  currentDeptId.value = null;
+  currentDeptName.value = '';
+  currentGroupCode.value = '';
   menuCodes.value = [];
   permissionCodes.value = [];
   menuScopes.value = [];
@@ -143,12 +155,17 @@ async function loadPermissions() {
     menuCodes.value = scope.menuCodes || [];
     permissionCodes.value = scope.permissionCodes || [];
     menuScopes.value = scope.menus || [];
+    currentDeptId.value = scope.deptId || null;
+    currentDeptName.value = scope.deptName || '';
+    currentGroupCode.value = scope.groupCode || '';
     allDataWrite.value = Boolean(
       scope.allDataWrite
       || scope.superAdmin
+      || scope.isAdmin
       || isAdminByPermissionCodes([
         ...(scope.permissionCodes || []),
         ...(scope.roleCodes || []),
+        ...(scope.menuCodes || []),
       ])
     );
     permissionReady.value = true;
@@ -162,6 +179,9 @@ async function loadPermissions() {
     localStorage.removeItem(USERNAME_KEY);
     token.value = null;
     currentUser.value = '';
+    currentDeptId.value = null;
+    currentDeptName.value = '';
+    currentGroupCode.value = '';
     const isTimeout = String(error?.message || '') === 'PERMISSION_TIMEOUT';
     message.warning(isTimeout ? APP_MESSAGES.permissionLoadTimeout : APP_MESSAGES.permissionLoadFail);
   }

@@ -5,7 +5,6 @@ import { MODULE_LAYOUT_CONFIG } from '../utils/module-ui';
 const HIDDEN_MODULES = MODULE_LAYOUT_CONFIG.hiddenModules;
 const HIDDEN_MODULE_SET = new Set(HIDDEN_MODULES);
 const HIDDEN_MODULE_CONFIG = MODULE_LAYOUT_CONFIG.hiddenModuleMap;
-const ALL_MODULES = MODULE_GROUPS.flatMap((group) => group.children.map((child) => child.key));
 const DEFAULT_MODULE = MODULE_GROUPS[0]?.children?.[0]?.key || '';
 
 export function useModuleMenu(options) {
@@ -14,6 +13,7 @@ export function useModuleMenu(options) {
     permissionCodes,
     menuScopes,
     permissionReady,
+    allDataWrite,
   } = options;
 
   const menuItems = ref([]);
@@ -22,7 +22,7 @@ export function useModuleMenu(options) {
   const selectedKeys = ref(DEFAULT_MODULE ? [DEFAULT_MODULE] : []);
   const openKeys = ref(MODULE_GROUPS[0] ? [MODULE_GROUPS[0].key] : []);
   const nodeMap = ref(new Map());
-  const allowedModules = ref(new Set([...ALL_MODULES, ...HIDDEN_MODULES]));
+  const allowedModules = ref(new Set([...HIDDEN_MODULES]));
 
   const hasMenus = computed(() => menuItems.value.length > 0);
 
@@ -32,6 +32,7 @@ export function useModuleMenu(options) {
       permissionCodes?.value || [],
       menuScopes?.value || [],
       permissionReady?.value || false,
+      allDataWrite?.value || false,
     ],
     () => initMenus(),
     { immediate: true, deep: true },
@@ -72,7 +73,7 @@ export function useModuleMenu(options) {
   }
 
   function isValidModule(moduleKey) {
-    return Boolean(moduleKey) && allowedModules.value.has(moduleKey);
+    return Boolean(moduleKey) && (allowedModules.value.has(moduleKey) || HIDDEN_MODULE_SET.has(moduleKey));
   }
 
   function onMenuClick({ key }) {
@@ -106,14 +107,19 @@ export function useModuleMenu(options) {
 
   function initMenus() {
     const scopeItems = normalizeMenuScopes(menuScopes?.value || []);
-    const mergedAllowed = new Set(ALL_MODULES);
-    HIDDEN_MODULES.forEach((moduleKey) => mergedAllowed.add(moduleKey));
-    allowedModules.value = mergedAllowed;
+    const scopeKeySet = new Set(scopeItems.map((item) => item.key));
+    HIDDEN_MODULES.forEach((moduleKey) => scopeKeySet.add(moduleKey));
+    if (allDataWrite?.value || isAdminMenuScope(scopeItems)) {
+      MODULE_GROUPS.forEach((group) => {
+        group.children.forEach((item) => scopeKeySet.add(item.key));
+      });
+    }
+    allowedModules.value = scopeKeySet;
 
     const filtered = MODULE_GROUPS
       .map((group) => ({
         ...group,
-        children: group.children.filter((item) => allowedModules.value.has(item.key) || scopeItems.some((scope) => scope.key === item.key)),
+        children: group.children.filter((item) => allowedModules.value.has(item.key)),
       }))
       .filter((group) => group.children.length > 0);
 
@@ -155,6 +161,18 @@ export function useModuleMenu(options) {
         label: String(item?.label || '').trim(),
       }))
       .filter((item) => item.key);
+  }
+
+  function isAdminMenuScope(scopeItems) {
+    return (Array.isArray(scopeItems) ? scopeItems : []).some((item) => {
+      const key = String(item?.key || '').toLowerCase();
+      const label = String(item?.label || '').toUpperCase();
+      return key.includes('admin')
+        || key.includes('super')
+        || label.includes('管理者')
+        || label.includes('ADMIN')
+        || label.includes('SUPER');
+    });
   }
 
   function resolveMenuLabel(scope, item) {

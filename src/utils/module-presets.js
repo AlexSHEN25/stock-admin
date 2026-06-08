@@ -7,7 +7,7 @@ const REQUEST_FINANCE_FIELDS = ['exchangeRate', 'currency', 'paymentDate', 'hasF
 const REQUEST_FORM_FIELDS = ['id', 'bizNo', 'sourceOrderId', 'sourceOrderNo', 'userId', 'username', 'deptId', 'deptName', 'customerId', 'customerName', 'warehouseId', 'totalQty', 'requestQty', 'totalAmt', ...REQUEST_FINANCE_FIELDS, 'state', 'approverId', 'approverName', 'approveTime', 'approveRemark'];
 const REQUEST_ITEM_QUERY_FIELDS = ['requestId', 'goodsName', 'skuCode', 'brandName', 'seriesName', 'categoryName', 'makerName', 'stockTypeName', 'warehouseId', 'requestQty', 'approveQty', 'outQty', 'remark'];
 const STOCK_PRESET = {
-  queryFields: ['id', 'goodsId', 'goodsName', 'skuCode', 'skuId', 'stockTypeId', 'currentQty', 'price', 'priceUpdateTime', 'currency', 'warehouseId', 'status'],
+  queryFields: ['id', 'goodsId', 'goodsName', 'skuCode', 'skuId', 'stockTypeId', 'currentQty', 'groupAQty', 'groupBQty', 'groupCQty', 'price', 'priceUpdateTime', 'currency', 'warehouseId', 'status'],
   formFields: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity', 'remark', 'status'],
   fieldTypes: {
     goodsId: 'relation',
@@ -47,7 +47,11 @@ export const MODULE_GROUPS = [
     key: 'stock',
     label: '在庫管理',
     children: [
-      { key: 'stock', label: '自社在庫管理' },
+      { key: 'stockSelf', label: '自社在庫管理' },
+      { key: 'stockSummary', label: 'まとめ納品書' },
+      { key: 'stockGroupA', label: 'A組在庫管理', groupCode: 'A' },
+      { key: 'stockGroupB', label: 'B組在庫管理', groupCode: 'B' },
+      { key: 'stockGroupC', label: 'C組在庫管理', groupCode: 'C' },
       { key: 'stockOrder', label: '入出庫伝票' },
       { key: 'stockOrderItem', label: '入出庫明細' },
       { key: 'stockType', label: '在庫分類' },
@@ -108,6 +112,11 @@ export const MODULE_PRESETS = {
     },
   },
   stock: STOCK_PRESET,
+  stockSelf: STOCK_PRESET,
+  stockSummary: STOCK_PRESET,
+  stockGroupA: STOCK_PRESET,
+  stockGroupB: STOCK_PRESET,
+  stockGroupC: STOCK_PRESET,
   stockOrder: {
     queryFields: ['id', 'orderNo', 'orderType', 'bizDate', 'stockTypeId', 'warehouseId', 'sourceType', 'sourceId', 'totalQty', 'state', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'approverId', 'approverName', 'approveTime', 'finishTime', 'remark'],
     formFields: ['orderType', 'bizDate', 'warehouseId', 'sourceType', 'stockTypeId', 'state', 'remark'],

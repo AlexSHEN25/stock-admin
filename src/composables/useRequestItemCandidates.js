@@ -1,5 +1,10 @@
-import { computed, reactive, ref } from 'vue';
-import { addRequestItemsFromStockOrder, getCandidateItems, removeRequestItems } from '../api/module';
+﻿import { computed, reactive, ref } from 'vue';
+import {
+  addRequestItemsFromStockOrder,
+  getCandidateItems,
+  reapplyRequestItemInbound,
+  removeRequestItems,
+} from '../api/module';
 import TABLE_TEXT from '../utils/module-ui';
 
 export function useRequestItemCandidates(options) {
@@ -15,6 +20,8 @@ export function useRequestItemCandidates(options) {
   const candidateLoading = ref(false);
   const candidateRows = ref([]);
   const candidateSelectedKeys = ref([]);
+  const candidateInboundLoadingKeys = ref([]);
+  const candidateInboundAppliedKeys = ref([]);
   const candidateQtyState = reactive({});
 
   const isRequestItemModule = computed(() => moduleKey.value === 'requestItem');
@@ -22,9 +29,15 @@ export function useRequestItemCandidates(options) {
     if (!isRequestItemModule.value) return rows.value;
     return (rows.value || []).filter((item) => Number(item?.state ?? item?.requestItemState ?? 1) === 1);
   });
+  const pendingSelectedRows = computed(() => {
+    const selectedKeys = new Set((candidateSelectedKeys.value || []).map((x) => String(x)));
+    return (candidateRows.value || [])
+      .filter((item) => selectedKeys.has(String(candidateRowKey(item))))
+      .filter((item) => !isCandidateAdded(item));
+  });
   const candidateSubmitText = computed(() => (
-    candidateSelectedKeys.value.length > 0
-      ? `\u8ffd\u52a0\uff08${candidateSelectedKeys.value.length}\u4ef6\uff09`
+    pendingSelectedRows.value.length > 0
+      ? `\u8ffd\u52a0\uff08${pendingSelectedRows.value.length}\u4ef6\uff09`
       : '\u8ffd\u52a0'
   ));
 
@@ -95,6 +108,10 @@ export function useRequestItemCandidates(options) {
   }
 
   function maxRequestQty(record) {
+    if (record?.availableQty !== undefined && record?.availableQty !== null) {
+      const availableQty = Math.abs(Number(record.availableQty));
+      return Number.isNaN(availableQty) ? 0 : Math.floor(availableQty);
+    }
     const candidateMax = resolveCandidateMaxQty(record);
     if (candidateMax > 0) return candidateMax;
     const qty = Number(record?.changeQty ?? 0);
@@ -123,16 +140,16 @@ export function useRequestItemCandidates(options) {
     candidateLoading.value = true;
     try {
       const list = await getCandidateItems(requestId);
-      candidateRows.value = (Array.isArray(list) ? list : []).filter(isCompletedOutboundCandidate);
+      candidateRows.value = (Array.isArray(list) ? list : []).filter(isOutboundCandidate);
       Object.keys(candidateQtyState).forEach((key) => delete candidateQtyState[key]);
       candidateRows.value.forEach((item) => {
         const key = candidateRowKey(item);
         if (!key) return;
-        const seedQty = Number(item?.requestQty ?? item?.changeQty ?? 1);
+        const seedQty = Number(item?.requestQty ?? item?.changeQty ?? item?.outQty ?? 1);
         candidateQtyState[key] = Math.max(1, Math.abs(seedQty || 1));
       });
       candidateSelectedKeys.value = expandKnifeHandleSelection(candidateRows.value
-        .filter((item) => Number(item?.selected) === 1 || item?.selected === true)
+        .filter(isCandidateAdded)
         .map((item) => candidateRowKey(item))
         .filter((id) => id !== undefined && id !== null));
     } catch (error) {
@@ -189,9 +206,7 @@ export function useRequestItemCandidates(options) {
 
   async function submitAddCandidates() {
     const requestId = resolveCurrentRequestId();
-    const selectedKeys = new Set((candidateSelectedKeys.value || []).map((x) => String(x)));
-    const items = (candidateRows.value || [])
-      .filter((item) => selectedKeys.has(String(candidateRowKey(item))))
+    const items = pendingSelectedRows.value
       .map((item) => ({
         maxQty: maxRequestQty(item),
         stockRecordId: resolveCandidateStockRecordId(item),
@@ -204,8 +219,8 @@ export function useRequestItemCandidates(options) {
       notify.warning('\u8acb\u6c42\u66f8\u3092\u9078\u629e\u3057\u3066\u304f\u3060\u3055\u3044');
       return;
     }
-    if (candidateSelectedKeys.value.length === 0) {
-      notify.warning('\u8ffd\u52a0\u3059\u308b\u660e\u7d30\u3092\u9078\u629e\u3057\u3066\u304f\u3060\u3055\u3044');
+    if (items.length === 0) {
+      notify.warning('\u8ffd\u52a0\u3059\u308b\u672a\u8ffd\u52a0\u306e\u5546\u54c1\u3092\u9078\u629e\u3057\u3066\u304f\u3060\u3055\u3044');
       return;
     }
     if (items.some((item) => !item.stockRecordId && !item.stockOrderItemId)) {
@@ -228,7 +243,6 @@ export function useRequestItemCandidates(options) {
         items: payloadItems.filter((item) => (item.stockRecordId || item.stockOrderItemId) && item.requestQty > 0),
       });
       notify.success('\u8acb\u6c42\u66f8\u660e\u7d30\u3092\u66f4\u65b0\u3057\u307e\u3057\u305f');
-      candidateModalOpen.value = false;
       await refreshRequestItemContext();
     } catch (error) {
       notify.error(error?.message || TABLE_TEXT.saveFail);
@@ -237,10 +251,57 @@ export function useRequestItemCandidates(options) {
     }
   }
 
+  async function submitCandidateInbound(record) {
+    const requestId = resolveCurrentRequestId();
+    const key = candidateRowKey(record);
+    if (!key || candidateInboundLoadingKeys.value.some((item) => String(item) === String(key))) return;
+    if (isCandidateInboundApplied(record)) return;
+    if (!requestId || !isCandidateAdded(record)) {
+      notify.warning('蜈医↓邏榊刀莠亥ｮ壹∈霑ｽ蜉縺励※縺上□縺輔＞');
+      return;
+    }
+
+    candidateInboundLoadingKeys.value = [...candidateInboundLoadingKeys.value, key];
+    try {
+      const inboundOrderId = await reapplyRequestItemInbound({
+        requestId,
+        items: [{
+          stockRecordId: resolveCandidateStockRecordId(record),
+          requestQty: clampRequestQty(record, candidateQtyState[key]),
+        }],
+      });
+      candidateInboundAppliedKeys.value = [
+        ...candidateInboundAppliedKeys.value.filter((item) => String(item) !== String(key)),
+        key,
+      ];
+      record.inboundApplied = true;
+      record.inboundOrderId = inboundOrderId || record.inboundOrderId;
+      notify.success('邏榊刀莠亥ｮ壹°繧牙・蠎ｫ逕ｳ隲九ｒ菴懈・縺励∪縺励◆');
+      await refreshRequestItemContext();
+    } catch (error) {
+      notify.error(error?.message || TABLE_TEXT.saveFail);
+    } finally {
+      candidateInboundLoadingKeys.value = candidateInboundLoadingKeys.value
+        .filter((item) => String(item) !== String(key));
+    }
+  }
+
+  function isCandidateInboundApplied(record) {
+    const key = candidateRowKey(record);
+    if (candidateInboundAppliedKeys.value.some((item) => String(item) === String(key))) return true;
+    return Boolean(
+      record?.inboundApplied
+      || record?.inboundDone
+      || record?.stockInboundApplied
+      || record?.stockInboundId
+      || record?.inboundOrderId,
+    );
+  }
+
   async function removeRequestItem(record, getRecordId) {
     const requestId = resolveCurrentRequestId();
-    const stockRecordId = Number(record?.stockRecordId);
-    const stockOrderItemId = Number(record?.stockOrderItemId ?? record?.orderItemId);
+    const stockRecordId = resolveCandidateStockRecordId(record);
+    const stockOrderItemId = resolveCandidateStockOrderItemId(record);
     const requestItemId = Number(getRecordId(record));
     if (!requestId || (!stockRecordId && !stockOrderItemId && !requestItemId)) return;
     try {
@@ -251,10 +312,34 @@ export function useRequestItemCandidates(options) {
         orderItemIds: stockOrderItemId ? [stockOrderItemId] : undefined,
         requestItemIds: requestItemId ? [requestItemId] : undefined,
       });
-      notify.success('\u8acb\u6c42\u66f8\u660e\u7d30\u3092\u51fa\u5eab\u4f1d\u7968\u660e\u7d30\u3078\u623b\u3057\u307e\u3057\u305f');
+      notify.success('\u8acb\u6c42\u66f8\u660e\u7d30\u3092\u7d0d\u54c1\u4e88\u5b9a\u3078\u623b\u3057\u307e\u3057\u305f');
       await refreshRequestItemContext();
     } catch (error) {
       notify.error(error?.message || TABLE_TEXT.deleteFail);
+    }
+  }
+
+  async function removeCandidate(record) {
+    const requestId = resolveCurrentRequestId();
+    const stockRecordId = resolveCandidateStockRecordId(record);
+    const stockOrderItemId = resolveCandidateStockOrderItemId(record);
+    const requestItemId = Number(record?.requestItemId ?? record?.request_item_id ?? record?.requestItem?.id);
+    if (!requestId || (!stockRecordId && !stockOrderItemId && !requestItemId) || !isCandidateAdded(record)) return;
+    candidateLoading.value = true;
+    try {
+      await removeRequestItems({
+        requestId,
+        stockRecordIds: stockRecordId ? [stockRecordId] : undefined,
+        stockOrderItemIds: stockOrderItemId ? [stockOrderItemId] : undefined,
+        orderItemIds: stockOrderItemId ? [stockOrderItemId] : undefined,
+        requestItemIds: requestItemId ? [requestItemId] : undefined,
+      });
+      notify.success('邏榊刀莠亥ｮ壹°繧牙膚蜩√ｒ蜑企勁縺励∪縺励◆');
+      await refreshRequestItemContext();
+    } catch (error) {
+      notify.error(error?.message || TABLE_TEXT.deleteFail);
+    } finally {
+      candidateLoading.value = false;
     }
   }
 
@@ -278,29 +363,25 @@ export function useRequestItemCandidates(options) {
     ].map((value) => String(value || '')).join(' ');
   }
 
-  function isCompletedOutboundCandidate(record) {
-    const stateValue = record?.state ?? record?.orderState ?? record?.stockOrderState ?? record?.stateCode;
+  function isOutboundCandidate(record) {
     const orderTypeValue = record?.orderType ?? record?.stockOrderType;
     const changeQty = Number(record?.changeQty ?? record?.outQty ?? 0);
-    const hasState = stateValue !== undefined && stateValue !== null && String(stateValue).trim() !== '';
     const hasOrderType = orderTypeValue !== undefined && orderTypeValue !== null && String(orderTypeValue).trim() !== '';
     const hasQty = !Number.isNaN(changeQty) && changeQty !== 0;
-
-    const completed = !hasState || isCompletedState(stateValue);
-    const outbound = (!hasOrderType && !hasQty) || isOutboundType(orderTypeValue) || changeQty < 0;
-    return completed && outbound;
+    return (!hasOrderType && !hasQty) || isOutboundType(orderTypeValue) || changeQty < 0;
   }
 
-  function isCompletedState(value) {
-    const text = String(value ?? '').trim().toLowerCase();
-    if (text === '2') return true;
-    return ['完了', '完成', 'completed', 'complete', 'done'].some((keyword) => text.includes(keyword));
+
+  function isCandidateAdded(record) {
+    return Number(record?.selected) === 1
+      || record?.selected === true
+      || Boolean(record?.requestItemId ?? record?.request_item_id ?? record?.requestItem?.id);
   }
 
   function isOutboundType(value) {
     const text = String(value ?? '').trim().toLowerCase();
     if (text === '2') return true;
-    return ['出庫', '出库', 'outbound'].some((keyword) => text.includes(keyword));
+    return ['\u51fa\u5eab', 'outbound'].some((keyword) => text.includes(keyword));
   }
 
   return {
@@ -310,6 +391,7 @@ export function useRequestItemCandidates(options) {
     candidateLoading,
     candidateRows,
     candidateSelectedKeys,
+    candidateInboundLoadingKeys,
     candidateQtyState,
     candidateSubmitText,
     candidateRowKey,
@@ -320,6 +402,9 @@ export function useRequestItemCandidates(options) {
     onCandidateSelectChange,
     onCandidateQtyChange,
     submitAddCandidates,
+    submitCandidateInbound,
+    isCandidateInboundApplied,
     removeRequestItem,
+    removeCandidate,
   };
 }

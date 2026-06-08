@@ -11,6 +11,8 @@
       :can-write="canWrite"
       :can-batch-delete="canBatchDeleteInModule()"
       :can-create="canCreateInModule()"
+      :can-sheet-inbound="canOpenSheetInbound"
+      :can-sheet-outbound="canOpenSheetOutbound"
       :selected-count="selectedRowKeys.length"
       :query-input-type="queryInputType"
       :query-options="queryOptions"
@@ -21,9 +23,29 @@
       @reset="resetQuery"
       @batch-delete="onBatchDelete"
       @create="openCreate"
+      @sheet-inbound="openSheetInboundModal"
+      @sheet-outbound="openSheetOutboundModal"
       @read-all="onReadAllMessages"
-      @open-candidates="openRequestItemCandidateModal"
       @update-field="updateQueryField"
+    />
+
+    <request-candidate-modal
+      :open="props.moduleKey === 'requestItem' && candidateModalOpen"
+      :loading="candidateLoading"
+      :submit-text="candidateSubmitText"
+      :rows="candidateRows"
+      :selected-keys="candidateSelectedKeys"
+      :qty-state="candidateQtyState"
+      :inbound-loading-keys="candidateInboundLoadingKeys"
+      :row-key="candidateRowKey"
+      :max-request-qty="maxRequestQty"
+      :format-qty="formatQty"
+      :is-inbound-applied="isCandidateInboundApplied"
+      @submit="submitAddCandidates"
+      @inbound="submitCandidateInbound"
+      @selection-change="onCandidateSelectChange"
+      @qty-change="onCandidateQtyChange"
+      @remove="removeCandidate"
     />
 
     <a-table
@@ -33,7 +55,7 @@
       :columns="columns"
       :data-source="tableRows"
       :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
-      :loading="loading"
+      :loading="loading || goodsStockLoading"
       :pagination="tablePagination"
       :scroll="{ x: 'max-content' }"
       @change="onChange"
@@ -94,6 +116,11 @@
         </template>
         <template v-else-if="String(column.key) === 'changeQty'">
           {{ formatQty(record.changeQty) }}
+        </template>
+        <template v-else-if="String(column.key) === 'inventoryStatus'">
+          <a-tag :color="record.inboundDone ? 'success' : 'default'">
+            {{ record.inventoryStatus }}
+          </a-tag>
         </template>
         <template v-else-if="isPermissionNamesField(column.key)">
           <div
@@ -209,20 +236,19 @@
       @cancel="goodsOutboundModalOpen = false"
       @update-field="updateGoodsOutboundField"
     />
-    <request-candidate-modal
-      :open="candidateModalOpen"
-      :loading="candidateLoading"
-      :submit-text="candidateSubmitText"
-      :rows="candidateRows"
-      :selected-keys="candidateSelectedKeys"
-      :qty-state="candidateQtyState"
-      :row-key="candidateRowKey"
-      :max-request-qty="maxRequestQty"
-      :format-qty="formatQty"
-      @cancel="closeCandidateModal"
-      @submit="submitAddCandidates"
-      @selection-change="onCandidateSelectChange"
-      @qty-change="onCandidateQtyChange"
+    <stock-sheet-flow-modal
+      :open="sheetOutboundModalOpen"
+      :mode="sheetFlowMode"
+      :rows="sheetOutboundRows"
+      :drafts="sheetOutboundDrafts"
+      :settings="sheetOutboundSettings"
+      :relation-options="relationOptions"
+      :submitting="sheetOutboundSubmitting"
+      :row-key="goodsRowKey"
+      @cancel="sheetOutboundModalOpen = false"
+      @submit="submitSheetFlow"
+      @update-draft="updateSheetOutboundDraft"
+      @update-setting="updateSheetOutboundSetting"
     />
     <goods-drawer
       :open="goodsDrawerOpen"
@@ -249,9 +275,11 @@ import { computed, reactive, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import {
   fetchEnumOptions,
+  fetchPage,
   fetchItem,
   fetchOutboundStockOrderOptions,
   fetchGoodsFormOptions,
+  fetchMyGroupStockAvailable,
   fetchModuleOptions,
   removeItem,
   updateItem,
@@ -263,6 +291,7 @@ import ModuleInlineEditor from './ModuleInlineEditor.vue';
 import ModuleRowActions from './ModuleRowActions.vue';
 import ModuleSearchToolbar from './ModuleSearchToolbar.vue';
 import RequestCandidateModal from './RequestCandidateModal.vue';
+import StockSheetFlowModal from './StockSheetFlowModal.vue';
 import { useGoodsDrawer } from '../composables/useGoodsDrawer';
 import { useModuleActions } from '../composables/useModuleActions';
 import { useModuleFieldBehavior } from '../composables/useModuleFieldBehavior';
@@ -275,7 +304,7 @@ import { useModuleTableSchema } from '../composables/useModuleTableSchema';
 import { useModuleTableState } from '../composables/useModuleTableState';
 import { downloadRequestFormFile, downloadRequestFormPdf } from '../utils/download';
 import { markAllMessageListRead, markAllMessagesRead, markMessageListRead, markMessageRead } from '../utils/message';
-import { submitGoodsStockOutboundFlow, submitStockInboundFlow, submitStockOrderItemReturnFlow, submitStockQuantityAdjustment } from '../utils/stock';
+import { submitDeliveryAllocationFlow, submitGoodsStockOutboundFlow, submitSheetStockInboundFlow, submitSheetStockOutboundFlow, submitStockInboundFlow, submitStockOrderItemReturnFlow, submitStockQuantityAdjustment } from '../utils/stock';
 import { getModulePreset, guessFieldType, isRequiredFormField, mapNameFieldToIdField, normalizeTitle, relationLabel, relationModuleByField } from '../utils/module';
 import TABLE_TEXT, {
   MODULE_DETAIL_NAVIGATIONS,
@@ -295,10 +324,11 @@ import {
 import { hasActiveFilters } from '../utils/table';
 
 const STOCK_EDIT_PAYLOAD_FIELDS = ['id', 'goodsId', 'goodsName', 'skuId', 'skuCode', 'warehouseId', 'price', 'currency', 'stockTypeId', 'status', 'version'];
-const GOODS_INBOUND_FIELDS = ['sourceType', 'warehouseId', 'stockTypeId', 'quantity', 'remark'];
-const GOODS_OUTBOUND_FIELDS = ['outboundMode', 'customerId', 'deptId', 'warehouseId', 'stockTypeId', 'quantity', 'remark'];
+const GOODS_INBOUND_FIELDS = ['sourceType', 'warehouseId', 'stockTypeId', 'quantity', 'saleDeadline', 'remark'];
+const GOODS_OUTBOUND_FIELDS = ['outboundMode', 'stockScope', 'customerId', 'deptId', 'warehouseId', 'stockTypeId', 'quantity', 'remark'];
 const GOODS_OUTBOUND_MODE_CUSTOMER = 'customer';
 const GOODS_OUTBOUND_MODE_DEPT = 'dept';
+const GOODS_FLOW_SESSION_KEY = 'goods_stock_flow_state';
 const STOCK_ORDER_DEFAULT_SOURCE_TYPE = 4;
 const STOCK_ORDER_DEFAULT_STATE = 0;
 const STOCK_ORDER_USER_SOURCE_TYPES = new Set([3, 4]);
@@ -315,18 +345,41 @@ const props = defineProps({
   allDataWrite: { type: Boolean, default: false },
   permissionReady: { type: Boolean, default: false },
   currentUser: { type: String, default: '' },
+  currentDeptId: { type: Number, default: null },
+  currentDeptName: { type: String, default: '' },
+  currentGroupCode: { type: String, default: '' },
 });
 
 const emit = defineEmits(['navigate-module']);
 const goodsInboundModalOpen = ref(false);
 const goodsOutboundModalOpen = ref(false);
+const goodsStockLoading = ref(false);
 const goodsInboundForm = reactive({});
 const goodsOutboundForm = reactive({});
+const sheetOutboundModalOpen = ref(false);
+const sheetOutboundSubmitting = ref(false);
+const sheetFlowMode = ref('outbound');
+const sheetOutboundRows = ref([]);
+const sheetOutboundDrafts = reactive({});
+const sheetOutboundSettings = reactive({
+  warehouseId: null,
+  stockTypeId: null,
+  customerId: null,
+  saleDeadline: null,
+  remark: '',
+});
 const goodsFlowByRowKey = reactive({});
+const goodsStockRows = ref([]);
 const activeGoodsRowKey = ref('');
+restoreGoodsFlowState();
 const isGoodsManagement = computed(() => props.moduleKey === 'goods');
-const isSplitStockManagement = computed(() => props.moduleKey === 'stock');
-const modulePath = computed(() => props.moduleKey);
+const isSplitStockManagement = computed(() => (
+  props.moduleKey === 'stock'
+  || props.moduleKey === 'stockSelf'
+  || props.moduleKey === 'stockSummary'
+  || /^stockGroup[ABC]$/.test(props.moduleKey)
+));
+const modulePath = computed(() => (isSplitStockManagement.value ? 'stock' : props.moduleKey));
 const preset = computed(() => getModulePreset(props.moduleKey));
 const rowExtraActions = computed(() => getRowExtraActions(props.moduleKey));
 const canWrite = computed(() => {
@@ -411,7 +464,7 @@ const {
   buildExtraQueryParams: () => (
     props.moduleKey === 'message' && isAdminUser.value
       ? { all: true, scope: 'all' }
-      : {}
+      : stockViewQueryParams()
   ),
 });
 
@@ -421,17 +474,20 @@ const {
   candidateLoading,
   candidateRows,
   candidateSelectedKeys,
+  candidateInboundLoadingKeys,
   candidateQtyState,
   candidateSubmitText,
   candidateRowKey,
   maxRequestQty,
   formatQty,
   openCandidateModal,
-  closeCandidateModal,
   onCandidateSelectChange,
   onCandidateQtyChange,
   submitAddCandidates,
+  submitCandidateInbound,
+  isCandidateInboundApplied,
   removeRequestItem,
+  removeCandidate,
 } = useRequestItemCandidates({
   moduleKey: computed(() => props.moduleKey),
   queryState,
@@ -554,6 +610,12 @@ const visibleQueryFields = computed(() => {
   return list.filter((field) => String(field || '').toLowerCase() !== 'orderid');
 });
 const tableRows = computed(() => {
+  if (isGoodsManagement.value) {
+    return mergeGoodsWithStock(requestItemTableRows.value, goodsStockRows.value);
+  }
+  if (isSplitStockManagement.value) {
+    return filterStockViewRows(requestItemTableRows.value);
+  }
   return requestItemTableRows.value;
 });
 const visibleFormKeys = computed(() => {
@@ -563,8 +625,19 @@ const visibleFormKeys = computed(() => {
 const visibleGoodsOutboundFields = computed(() => GOODS_OUTBOUND_FIELDS.filter((field) => {
   if (field === 'customerId') return goodsOutboundForm.outboundMode === GOODS_OUTBOUND_MODE_CUSTOMER;
   if (field === 'deptId') return goodsOutboundForm.outboundMode === GOODS_OUTBOUND_MODE_DEPT;
+  if (field === 'stockScope') return goodsOutboundForm.outboundMode === GOODS_OUTBOUND_MODE_CUSTOMER;
   return true;
 }));
+const canOpenSheetOutbound = computed(() => (
+  isGoodsManagement.value
+  && canWrite.value
+  && selectedGoodsRows().length > 0
+));
+const canOpenSheetInbound = computed(() => (
+  isGoodsManagement.value
+  && canWrite.value
+  && selectedGoodsRows().length > 0
+));
 
 watch(
   () => props.moduleKey,
@@ -583,6 +656,12 @@ watch(
       await loadSourceOrderOptions();
     }
     await reload();
+    if (isGoodsManagement.value) {
+      await loadGoodsStockRows();
+    }
+    if (props.moduleKey === 'requestItem' && !isCurrentRequestCompleted()) {
+      openCandidateModal();
+    }
   },
   { immediate: true },
 );
@@ -595,6 +674,18 @@ function normalizeQueryField(field) {
   const nameField = `${key.slice(0, -2)}Name`;
   if (backendFieldSet.value.has(nameField)) return nameField;
   return key;
+}
+
+function stockViewQueryParams() {
+  if (props.moduleKey === 'stockSelf' || props.moduleKey === 'stockSummary' || props.moduleKey === 'stock') {
+    return { stockScope: 'self' };
+  }
+  const match = String(props.moduleKey || '').match(/^stockGroup([ABC])$/);
+  if (!match) return {};
+  return {
+    stockScope: 'group',
+    groupCode: match[1],
+  };
 }
 
 async function submitStockFlow({ buildEditPayload, getRecordId, normalizePayload: normalizeSubmitPayload }) {
@@ -661,6 +752,7 @@ async function openGoodsInboundModal(record) {
   goodsInboundForm.warehouseId = null;
   goodsInboundForm.stockTypeId = null;
   goodsInboundForm.quantity = null;
+  goodsInboundForm.saleDeadline = null;
   goodsInboundForm.remark = null;
   await loadRelationOptions(['warehouseId', 'stockTypeId'], keys.value);
   goodsInboundModalOpen.value = true;
@@ -674,6 +766,7 @@ function goodsInboundInputType(field) {
   if (field === 'sourceType') return 'select';
   if (field === 'warehouseId' || field === 'stockTypeId') return 'relation';
   if (field === 'quantity') return 'number';
+  if (field === 'saleDeadline') return 'datetime';
   return 'textarea';
 }
 
@@ -683,7 +776,7 @@ function goodsInboundSelectOptions(field) {
 }
 
 function isGoodsInboundFieldRequired(field) {
-  return ['sourceType', 'warehouseId', 'stockTypeId', 'quantity'].includes(field);
+  return ['sourceType', 'warehouseId', 'stockTypeId', 'quantity', 'saleDeadline'].includes(field);
 }
 
 function goodsInboundNumberMin(field) {
@@ -711,6 +804,8 @@ async function submitGoodsInbound() {
       inboundQty: Number(goodsInboundForm.quantity),
       outboundQty: Number(goodsFlowByRowKey[rowKey]?.outboundQty || 0),
     };
+    persistGoodsFlowState();
+    await loadGoodsStockRows();
   }
 }
 
@@ -729,11 +824,14 @@ async function openGoodsOutboundModal(record) {
   goodsOutboundForm.warehouseId = inboundState?.warehouseId ?? null;
   goodsOutboundForm.stockTypeId = inboundState?.stockTypeId ?? null;
   goodsOutboundForm.outboundMode = GOODS_OUTBOUND_MODE_CUSTOMER;
+  goodsOutboundForm.stockScope = 'self';
+  goodsOutboundForm.groupCode = props.currentGroupCode || null;
+  goodsOutboundForm.currentDeptId = props.currentDeptId || null;
   goodsOutboundForm.customerId = null;
   goodsOutboundForm.deptId = null;
   goodsOutboundForm.quantity = Math.max(1, availableGoodsOutboundQty(rowKey));
   goodsOutboundForm.remark = null;
-  await loadRelationOptions(['customerId', 'deptId'], keys.value);
+  await loadRelationOptions(['customerId', 'deptId', 'warehouseId', 'stockTypeId'], keys.value);
   goodsOutboundModalOpen.value = true;
 }
 
@@ -743,10 +841,34 @@ function updateGoodsOutboundField(field, value) {
     goodsOutboundForm.customerId = null;
     goodsOutboundForm.deptId = null;
   }
+  if (['stockScope', 'warehouseId', 'stockTypeId'].includes(field)) {
+    refreshGroupAvailableQty();
+  }
+}
+
+async function refreshGroupAvailableQty() {
+  if (goodsOutboundForm.stockScope !== 'group') return;
+  const { goodsId, skuId, warehouseId, stockTypeId } = goodsOutboundForm;
+  if (!goodsId || !skuId || !warehouseId || !stockTypeId) return;
+  try {
+    goodsOutboundForm.groupAvailableQty = await fetchMyGroupStockAvailable({
+      goodsId,
+      skuId,
+      warehouseId,
+      stockTypeId,
+      deptId: props.currentDeptId || undefined,
+      groupCode: props.currentGroupCode || undefined,
+    });
+    if (Number(goodsOutboundForm.quantity) > goodsOutboundForm.groupAvailableQty) {
+      goodsOutboundForm.quantity = goodsOutboundForm.groupAvailableQty;
+    }
+  } catch (error) {
+    message.error(error.message || TABLE_TEXT.fetchFail);
+  }
 }
 
 function goodsOutboundInputType(field) {
-  if (field === 'outboundMode') return 'select';
+  if (field === 'outboundMode' || field === 'stockScope') return 'select';
   if (['customerId', 'deptId', 'warehouseId', 'stockTypeId'].includes(field)) return 'relation';
   if (field === 'quantity') return 'number';
   return 'textarea';
@@ -759,13 +881,23 @@ function goodsOutboundSelectOptions(field) {
       { label: '組別分貨', value: GOODS_OUTBOUND_MODE_DEPT },
     ];
   }
+  if (field === 'stockScope') {
+    const options = [{ label: '自社在庫から出庫申請', value: 'self' }];
+    if (props.currentGroupCode) {
+      options.push({
+        label: `${props.currentGroupCode}組在庫から出庫`,
+        value: 'group',
+      });
+    }
+    return options;
+  }
   return scopedSelectOptions(field);
 }
 
 function isGoodsOutboundFieldRequired(field) {
   if (field === 'customerId') return goodsOutboundForm.outboundMode === GOODS_OUTBOUND_MODE_CUSTOMER;
   if (field === 'deptId') return goodsOutboundForm.outboundMode === GOODS_OUTBOUND_MODE_DEPT;
-  return ['outboundMode', 'warehouseId', 'stockTypeId', 'quantity'].includes(field);
+  return ['outboundMode', 'stockScope', 'warehouseId', 'stockTypeId', 'quantity'].includes(field);
 }
 
 function goodsOutboundPlaceholder(field) {
@@ -802,12 +934,148 @@ async function submitGoodsOutbound() {
   });
   if (success && rowKey) {
     goodsFlowByRowKey[rowKey].outboundQty = Number(goodsFlowByRowKey[rowKey]?.outboundQty || 0) + quantity;
+    persistGoodsFlowState();
+    await loadGoodsStockRows();
+  }
+}
+
+async function openSheetOutboundModal() {
+  const selected = selectedGoodsRows();
+  if (selected.length === 0) {
+    message.warning('納品振分する商品を選択してください');
+    return;
+  }
+  sheetFlowMode.value = 'delivery';
+  sheetOutboundRows.value = selected;
+  Object.keys(sheetOutboundDrafts).forEach((key) => delete sheetOutboundDrafts[key]);
+  selected.forEach((record) => {
+    sheetOutboundDrafts[goodsRowKey(record)] = {
+      deliveryQty: 0,
+      aQty: 0,
+      bQty: 0,
+      cQty: 0,
+      saleDeadline: null,
+      remark: '',
+    };
+  });
+  sheetOutboundSettings.warehouseId = firstNonEmptyValue(selected, 'warehouseId');
+  sheetOutboundSettings.stockTypeId = firstNonEmptyValue(selected, 'stockTypeId');
+  sheetOutboundSettings.customerId = null;
+  sheetOutboundSettings.saleDeadline = null;
+  sheetOutboundSettings.remark = '';
+  await loadRelationOptions(['warehouseId', 'stockTypeId'], keys.value);
+  sheetOutboundModalOpen.value = true;
+}
+
+async function openSheetInboundModal() {
+  const selected = selectedGoodsRows();
+  if (selected.length === 0) {
+    message.warning('入庫する商品を選択してください');
+    return;
+  }
+  sheetFlowMode.value = 'inbound';
+  sheetOutboundRows.value = selected;
+  Object.keys(sheetOutboundDrafts).forEach((key) => delete sheetOutboundDrafts[key]);
+  selected.forEach((record) => {
+    sheetOutboundDrafts[goodsRowKey(record)] = {
+      quantity: 0,
+      saleDeadline: null,
+      remark: '',
+    };
+  });
+  sheetOutboundSettings.warehouseId = firstNonEmptyValue(selected, 'warehouseId');
+  sheetOutboundSettings.stockTypeId = firstNonEmptyValue(selected, 'stockTypeId');
+  sheetOutboundSettings.customerId = null;
+  sheetOutboundSettings.saleDeadline = null;
+  sheetOutboundSettings.remark = '';
+  await loadRelationOptions(['warehouseId', 'stockTypeId'], keys.value);
+  sheetOutboundModalOpen.value = true;
+}
+
+function selectedGoodsRows() {
+  if (!isGoodsManagement.value || selectedRowKeys.value.length === 0) return [];
+  const selected = new Set(selectedRowKeys.value.map((key) => String(key)));
+  return (tableRows.value || []).filter((record) => selected.has(String(getRowKey(record))));
+}
+
+function firstNonEmptyValue(records, field) {
+  const hit = (records || []).find((record) => record?.[field] !== undefined && record?.[field] !== null && String(record[field]).trim() !== '');
+  return hit?.[field] ?? null;
+}
+
+function updateSheetOutboundDraft(rowKey, field, value) {
+  if (!sheetOutboundDrafts[rowKey]) {
+    sheetOutboundDrafts[rowKey] = {};
+  }
+  sheetOutboundDrafts[rowKey][field] = value;
+}
+
+function updateSheetOutboundSetting(field, value) {
+  sheetOutboundSettings[field] = value;
+}
+
+async function submitSheetFlow() {
+  if (!sheetOutboundSettings.warehouseId || !sheetOutboundSettings.stockTypeId) {
+    message.warning(TABLE_TEXT.requiredField);
+    return;
+  }
+  if (sheetFlowMode.value === 'outbound') {
+    const invalid = sheetOutboundRows.value.some((record) => {
+      const draft = sheetOutboundDrafts[goodsRowKey(record)] || {};
+      const total = Number(draft.aQty || 0) + Number(draft.bQty || 0) + Number(draft.cQty || 0);
+      return total > availableGoodsOutboundQty(goodsRowKey(record));
+    });
+    if (invalid) {
+      message.warning('出庫数量は現在庫以下で入力してください');
+      return;
+    }
+  }
+  if (sheetFlowMode.value === 'delivery') {
+    const invalid = sheetOutboundRows.value.some((record) => {
+      const draft = sheetOutboundDrafts[goodsRowKey(record)] || {};
+      const deliveryQty = Number(draft.deliveryQty || 0);
+      const groupTotal = Number(draft.aQty || 0) + Number(draft.bQty || 0) + Number(draft.cQty || 0);
+      return deliveryQty < 0 || groupTotal > deliveryQty;
+    });
+    if (invalid) {
+      message.warning('A/B/C組振分合計は納品数以下で入力してください');
+      return;
+    }
+  }
+
+  sheetOutboundSubmitting.value = true;
+  try {
+    const submitFlow = sheetFlowMode.value === 'inbound'
+      ? submitSheetStockInboundFlow
+      : (sheetFlowMode.value === 'delivery' ? submitDeliveryAllocationFlow : submitSheetStockOutboundFlow);
+    const success = await submitFlow({
+      items: sheetOutboundRows.value.map((record) => ({
+        record,
+        draft: sheetOutboundDrafts[goodsRowKey(record)] || {},
+      })),
+      settings: sheetOutboundSettings,
+      notify: message,
+    });
+    if (success) {
+      sheetOutboundModalOpen.value = false;
+      selectedRowKeys.value = [];
+      await reload();
+      await loadGoodsStockRows();
+    }
+  } catch (error) {
+    message.error(error.message || TABLE_TEXT.saveFail);
+  } finally {
+    sheetOutboundSubmitting.value = false;
   }
 }
 
 function isGoodsInboundDone(record) {
   const state = goodsFlowByRowKey[goodsRowKey(record)];
-  return Boolean(state && Number(state.inboundQty) > 0);
+  return Boolean(
+    (state && Number(state.inboundQty) > 0)
+      || record?.inboundDone
+      || Number(record?.currentQty || 0) > 0,
+  );
 }
 
 function canGoodsOutbound(record) {
@@ -815,19 +1083,125 @@ function canGoodsOutbound(record) {
 }
 
 function availableGoodsOutboundQty(rowKey) {
+  if (goodsOutboundForm.stockScope === 'group' && rowKey === activeGoodsRowKey.value) {
+    return Math.max(0, Number(goodsOutboundForm.groupAvailableQty || 0));
+  }
   const state = goodsFlowByRowKey[rowKey] || {};
   const inboundQty = Number(state.inboundQty || 0);
   const outboundQty = Number(state.outboundQty || 0);
   if (inboundQty > 0) {
     return Math.max(0, inboundQty - outboundQty);
   }
-  const record = rows.value.find((item) => goodsRowKey(item) === rowKey);
-  return Math.max(0, Number(record?.currentQty || 0));
+  const record = tableRows.value.find((item) => goodsRowKey(item) === rowKey);
+  return Math.max(0, Number(record?.outboundMaxQty ?? record?.currentQty ?? 0));
 }
 
 function goodsRowKey(record) {
   const key = getRecordId(record) ?? record?.goodsId ?? record?.id;
   return key === undefined || key === null ? '' : String(key);
+}
+
+async function loadGoodsStockRows() {
+  goodsStockLoading.value = true;
+  try {
+    const firstPage = await fetchPage('stock', {
+      pageNum: 1,
+      pageSize: 50,
+      sortBy: 'updateTime',
+      sortOrder: 'desc',
+    });
+    const pageCount = Math.ceil(Number(firstPage.total || 0) / 50);
+    const remainingPages = pageCount > 1
+      ? await Promise.all(Array.from({ length: pageCount - 1 }, (_, index) => fetchPage('stock', {
+        pageNum: index + 2,
+        pageSize: 50,
+        sortBy: 'updateTime',
+        sortOrder: 'desc',
+      })))
+      : [];
+    goodsStockRows.value = [
+      ...(Array.isArray(firstPage.records) ? firstPage.records : []),
+      ...remainingPages.flatMap((page) => (Array.isArray(page.records) ? page.records : [])),
+    ];
+  } catch (error) {
+    goodsStockRows.value = [];
+    message.error(error.message || TABLE_TEXT.fetchFail);
+  } finally {
+    goodsStockLoading.value = false;
+  }
+}
+
+function mergeGoodsWithStock(goodsRows, stockRows) {
+  const stocks = Array.isArray(stockRows) ? stockRows : [];
+  return (Array.isArray(goodsRows) ? goodsRows : []).map((goods) => {
+    const matched = stocks.filter((stock) => isSameGoodsStock(goods, stock));
+    const currentQty = matched.reduce((total, stock) => total + stockCurrentQty(stock), 0);
+    const hasStock = matched.length > 0;
+    return {
+      ...goods,
+      currentQty,
+      outboundMaxQty: currentQty,
+      inboundDone: hasStock,
+      inventoryStatus: hasStock ? '入庫済み' : '未入庫',
+      stockId: matched.length === 1 ? matched[0]?.id : null,
+    };
+  });
+}
+
+function isSameGoodsStock(goods, stock) {
+  const goodsSkuId = Number(goods?.skuId);
+  const stockSkuId = Number(stock?.skuId);
+  if (goodsSkuId && stockSkuId) return goodsSkuId === stockSkuId;
+  const goodsId = Number(goods?.goodsId ?? goods?.id);
+  const stockGoodsId = Number(stock?.goodsId);
+  return Boolean(goodsId && stockGoodsId && goodsId === stockGoodsId);
+}
+
+function stockCurrentQty(stock) {
+  const value = stock?.currentQty ?? stock?.availableQty ?? stock?.stockQty ?? stock?.quantity ?? 0;
+  const quantity = Number(value);
+  return Number.isNaN(quantity) ? 0 : quantity;
+}
+
+function filterStockViewRows(source) {
+  const list = Array.isArray(source) ? source : [];
+  const match = String(props.moduleKey || '').match(/^stockGroup([ABC])$/);
+  if (match) {
+    return list.filter((record) => resolveStockGroupCode(record) === match[1]);
+  }
+  if (props.moduleKey === 'stockSelf' || props.moduleKey === 'stockSummary' || props.moduleKey === 'stock') {
+    return list.filter((record) => !resolveStockGroupCode(record));
+  }
+  return list;
+}
+
+function resolveStockGroupCode(record) {
+  const direct = String(
+    record?.groupCode
+    ?? record?.stockGroup
+    ?? record?.deptGroup
+    ?? record?.groupName
+    ?? '',
+  ).trim().toUpperCase();
+  const match = direct.match(/(?:^|[^A-Z])([ABC])(?:組|组|GROUP|$)/i);
+  return match ? match[1].toUpperCase() : '';
+}
+
+function restoreGoodsFlowState() {
+  try {
+    const stored = sessionStorage.getItem(GOODS_FLOW_SESSION_KEY);
+    if (!stored) return;
+    const parsed = JSON.parse(stored);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      Object.assign(goodsFlowByRowKey, parsed);
+    }
+  } catch (_error) {
+    sessionStorage.removeItem(GOODS_FLOW_SESSION_KEY);
+  }
+}
+
+function persistGoodsFlowState() {
+  sessionStorage.setItem(GOODS_FLOW_SESSION_KEY, JSON.stringify(goodsFlowByRowKey));
 }
 
 function openRequestItemCandidateModal() {
@@ -1204,7 +1578,7 @@ function canShowRowExtraAction(actionKey, record) {
 }
 
 function canCreateInModule() {
-  if (props.moduleKey === 'stock') return false;
+  if (isSplitStockManagement.value) return false;
   if (props.moduleKey === 'requestItem' && isCurrentRequestCompleted()) return false;
   if (props.allDataWrite) return isGoodsManagement.value || formKeys.value.length > 0;
   if (props.moduleActions && !props.moduleActions.create) return false;
@@ -1255,7 +1629,7 @@ function isCurrentRequestCompleted() {
 }
 
 function canBatchDeleteInModule() {
-  if (props.moduleKey === 'stock') return false;
+  if (isSplitStockManagement.value) return false;
   if (props.allDataWrite) return props.moduleKey !== 'requestItem';
   if (props.moduleActions && !props.moduleActions.batchDelete) return false;
   if (props.moduleKey === 'requestItem') return false;

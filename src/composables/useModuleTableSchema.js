@@ -22,7 +22,7 @@ export function useModuleTableSchema(options) {
     if (isGoodsManagement.value) {
       const first = rows.value[0];
       if (!first) return GOODS_TABLE_CONFIG.preferredFields;
-      const raw = Object.keys(first);
+      const raw = [...new Set([...Object.keys(first), 'inventoryStatus', 'currentQty'])];
       const noStatus = raw.includes('statusDesc') ? raw.filter((key) => key !== 'status') : raw;
       const withoutTail = noStatus.filter((key) => {
         const lower = String(key || '').toLowerCase();
