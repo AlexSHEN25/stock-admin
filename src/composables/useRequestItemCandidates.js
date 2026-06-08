@@ -37,8 +37,8 @@ export function useRequestItemCandidates(options) {
   });
   const candidateSubmitText = computed(() => (
     pendingSelectedRows.value.length > 0
-      ? `\u8ffd\u52a0\uff08${pendingSelectedRows.value.length}\u4ef6\uff09`
-      : '\u8ffd\u52a0'
+      ? `追加（${pendingSelectedRows.value.length}件）`
+      : '追加'
   ));
 
   function resolveCurrentRequestId() {
@@ -216,23 +216,23 @@ export function useRequestItemCandidates(options) {
     const payloadItems = items.map(({ maxQty: _maxQty, ...rest }) => rest);
 
     if (!requestId) {
-      notify.warning('\u8acb\u6c42\u66f8\u3092\u9078\u629e\u3057\u3066\u304f\u3060\u3055\u3044');
+      notify.warning('請求書を選択してください');
       return;
     }
     if (items.length === 0) {
-      notify.warning('\u8ffd\u52a0\u3059\u308b\u672a\u8ffd\u52a0\u306e\u5546\u54c1\u3092\u9078\u629e\u3057\u3066\u304f\u3060\u3055\u3044');
+      notify.warning('追加する未追加の商品を選択してください');
       return;
     }
     if (items.some((item) => !item.stockRecordId && !item.stockOrderItemId)) {
-      notify.warning('\u5019\u88dc\u30c7\u30fc\u30bf\u306b\u51fa\u5eab\u660e\u7d30ID\u307e\u305f\u306f\u5728\u5eab\u5c65\u6b74ID\u304c\u3042\u308a\u307e\u305b\u3093');
+      notify.warning('候補データに出庫明細IDまたは在庫履歴IDがありません');
       return;
     }
     if (items.some((item) => !item.requestQty || item.requestQty <= 0)) {
-      notify.warning('\u8acb\u6c42\u6570\u91cf\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044');
+      notify.warning('請求数量を入力してください');
       return;
     }
     if (items.some((item) => item.requestQty > item.maxQty)) {
-      notify.warning('\u8acb\u6c42\u6570\u91cf\u306f\u51fa\u5eab\u6570\u91cf\u4ee5\u4e0b\u306b\u3057\u3066\u304f\u3060\u3055\u3044');
+      notify.warning('請求数量は出庫数量以下にしてください');
       return;
     }
 
@@ -242,7 +242,7 @@ export function useRequestItemCandidates(options) {
         requestId,
         items: payloadItems.filter((item) => (item.stockRecordId || item.stockOrderItemId) && item.requestQty > 0),
       });
-      notify.success('\u8acb\u6c42\u66f8\u660e\u7d30\u3092\u66f4\u65b0\u3057\u307e\u3057\u305f');
+      notify.success('請求書明細を更新しました');
       await refreshRequestItemContext();
     } catch (error) {
       notify.error(error?.message || TABLE_TEXT.saveFail);
@@ -312,7 +312,7 @@ export function useRequestItemCandidates(options) {
         orderItemIds: stockOrderItemId ? [stockOrderItemId] : undefined,
         requestItemIds: requestItemId ? [requestItemId] : undefined,
       });
-      notify.success('\u8acb\u6c42\u66f8\u660e\u7d30\u3092\u7d0d\u54c1\u4e88\u5b9a\u3078\u623b\u3057\u307e\u3057\u305f');
+      notify.success('請求書明細を納品予定へ戻しました');
       await refreshRequestItemContext();
     } catch (error) {
       notify.error(error?.message || TABLE_TEXT.deleteFail);
@@ -345,12 +345,12 @@ export function useRequestItemCandidates(options) {
 
   function isKnifeCandidate(record) {
     const text = candidateText(record);
-    return text.includes('\u5200') || text.toLowerCase().includes('knife');
+    return text.includes('刀') || text.toLowerCase().includes('knife');
   }
 
   function isHandleCandidate(record) {
     const text = candidateText(record).toLowerCase();
-    return text.includes('\u30cf\u30f3\u30c9') || text.includes('handle') || text.includes('\u67c4');
+    return text.includes('ハンド') || text.includes('handle') || text.includes('柄');
   }
 
   function candidateText(record) {
@@ -381,7 +381,7 @@ export function useRequestItemCandidates(options) {
   function isOutboundType(value) {
     const text = String(value ?? '').trim().toLowerCase();
     if (text === '2') return true;
-    return ['\u51fa\u5eab', 'outbound'].some((keyword) => text.includes(keyword));
+    return ['出庫', 'outbound'].some((keyword) => text.includes(keyword));
   }
 
   return {

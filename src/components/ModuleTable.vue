@@ -1199,7 +1199,7 @@ function persistGoodsFlowState() {
 
 function openRequestItemCandidateModal() {
   if (props.moduleKey === 'requestItem' && isCurrentRequestCompleted()) {
-    message.warning('\u5b8c\u4e86\u6e08\u307f\u306e\u8acb\u6c42\u66f8\u306f\u660e\u7d30\u3092\u5909\u66f4\u3067\u304d\u307e\u305b\u3093');
+    message.warning('完了済みの請求書は明細を変更できません');
     return;
   }
   openCandidateModal();

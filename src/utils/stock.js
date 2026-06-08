@@ -247,7 +247,7 @@ export async function submitDeliveryAllocationFlow({ items, settings, notify }) 
     // eslint-disable-next-line no-await-in-loop
     await createItem(path, payload);
   }
-  notify.success('\u7d0d\u54c1\u632f\u5206\u3092\u767b\u9332\u3057\u307e\u3057\u305f');
+  notify.success('納品振分を登録しました');
   return true;
 }
 
@@ -361,7 +361,7 @@ export async function submitStockQuantityAdjustment({ beforeQty, afterQty, recor
   const next = Number(afterQty);
   if (Number.isNaN(previous) || Number.isNaN(next) || previous === next) return false;
   if (next < 0) {
-    throw new Error('\u73fe\u5728\u6570\u91cf\u306f0\u4ee5\u4e0a\u3067\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044');
+    throw new Error('現在数量は0以上で入力してください');
   }
 
   const changeQty = next - previous;
@@ -372,7 +372,7 @@ export async function submitStockQuantityAdjustment({ beforeQty, afterQty, recor
   const sourceType = Number(record?.sourceType || 2);
 
   if (!goodsId || !warehouseId || !stockTypeId) {
-    throw new Error('\u6570\u91cf\u5909\u66f4\u306b\u5fc5\u8981\u306a\u5546\u54c1\u30fb\u5009\u5eab\u30fb\u5728\u5eab\u5206\u985e\u304c\u4e0d\u8db3\u3057\u3066\u3044\u307e\u3059');
+    throw new Error('数量変更に必要な商品・倉庫・在庫分類が不足しています');
   }
 
   await createItem(changeQty > 0 ? 'stock/inbound' : 'stock/outbound', {
@@ -382,7 +382,7 @@ export async function submitStockQuantityAdjustment({ beforeQty, afterQty, recor
     warehouseId,
     stockTypeId,
     quantity: Math.abs(changeQty),
-    remark: '\u5728\u5eab\u7ba1\u7406\u753b\u9762\u304b\u3089\u306e\u6570\u91cf\u8abf\u6574',
+    remark: '在庫管理画面からの数量調整',
   });
   return true;
 }
@@ -396,7 +396,7 @@ export async function submitStockOrderItemReturnFlow({ record, reload, notify })
   const quantity = Math.abs(Number(record?.changeQty ?? record?.outQty ?? record?.requestQty ?? 0));
 
   if (!goodsId || !warehouseId || !stockTypeId || !quantity) {
-    notify.warning('\u8fd4\u5374\u5165\u5eab\u306b\u5fc5\u8981\u306a\u5546\u54c1\u30fb\u5009\u5eab\u30fb\u5728\u5eab\u5206\u985e\u30fb\u6570\u91cf\u304c\u4e0d\u8db3\u3057\u3066\u3044\u307e\u3059');
+    notify.warning('返却入庫に必要な商品・倉庫・在庫分類・数量が不足しています');
     return;
   }
 
@@ -410,7 +410,7 @@ export async function submitStockOrderItemReturnFlow({ record, reload, notify })
       quantity,
       remark: buildReturnRemark(record),
     });
-    notify.success('\u8fd4\u5374\u5165\u5eab\u3092\u7533\u8acb\u3057\u307e\u3057\u305f');
+    notify.success('返却入庫を申請しました');
     await reload();
   } catch (error) {
     notify.error(error.message || TABLE_TEXT.saveFail);
@@ -437,7 +437,7 @@ export async function submitDeliveryScheduleInboundFlow({
   ));
 
   if (!goodsId || !warehouseId || !stockTypeId || !inboundQty) {
-    notify.warning('\u5165\u5eab\u7533\u8acb\u306b\u5fc5\u8981\u306a\u5546\u54c1\u30fb\u5009\u5eab\u30fb\u5728\u5eab\u5206\u985e\u30fb\u6570\u91cf\u304c\u4e0d\u8db3\u3057\u3066\u3044\u307e\u3059');
+    notify.warning('入庫申請に必要な商品・倉庫・在庫分類・数量が不足しています');
     return false;
   }
 
@@ -452,7 +452,7 @@ export async function submitDeliveryScheduleInboundFlow({
       saleDeadline: record?.saleDeadline ?? record?.deliveryDate ?? record?.bizDate ?? null,
       remark: buildDeliveryScheduleInboundRemark(record),
     });
-    notify.success('\u7d0d\u54c1\u4e88\u5b9a\u304b\u3089\u5165\u5eab\u7533\u8acb\u3092\u4f5c\u6210\u3057\u307e\u3057\u305f');
+    notify.success('納品予定から入庫申請を作成しました');
     if (typeof reload === 'function') {
       await reload();
     }
@@ -491,17 +491,17 @@ async function resolveStockOrder(record) {
 function buildReturnRemark(record) {
   const orderNo = record?.orderNo || record?.bizNo || record?.orderId || '';
   const itemId = record?.id || record?.orderItemId || '';
-  const parts = ['\u8acb\u6c42\u66f8\u660e\u7d30\u8fd4\u5374'];
-  if (orderNo) parts.push(`\u51fa\u5eab\u4f1d\u7968:${orderNo}`);
-  if (itemId) parts.push(`\u660e\u7d30ID:${itemId}`);
+  const parts = ['請求書明細返却'];
+  if (orderNo) parts.push(`出庫伝票:${orderNo}`);
+  if (itemId) parts.push(`明細ID:${itemId}`);
   return parts.join(' / ');
 }
 
 function buildDeliveryScheduleInboundRemark(record) {
   const orderNo = record?.orderNo || record?.bizNo || record?.orderId || '';
   const itemId = record?.stockOrderItemId || record?.orderItemId || record?.id || '';
-  const parts = ['\u7d0d\u54c1\u4e88\u5b9a\u304b\u3089\u306e\u5165\u5eab\u7533\u8acb'];
-  if (orderNo) parts.push(`\u4f1d\u7968:${orderNo}`);
-  if (itemId) parts.push(`\u660e\u7d30ID:${itemId}`);
+  const parts = ['納品予定からの入庫申請'];
+  if (orderNo) parts.push(`伝票:${orderNo}`);
+  if (itemId) parts.push(`明細ID:${itemId}`);
   return parts.join(' / ');
 }

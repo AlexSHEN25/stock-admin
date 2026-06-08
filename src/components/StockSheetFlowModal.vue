@@ -121,33 +121,33 @@
 import { computed } from 'vue';
 
 const TEXT = {
-  inboundTitle: '\u8868\u5f62\u5f0f\u5165\u5eab',
-  outboundTitle: '\u8868\u5f62\u5f0f\u51fa\u5eab',
-  deliveryTitle: '\u7d0d\u54c1\u632f\u5206',
-  inboundSubmit: '\u5165\u5eab\u767b\u9332',
-  outboundSubmit: '\u51fa\u5eab\u767b\u9332',
-  deliverySubmit: '\u7d0d\u54c1\u632f\u5206\u767b\u9332',
-  warehouse: '\u5009\u5eab',
-  stockType: '\u5728\u5eab\u5206\u985e',
-  customer: '\u304a\u5ba2\u69d8',
-  saleDeadline: '\u8ca9\u58f2\u671f\u9650',
-  commonRemark: '\u5171\u901a\u5099\u8003',
-  total: '\u5408\u8a08',
-  skuCode: '\u54c1\u756a',
-  goodsName: '\u54c1\u540d',
-  brand: '\u30d6\u30e9\u30f3\u30c9',
-  maker: '\u30e1\u30fc\u30ab\u30fc',
-  currentQty: '\u73fe\u5728\u5eab',
-  deliveryQty: '\u7d0d\u54c1\u6570',
-  inboundQty: '\u5165\u5eab\u6570\u91cf',
-  afterQty: '\u5165\u5eab\u5f8c',
-  groupA: 'A\u7d44\u632f\u5206',
-  groupB: 'B\u7d44\u632f\u5206',
-  groupC: 'C\u7d44\u632f\u5206',
-  groupTotal: '\u7d44\u632f\u5206\u5408\u8a08',
-  selfInbound: '\u81ea\u793e\u5165\u5eab',
-  remain: '\u6b8b',
-  remark: '\u5099\u8003',
+  inboundTitle: '表形式入庫',
+  outboundTitle: '表形式出庫',
+  deliveryTitle: '納品振分',
+  inboundSubmit: '入庫登録',
+  outboundSubmit: '出庫登録',
+  deliverySubmit: '納品振分登録',
+  warehouse: '倉庫',
+  stockType: '在庫分類',
+  customer: 'お客様',
+  saleDeadline: '販売期限',
+  commonRemark: '共通備考',
+  total: '合計',
+  skuCode: '品番',
+  goodsName: '品名',
+  brand: 'ブランド',
+  maker: 'メーカー',
+  currentQty: '現在庫',
+  deliveryQty: '納品数',
+  inboundQty: '入庫数量',
+  afterQty: '入庫後',
+  groupA: 'A組振分',
+  groupB: 'B組振分',
+  groupC: 'C組振分',
+  groupTotal: '組振分合計',
+  selfInbound: '自社入庫',
+  remain: '残',
+  remark: '備考',
 };
 
 const props = defineProps({
@@ -223,7 +223,7 @@ const totalQuantity = computed(() => props.rows.reduce((total, record) => {
 }, 0));
 const submitText = computed(() => {
   const label = isInbound.value ? TEXT.inboundSubmit : (isDelivery.value ? TEXT.deliverySubmit : TEXT.outboundSubmit);
-  return totalQuantity.value > 0 ? `${label}\uff08${totalQuantity.value}\uff09` : label;
+  return totalQuantity.value > 0 ? `${label}（${totalQuantity.value}）` : label;
 });
 
 function draft(record) {

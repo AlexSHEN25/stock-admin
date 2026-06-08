@@ -176,6 +176,10 @@ export function useModuleMenu(options) {
   }
 
   function resolveMenuLabel(scope, item) {
+    const localLabel = String(item?.label || '').trim();
+    if (localLabel) {
+      return localLabel;
+    }
     const label = String(scope?.label || '').trim();
     if (!label || hasDanglingMenuLabelSeparator(label)) {
       return item.label;

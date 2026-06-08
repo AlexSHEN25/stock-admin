@@ -63,7 +63,6 @@ export const MODULE_GROUPS = [
     key: 'request',
     label: '請求書管理',
     children: [
-      { key: 'requestForm', label: '請求書明細' },
       { key: 'requestItem', label: '請求書明細' },
     ],
   },
