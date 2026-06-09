@@ -378,8 +378,7 @@ const isSplitStockManagement = computed(() => (
   || /^stockGroup[ABC]$/.test(props.moduleKey)
 ));
 const modulePath = computed(() => {
-  if (props.moduleKey === 'stockSelf' || props.moduleKey === 'stockSummary') return 'stock/self';
-  if (/^stockGroup[ABC]$/.test(props.moduleKey)) return 'stock/group';
+  if (isSplitStockManagement.value) return 'stock';
   return props.moduleKey;
 });
 const preset = computed(() => getModulePreset(props.moduleKey));
@@ -466,7 +465,7 @@ const {
   buildExtraQueryParams: () => (
     props.moduleKey === 'message' && isAdminUser.value
       ? { all: true, scope: 'all' }
-      : {}
+      : stockViewQueryParams()
   ),
 });
 
@@ -619,6 +618,18 @@ const tableRows = computed(() => {
   }
   return requestItemTableRows.value;
 });
+
+function stockViewQueryParams() {
+  if (props.moduleKey === 'stockSelf' || props.moduleKey === 'stockSummary' || props.moduleKey === 'stock') {
+    return { stockScope: 'self' };
+  }
+  const match = String(props.moduleKey || '').match(/^stockGroup([ABC])$/);
+  if (!match) return {};
+  return {
+    stockScope: 'group',
+    groupCode: match[1],
+  };
+}
 const visibleFormKeys = computed(() => {
   const list = editing.value ? activeFormKeys() : formKeys.value.filter((field) => String(field || '').toLowerCase() !== 'status');
   return filterFinanceFormKeys(list, formState);
