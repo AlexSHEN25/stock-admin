@@ -1,10 +1,10 @@
 <template>
   <a-upload
-    v-if="isAvatarField(field)"
+    v-if="isAvatarField(editableField)"
     accept="image/*"
     list-type="picture-card"
     :show-upload-list="false"
-    :before-upload="(file) => beforeAvatarUpload(field, file)"
+    :before-upload="(file) => beforeAvatarUpload(editableField, file)"
   >
     <img
       v-if="value"
@@ -17,7 +17,7 @@
     </div>
   </a-upload>
   <a-select
-    v-else-if="inputType(field) === 'relation'"
+    v-else-if="inputType(editableField) === 'relation'"
     v-model:value="value"
     :options="relationOptions[editableField] || []"
     :mode="isMultiRelationField(editableField) ? 'multiple' : undefined"
@@ -27,24 +27,24 @@
     style="width: 100%"
   />
   <a-input-number
-    v-else-if="inputType(field) === 'number' || inputType(field) === 'decimal'"
+    v-else-if="inputType(editableField) === 'number' || inputType(editableField) === 'decimal'"
     v-model:value="value"
     :min="numberMinByField(editableField)"
     :precision="numberPrecisionByField(editableField)"
     style="width: 100%"
   />
   <a-select
-    v-else-if="inputType(field) === 'select'"
+    v-else-if="inputType(editableField) === 'select'"
     v-model:value="value"
     :options="selectOptions(editableField)"
     allow-clear
   />
   <a-switch
-    v-else-if="inputType(field) === 'switch'"
+    v-else-if="inputType(editableField) === 'switch'"
     v-model:checked="value"
   />
   <a-date-picker
-    v-else-if="inputType(field) === 'datetime'"
+    v-else-if="inputType(editableField) === 'datetime'"
     v-model:value="value"
     value-format="YYYY-MM-DD HH:mm:ss"
     show-time

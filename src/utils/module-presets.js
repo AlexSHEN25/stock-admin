@@ -48,7 +48,6 @@ export const MODULE_GROUPS = [
     label: '在庫管理',
     children: [
       { key: 'stockSelf', label: '自社在庫管理' },
-      { key: 'stockSummary', label: 'まとめ納品書明細' },
       { key: 'stockGroupA', label: 'A組在庫管理', groupCode: 'A' },
       { key: 'stockGroupB', label: 'B組在庫管理', groupCode: 'B' },
       { key: 'stockGroupC', label: 'C組在庫管理', groupCode: 'C' },
@@ -112,7 +111,6 @@ export const MODULE_PRESETS = {
   },
   stock: STOCK_PRESET,
   stockSelf: STOCK_PRESET,
-  stockSummary: STOCK_PRESET,
   stockGroupA: STOCK_PRESET,
   stockGroupB: STOCK_PRESET,
   stockGroupC: STOCK_PRESET,

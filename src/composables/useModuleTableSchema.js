@@ -27,10 +27,10 @@ export function useModuleTableSchema(options) {
       const withoutTail = noStatus.filter((key) => {
         const lower = String(key || '').toLowerCase();
         if (lower === 'id' || lower === 'imageid') return false;
-        if (isTimeLikeField(key)) return false;
+        if (isTimeLikeField(key) && !isLastUpdateField(key)) return false;
         return true;
       });
-      const preferred = GOODS_TABLE_CONFIG.preferredFields.filter((key) => withoutTail.includes(key) && !isTimeLikeField(key));
+      const preferred = GOODS_TABLE_CONFIG.preferredFields.filter((key) => withoutTail.includes(key) && (!isTimeLikeField(key) || isLastUpdateField(key)));
       const rest = withoutTail.filter((key) => !GOODS_TABLE_CONFIG.preferredFields.includes(key));
       return orderGoodsKeys([...preferred, ...rest], noStatus);
     }
@@ -41,7 +41,7 @@ export function useModuleTableSchema(options) {
     const noStatus = raw.includes('statusDesc') ? raw.filter((key) => key !== 'status') : raw;
     const hasId = noStatus.some((key) => String(key || '').toLowerCase() === 'id');
     const noId = noStatus.filter((key) => String(key || '').toLowerCase() !== 'id');
-    const filtered = noId.filter((key) => !isTimeLikeField(key));
+    const filtered = noId.filter((key) => !isTimeLikeField(key) || isLastUpdateField(key));
     const head = filtered;
     return hasId ? ['id', ...head] : [...head];
   });
@@ -51,11 +51,13 @@ export function useModuleTableSchema(options) {
     const presetFields = preset.value.queryFields || [];
     const source = presetFields.length > 0 ? presetFields : buildAutoQueryFields(keys.value);
     return [...new Set(source.map((field) => normalizeQueryField(field)))]
-      .filter((field) => String(field || '').toLowerCase() !== 'id' && !isTimeLikeField(field));
+      .filter((field) => String(field || '').toLowerCase() !== 'id' && (!isTimeLikeField(field) || isLastUpdateField(field)));
   });
 
   const columns = computed(() => {
-    const base = keys.value.map((key) => ({
+    const base = keys.value
+      .filter((key) => String(key || '').toLowerCase() !== 'updatetime')
+      .map((key) => ({
       title: isGoodsSkuIdAsId(key, isGoodsManagement.value) ? 'ID' : normalizeTitle(key),
       dataIndex: key,
       key,
@@ -75,8 +77,20 @@ export function useModuleTableSchema(options) {
       },
     }));
 
+    const updateTimeColumn = keys.value.some((key) => String(key || '').toLowerCase() === 'updatetime')
+      ? [{
+        title: normalizeTitle('updateTime'),
+        dataIndex: 'updateTime',
+        key: 'updateTime',
+        fixed: 'right',
+        width: 160,
+        ellipsis: false,
+      }]
+      : [];
+
     return [
       ...base,
+      ...updateTimeColumn,
       {
         title: TABLE_TEXT.actions,
         key: '__actions',
@@ -168,6 +182,10 @@ function isGoodsSkuIdAsId(key, isGoodsManagement) {
 function isTimeLikeField(field) {
   const low = String(field || '').toLowerCase();
   return low.includes('time') || low.includes('date');
+}
+
+function isLastUpdateField(field) {
+  return String(field || '').toLowerCase() === 'updatetime';
 }
 
 function orderGoodsKeys(sourceKeys, availableKeys) {

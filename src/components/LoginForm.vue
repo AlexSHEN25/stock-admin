@@ -50,7 +50,7 @@ async function submit() {
   try {
     const inputUsername = String(form.username || '').trim();
     const res = await login({ username: inputUsername, password: form.password });
-    if (!res?.token) throw new Error('token が返却されませんでした');
+    if (!res?.token) throw new Error('トークンが返却されませんでした');
     emit('success', { ...res, loginInputUsername: inputUsername });
   } catch (error) {
     message.error(error.message || 'ログインに失敗しました');

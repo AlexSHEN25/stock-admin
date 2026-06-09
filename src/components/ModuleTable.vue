@@ -111,6 +111,9 @@
         <template v-else-if="String(column.key) === 'changeQty'">
           {{ formatQty(record.changeQty) }}
         </template>
+        <template v-else-if="String(column.key) === 'updateTime'">
+          {{ formatTime(record.updateTime) }}
+        </template>
         <template v-else-if="String(column.key) === 'inventoryStatus'">
           <a-tag :color="record.inboundDone ? 'success' : 'default'">
             {{ record.inventoryStatus }}
@@ -374,7 +377,11 @@ const isSplitStockManagement = computed(() => (
   || props.moduleKey === 'stockSummary'
   || /^stockGroup[ABC]$/.test(props.moduleKey)
 ));
-const modulePath = computed(() => (isSplitStockManagement.value ? 'stock' : props.moduleKey));
+const modulePath = computed(() => {
+  if (props.moduleKey === 'stockSelf' || props.moduleKey === 'stockSummary') return 'stock/self';
+  if (/^stockGroup[ABC]$/.test(props.moduleKey)) return 'stock/group';
+  return props.moduleKey;
+});
 const preset = computed(() => getModulePreset(props.moduleKey));
 const rowExtraActions = computed(() => getRowExtraActions(props.moduleKey));
 const canWrite = computed(() => {
@@ -459,7 +466,7 @@ const {
   buildExtraQueryParams: () => (
     props.moduleKey === 'message' && isAdminUser.value
       ? { all: true, scope: 'all' }
-      : stockViewQueryParams()
+      : {}
   ),
 });
 
@@ -608,7 +615,7 @@ const tableRows = computed(() => {
     return mergeGoodsWithStock(requestItemTableRows.value, goodsStockRows.value);
   }
   if (isSplitStockManagement.value) {
-    return filterStockViewRows(requestItemTableRows.value);
+    return requestItemTableRows.value;
   }
   return requestItemTableRows.value;
 });
@@ -668,18 +675,6 @@ function normalizeQueryField(field) {
   const nameField = `${key.slice(0, -2)}Name`;
   if (backendFieldSet.value.has(nameField)) return nameField;
   return key;
-}
-
-function stockViewQueryParams() {
-  if (props.moduleKey === 'stockSelf' || props.moduleKey === 'stockSummary' || props.moduleKey === 'stock') {
-    return { stockScope: 'self' };
-  }
-  const match = String(props.moduleKey || '').match(/^stockGroup([ABC])$/);
-  if (!match) return {};
-  return {
-    stockScope: 'group',
-    groupCode: match[1],
-  };
 }
 
 async function submitStockFlow({ buildEditPayload, getRecordId, normalizePayload: normalizeSubmitPayload }) {
@@ -1155,30 +1150,6 @@ function stockCurrentQty(stock) {
   const value = stock?.currentQty ?? stock?.availableQty ?? stock?.stockQty ?? stock?.quantity ?? 0;
   const quantity = Number(value);
   return Number.isNaN(quantity) ? 0 : quantity;
-}
-
-function filterStockViewRows(source) {
-  const list = Array.isArray(source) ? source : [];
-  const match = String(props.moduleKey || '').match(/^stockGroup([ABC])$/);
-  if (match) {
-    return list.filter((record) => resolveStockGroupCode(record) === match[1]);
-  }
-  if (props.moduleKey === 'stockSelf' || props.moduleKey === 'stockSummary' || props.moduleKey === 'stock') {
-    return list.filter((record) => !resolveStockGroupCode(record));
-  }
-  return list;
-}
-
-function resolveStockGroupCode(record) {
-  const direct = String(
-    record?.groupCode
-    ?? record?.stockGroup
-    ?? record?.deptGroup
-    ?? record?.groupName
-    ?? '',
-  ).trim().toUpperCase();
-  const match = direct.match(/(?:^|[^A-Z])([ABC])(?:組|组|GROUP|$)/i);
-  return match ? match[1].toUpperCase() : '';
 }
 
 function restoreGoodsFlowState() {

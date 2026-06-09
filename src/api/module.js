@@ -288,5 +288,8 @@ function normalizePageSize(input) {
 }
 
 function resolveModulePath(modulePath) {
-  return modulePath;
+  const key = String(modulePath || '');
+  if (key === 'stockSelf' || key === 'stockSummary') return 'stock/self';
+  if (/^stockGroup[ABC]$/.test(key)) return 'stock/group';
+  return key;
 }
