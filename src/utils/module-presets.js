@@ -292,8 +292,8 @@ export const MODULE_PRESETS = {
     queryFields: ['id', 'goodsId', 'goodsName', 'englishName', 'skuId', 'skuCode', 'oldPrice', 'newPrice', 'currency', 'discount', 'priceUpdateTime', 'operatorId', 'operatorName'],
   },
   customer: {
-    queryFields: ['id', 'customerCode', 'name', 'englishName', 'contactPerson', 'phone', 'email', 'country', 'city', 'address', 'levelName', 'ownerUserName', 'ownerDeptName', 'remark', 'status'],
-    formFields: ['customerCode', 'name', 'englishName', 'contactPerson', 'phone', 'email', 'country', 'city', 'address', 'levelId', 'ownerUserId', 'ownerDeptId', 'remark', 'status'],
+    queryFields: ['id', 'customerCode', 'name', 'englishName', 'ownerUserName', 'phone', 'email', 'country', 'city', 'address', 'levelName', 'ownerDeptName', 'remark', 'status'],
+    formFields: ['customerCode', 'name', 'englishName', 'ownerUserId', 'phone', 'email', 'country', 'city', 'address', 'levelId', 'ownerDeptId', 'remark', 'status'],
     fieldTypes: { levelId: 'relation', ownerUserId: 'relation', ownerDeptId: 'relation', status: 'select' },
   },
   customerLevel: {

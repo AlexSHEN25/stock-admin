@@ -60,7 +60,7 @@ export function useRelationOptions(options) {
     if (!relationModuleOptionPromise[targetModule]) {
       relationModuleOptionPromise[targetModule] = fetchModuleOptions(targetModule)
         .then((list) => dedupeOptions((list || []).map((item) => ({
-          label: relationLabel(item),
+          label: relationOptionLabel(targetModule, item),
           value: item.id,
         }))))
         .then((optionList) => {
@@ -89,6 +89,14 @@ export function useRelationOptions(options) {
       output.push(item);
     }
     return output;
+  }
+
+  function relationOptionLabel(targetModule, item) {
+    if (targetModule === 'user') {
+      const username = String(item?.username ?? item?.userName ?? '').trim();
+      if (username) return username;
+    }
+    return relationLabel(item);
   }
 
   function invalidateRelationModuleOptions(targetModules) {

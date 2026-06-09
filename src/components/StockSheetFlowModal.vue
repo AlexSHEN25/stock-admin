@@ -121,18 +121,18 @@
 import { computed } from 'vue';
 
 const TEXT = {
-  inboundTitle: '入庫予定',
-  outboundTitle: '出庫予定',
-  deliveryTitle: '納品予定',
+  inboundTitle: '入庫一括処理',
+  outboundTitle: '出庫一括処理',
+  deliveryTitle: '納品振分処理',
   inboundSubmit: '入庫申請',
   outboundSubmit: '出庫申請',
-  deliverySubmit: '納品予定登録',
+  deliverySubmit: '納品振分登録',
   warehouse: '倉庫',
   stockType: '在庫分類',
   customer: '顧客',
   saleDeadline: '販売期限',
   commonRemark: '共通備考',
-  total: '合計',
+  total: '総数',
   skuCode: '品番',
   goodsName: '商品名',
   brand: 'ブランド',
@@ -141,10 +141,10 @@ const TEXT = {
   deliveryQty: '納品数',
   inboundQty: '入庫数',
   afterQty: '入庫後',
-  groupA: 'A分類',
-  groupB: 'B分類',
-  groupC: 'C分類',
-  groupTotal: '分類合計',
+  groupA: 'A組',
+  groupB: 'B組',
+  groupC: 'C組',
+  groupTotal: '組別合計',
   selfInbound: '自社入庫',
   remain: '残数',
   remark: '備考',
@@ -223,7 +223,7 @@ const totalQuantity = computed(() => props.rows.reduce((total, record) => {
 }, 0));
 const submitText = computed(() => {
   const label = isInbound.value ? TEXT.inboundSubmit : (isDelivery.value ? TEXT.deliverySubmit : TEXT.outboundSubmit);
-  return totalQuantity.value > 0 ? `${label}（${totalQuantity.value}件）` : label;
+  return totalQuantity.value > 0 ? `${label} (${totalQuantity.value})` : label;
 });
 
 function draft(record) {
