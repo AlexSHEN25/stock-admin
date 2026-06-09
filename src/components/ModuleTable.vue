@@ -1076,8 +1076,7 @@ function isGoodsInboundDone(record) {
   const state = goodsFlowByRowKey[goodsRowKey(record)];
   return Boolean(
     (state && Number(state.inboundQty) > 0)
-      || record?.inboundDone
-      || Number(record?.currentQty || 0) > 0,
+      || record?.inboundDone,
   );
 }
 
@@ -1139,7 +1138,7 @@ function mergeGoodsWithStock(goodsRows, stockRows) {
   return (Array.isArray(goodsRows) ? goodsRows : []).map((goods) => {
     const matched = stocks.filter((stock) => isSameGoodsStock(goods, stock));
     const currentQty = matched.reduce((total, stock) => total + stockCurrentQty(stock), 0);
-    const hasStock = matched.length > 0;
+    const hasStock = matched.some((stock) => stockCurrentQty(stock) > 0);
     return {
       ...goods,
       currentQty,
