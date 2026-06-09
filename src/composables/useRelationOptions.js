@@ -91,11 +91,20 @@ export function useRelationOptions(options) {
     return output;
   }
 
+  function invalidateRelationModuleOptions(targetModules) {
+    const modules = Array.isArray(targetModules) ? targetModules : [targetModules];
+    modules.filter(Boolean).forEach((moduleKey) => {
+      delete relationModuleOptionCache[moduleKey];
+      delete relationModuleOptionPromise[moduleKey];
+    });
+  }
+
   return {
     queryRelationOptions,
     relationOptions,
     loadRelationOptions,
     loadQueryRelationOptions,
     dedupeOptions,
+    invalidateRelationModuleOptions,
   };
 }

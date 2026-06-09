@@ -525,6 +525,7 @@ const {
   loadRelationOptions,
   loadQueryRelationOptions,
   dedupeOptions,
+  invalidateRelationModuleOptions,
 } = useRelationOptions({
   fetchModuleOptions,
   relationLabel,
@@ -533,6 +534,8 @@ const {
   isReadonlyField,
   inlineField,
   mapNameFieldToIdField,
+  currentDeptId: props.currentDeptId,
+  currentDeptName: props.currentDeptName,
 });
 const {
   loadDynamicEnumOptions,
@@ -1239,6 +1242,7 @@ async function loadStockDetail(record) {
 
 async function loadScopedRelationOptions(formFields, tableKeys) {
   await loadRelationOptions(formFields, tableKeys);
+  ensureCurrentDeptRelationOption();
   if (!isSplitStockManagement.value) return;
   if (!editing.value) {
     applyDefaultSplitStockWarehouse();
@@ -1257,6 +1261,7 @@ function applySplitStockRelationScope(scopedRows) {
   const list = Array.isArray(scopedRows) ? scopedRows : [];
   scopeRelationOptionsByRecords('goodsId', list, 'goodsId', ['goodsName', 'name', 'skuCode']);
   scopeRelationOptionsByRecords('warehouseId', list, 'warehouseId', ['warehouseName', 'name', 'code']);
+  ensureCurrentDeptRelationOption();
   scopeWarehouseOptionsByModuleLabel();
   applyDefaultSplitStockWarehouse();
 }
@@ -1338,6 +1343,22 @@ function firstNonEmpty(record, fields) {
   return '';
 }
 
+function ensureCurrentDeptRelationOption() {
+  if (!props.currentDeptId) return;
+  const currentOption = {
+    value: props.currentDeptId,
+    label: props.currentDeptName || `ID:${props.currentDeptId}`,
+  };
+  const list = Array.isArray(relationOptions.deptId) ? relationOptions.deptId : [];
+  if (list.length === 0) {
+    relationOptions.deptId = [currentOption];
+    return;
+  }
+  if (!list.some((option) => String(option?.value) === String(currentOption.value))) {
+    relationOptions.deptId = dedupeOptions([...list, currentOption]);
+  }
+}
+
 function activeFormKeys() {
   if (editing.value && isSplitStockManagement.value) {
     return ['goodsId', 'skuId', 'skuCode', 'warehouseId', 'currentQty', 'price', 'currency', 'stockTypeId'];
@@ -1371,6 +1392,7 @@ async function submit() {
   if (!canWrite.value) return;
   if (isGoodsManagement.value) return;
   await submitState(getRecordId, normalizeModulePayload);
+  refreshRelationOptionCache();
 }
 
 async function onDelete(record) {
@@ -1384,12 +1406,14 @@ async function onDelete(record) {
       await removeItem(modulePath.value, getRecordId(record));
       message.success(TABLE_TEXT.deleteSuccess);
       await reload();
+      refreshRelationOptionCache();
     } catch (error) {
       message.error(error.message || TABLE_TEXT.deleteFail);
     }
     return;
   }
   await onDeleteState(record, getRecordId);
+  refreshRelationOptionCache();
 }
 
 function isEditing(record) {
@@ -1407,6 +1431,27 @@ function startInlineEdit(record) {
 async function saveInlineEdit(record) {
   if (!canWrite.value || !canInlineEditRecord(record)) return;
   await saveInlineEditState(record, getRecordId, normalizeModulePayload);
+  refreshRelationOptionCache();
+}
+
+function refreshRelationOptionCache() {
+  invalidateRelationModuleOptions([
+    'dept',
+    'role',
+    'permission',
+    'warehouse',
+    'stockType',
+    'goods',
+    'goodsSku',
+    'customer',
+    'customerLevel',
+    'series',
+    'brand',
+    'category',
+    'maker',
+  ]);
+  loadScopedRelationOptions(activeFormKeys(), keys.value);
+  loadQueryRelationOptions(queryFields.value);
 }
 
 function queryOptions(field) {
