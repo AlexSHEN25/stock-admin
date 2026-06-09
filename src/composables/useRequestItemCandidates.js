@@ -2,6 +2,7 @@
 import {
   addRequestItemsFromStockOrder,
   getCandidateItems,
+  matchRequestItems,
   reapplyRequestItemInbound,
   removeRequestItems,
 } from '../api/module';
@@ -251,6 +252,38 @@ export function useRequestItemCandidates(options) {
     }
   }
 
+  async function submitMatchCandidates() {
+    const requestId = resolveCurrentRequestId();
+    const items = pendingSelectedRows.value.map((item) => ({
+      stockRecordId: resolveCandidateStockRecordId(item),
+      stockOrderItemId: resolveCandidateStockOrderItemId(item),
+      requestQty: clampRequestQty(item, candidateQtyState[candidateRowKey(item)]),
+    }));
+    if (!requestId) {
+      notify.warning('請求書を選択してください');
+      return;
+    }
+    if (items.length === 0) {
+      notify.warning('マッチする商品を選択してください');
+      return;
+    }
+    if (items.some((item) => !item.stockRecordId && !item.stockOrderItemId)) {
+      notify.warning('候補データに出庫明細IDまたは在庫履歴IDがありません');
+      return;
+    }
+
+    candidateLoading.value = true;
+    try {
+      await matchRequestItems({ requestId, items });
+      notify.success('請求書明細をマッチしました');
+      await refreshRequestItemContext();
+    } catch (error) {
+      notify.error(error?.message || TABLE_TEXT.saveFail);
+    } finally {
+      candidateLoading.value = false;
+    }
+  }
+
   async function submitCandidateInbound(record) {
     const requestId = resolveCurrentRequestId();
     const key = candidateRowKey(record);
@@ -402,6 +435,7 @@ export function useRequestItemCandidates(options) {
     onCandidateSelectChange,
     onCandidateQtyChange,
     submitAddCandidates,
+    submitMatchCandidates,
     submitCandidateInbound,
     isCandidateInboundApplied,
     removeRequestItem,

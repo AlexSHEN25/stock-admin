@@ -52,7 +52,6 @@ export const MODULE_GROUPS = [
       { key: 'stockGroupB', label: 'B組在庫管理', groupCode: 'B' },
       { key: 'stockGroupC', label: 'C組在庫管理', groupCode: 'C' },
       { key: 'stockOrder', label: '入出庫伝票' },
-      { key: 'stockOrderItem', label: '入出庫明細' },
       { key: 'stockType', label: '在庫分類' },
       { key: 'stockRecord', label: '在庫履歴' },
       { key: 'priceRecord', label: '価格履歴' },

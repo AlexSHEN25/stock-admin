@@ -41,6 +41,7 @@
       :max-request-qty="maxRequestQty"
       :format-qty="formatQty"
       :is-inbound-applied="isCandidateInboundApplied"
+      @match="submitMatchCandidates"
       @submit="submitAddCandidates"
       @inbound="submitCandidateInbound"
       @selection-change="onCandidateSelectChange"
@@ -148,7 +149,7 @@
             :can-edit="canEditRecord(record)"
             :can-delete="canDeleteRecord(record)"
             :editing="isEditing(record)"
-            :show-inbound="isGoodsManagement"
+            :show-inbound="isGoodsManagement || isSplitStockManagement"
             :inbound-done="isGoodsInboundDone(record)"
             :can-outbound="canGoodsOutbound(record)"
             :can-show-extra-action="canShowRowExtraAction"
@@ -188,7 +189,7 @@
       @update-field="updateFormField"
     />
     <module-edit-modal
-      v-if="isGoodsManagement"
+      v-if="isGoodsManagement || isSplitStockManagement"
       :open="goodsInboundModalOpen"
       :can-write="true"
       :fields="GOODS_INBOUND_FIELDS"
@@ -211,7 +212,7 @@
       @update-field="updateGoodsInboundField"
     />
     <module-edit-modal
-      v-if="isGoodsManagement"
+      v-if="isGoodsManagement || isSplitStockManagement"
       :open="goodsOutboundModalOpen"
       :can-write="true"
       :fields="visibleGoodsOutboundFields"
@@ -485,6 +486,7 @@ const {
   onCandidateSelectChange,
   onCandidateQtyChange,
   submitAddCandidates,
+  submitMatchCandidates,
   submitCandidateInbound,
   isCandidateInboundApplied,
   removeRequestItem,
@@ -815,7 +817,7 @@ async function submitGoodsInbound() {
 async function openGoodsOutboundModal(record) {
   const rowKey = goodsRowKey(record);
   const inboundState = goodsFlowByRowKey[rowKey];
-  if (!isGoodsInboundDone(record)) {
+  if (isGoodsManagement.value && !isGoodsInboundDone(record)) {
     message.warning('先に入庫を完了してください');
     return;
   }
@@ -1073,6 +1075,9 @@ async function submitSheetFlow() {
 }
 
 function isGoodsInboundDone(record) {
+  if (isSplitStockManagement.value) {
+    return Number(record?.currentQty ?? 0) > 0;
+  }
   const state = goodsFlowByRowKey[goodsRowKey(record)];
   return Boolean(
     (state && Number(state.inboundQty) > 0)
@@ -1081,10 +1086,17 @@ function isGoodsInboundDone(record) {
 }
 
 function canGoodsOutbound(record) {
+  if (isSplitStockManagement.value) {
+    return availableGoodsOutboundQty(goodsRowKey(record)) > 0;
+  }
   return isGoodsInboundDone(record) && availableGoodsOutboundQty(goodsRowKey(record)) > 0;
 }
 
 function availableGoodsOutboundQty(rowKey) {
+  if (isSplitStockManagement.value) {
+    const record = tableRows.value.find((item) => goodsRowKey(item) === rowKey);
+    return Math.max(0, Number(record?.outboundMaxQty ?? record?.currentQty ?? 0));
+  }
   if (goodsOutboundForm.stockScope === 'group' && rowKey === activeGoodsRowKey.value) {
     return Math.max(0, Number(goodsOutboundForm.groupAvailableQty || 0));
   }

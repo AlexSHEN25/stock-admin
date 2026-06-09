@@ -193,8 +193,24 @@ export async function addRequestItems(payload) {
   return http.post('/api/requestForm/items/add', payload || {});
 }
 
+export async function matchRequestItems(payload) {
+  return http.post('/api/requestForm/items/match', payload || {});
+}
+
 export async function removeRequestItems(payload) {
   return http.post('/api/requestForm/items/remove', payload || {});
+}
+
+export async function createRequestForm(payload) {
+  return http.post('/api/requestForm', payload || {});
+}
+
+export async function createRequestFormWithItems(payload) {
+  return http.post('/api/requestForm/withItems', payload || {});
+}
+
+export async function createRequestFormFromOutbound(payload) {
+  return http.post('/api/requestForm/fromOutbound', payload || {});
 }
 
 export async function reapplyRequestInbound(id) {
@@ -210,7 +226,12 @@ export async function addRequestItemsFromStockOrder(payload) {
   return requestWithFallback(
     () => http.post('/api/requestForm/items/add', payload || {}),
     () => http.post('/api/requestForm/items/addFromStockOrder', payload || {}),
+    () => http.post('/api/requestForm/fromOutbound', payload || {}),
   );
+}
+
+export async function matchRequestItems(payload) {
+  return http.post('/api/requestForm/items/match', payload || {});
 }
 
 function normalizePage(data) {
