@@ -13,6 +13,7 @@
       :can-create="canCreateInModule()"
       :can-sheet-inbound="canOpenSheetInbound"
       :can-sheet-outbound="canOpenSheetOutbound"
+      :can-generate-request-form="canGenerateRequestForm"
       :selected-count="selectedRowKeys.length"
       :query-input-type="queryInputType"
       :query-options="queryOptions"
@@ -26,6 +27,7 @@
       @sheet-inbound="openSheetInboundModal"
       @sheet-outbound="openSheetOutboundModal"
       @read-all="onReadAllMessages"
+      @generate-request-form="generateRequestForm"
       @update-field="updateQueryField"
     />
 
@@ -41,6 +43,7 @@
       :max-request-qty="maxRequestQty"
       :format-qty="formatQty"
       :is-inbound-applied="isCandidateInboundApplied"
+      :candidate-status="candidateStatus"
       @match="submitMatchCandidates"
       @submit="submitAddCandidates"
       @inbound="submitCandidateInbound"
@@ -279,8 +282,8 @@ import {
   fetchGoodsFormOptions,
   fetchMyGroupStockAvailable,
   fetchModuleOptions,
-  removeItem,
   updateItem,
+  removeItem,
   uploadFileByBizType,
 } from '../api/module';
 import GoodsDrawer from './GoodsDrawer.vue';
@@ -313,12 +316,6 @@ import TABLE_TEXT, {
   isAdminByPermissionCodes,
 } from '../utils/module-ui';
 import {
-  canBatchDeleteModuleRecord,
-  canCreateModuleRecord,
-  canDeleteModuleRecord,
-  canEditModuleRecord,
-  canInlineEditModuleRecord,
-  hasWritePermission,
 } from '../utils/permission';
 import { hasActiveFilters } from '../utils/table';
 
@@ -383,13 +380,23 @@ const modulePath = computed(() => {
   return props.moduleKey;
 });
 const preset = computed(() => getModulePreset(props.moduleKey));
-const rowExtraActions = computed(() => getRowExtraActions(props.moduleKey));
-const canWrite = computed(() => {
-  if (props.allDataWrite) return true;
-  if (props.moduleActions) return Boolean(props.moduleActions.create || props.moduleActions.edit || props.moduleActions.delete);
-  return hasWritePermission(props.moduleKey, props.permissionReady, props.permissionCodes || []);
+const rowExtraActions = computed(() => {
+  const base = getRowExtraActions(props.moduleKey) || [];
+  if (props.moduleKey === 'requestItem') {
+    return [...base, { key: 'returnToSchedule', label: '納品予定へ追加' }];
+  }
+  return base;
 });
-const isAdminUser = computed(() => props.allDataWrite || isAdminByPermissionCodes(props.permissionCodes || []));
+const canWrite = computed(() => {
+  const actions = props.moduleActions || {};
+  return Boolean(actions.create || actions.edit || actions.delete || actions.batchDelete || actions.inlineEdit);
+});
+const canGenerateRequestForm = computed(() => (
+  props.moduleKey === 'requestItem'
+  && Boolean(props.moduleActions?.create || props.moduleActions?.edit)
+  && selectedRowKeys.value.length > 0
+));
+const isAdminUser = computed(() => isAdminByPermissionCodes(props.permissionCodes || []));
 const {
   statusOptions,
   queryInputType,
@@ -489,6 +496,7 @@ const {
   submitMatchCandidates,
   submitCandidateInbound,
   isCandidateInboundApplied,
+  candidateStatus,
   removeRequestItem,
   removeCandidate,
 } = useRequestItemCandidates({
@@ -499,7 +507,7 @@ const {
   notify: message,
 });
 
-const isUserSelfEditMode = computed(() => props.moduleKey === 'user' && editing.value && !canCreateModuleRecord(props.moduleKey, props.permissionCodes || []));
+const isUserSelfEditMode = computed(() => props.moduleKey === 'user' && editing.value);
 const backendFieldSet = computed(() => new Set(Object.keys(rows.value[0] || {})));
 const {
   keys,
@@ -1585,6 +1593,10 @@ async function handleRowExtraAction(actionKey, record) {
     await submitStockOrderApproval(record, actionKey === 'approve');
     return;
   }
+  if (props.moduleKey === 'requestItem' && actionKey === 'returnToSchedule') {
+    await removeRequestItem(record, getRecordId);
+    return;
+  }
   if (actionKey === 'inbound') {
     await openGoodsInboundModal(record);
     return;
@@ -1603,9 +1615,53 @@ async function handleRowExtraAction(actionKey, record) {
   await handleDefaultRowExtraAction(actionKey, record);
 }
 
+async function generateRequestForm() {
+  if (props.moduleKey !== 'requestItem') return;
+  const requestId = resolveCurrentRequestId();
+  const items = selectedRequestItemRows();
+  if (!requestId) {
+    message.warning('請求書を選択してください');
+    return;
+  }
+  if (items.length === 0) {
+    message.warning('生成する請求書明細を選択してください');
+    return;
+  }
+
+  try {
+    await updateItem('requestForm', {
+      id: requestId,
+      state: 2,
+      approveRemark: '生成済み',
+    });
+    message.success('請求書を生成しました');
+    await reload();
+  } catch (error) {
+    message.error(error?.message || TABLE_TEXT.saveFail);
+  }
+}
+
+function resolveCurrentRequestId() {
+  const fromQuery = Number(queryState.requestId);
+  if (fromQuery) return fromQuery;
+  const first = rows.value?.[0];
+  const fromRow = Number(first?.requestId);
+  if (fromRow) return fromRow;
+  const raw = sessionStorage.getItem('jump_request_form_id');
+  const fromJump = Number(raw);
+  if (fromJump) return fromJump;
+  return null;
+}
+
+function selectedRequestItemRows() {
+  if (props.moduleKey !== 'requestItem') return [];
+  const selected = new Set((selectedRowKeys.value || []).map((key) => String(key)));
+  return (tableRows.value || []).filter((record) => selected.has(String(getRowKey(record))));
+}
+
 function canShowRowExtraAction(actionKey, record) {
   if (props.moduleKey === 'stockOrder' && (actionKey === 'approve' || actionKey === 'reject')) {
-    return Boolean(props.allDataWrite) && Number(record?.state ?? record?.orderState) !== 2;
+    return Boolean(props.moduleActions?.edit) && Number(record?.state ?? record?.orderState) !== 2;
   }
   if (actionKey === 'inbound') {
     return props.moduleKey === 'goods' && Boolean(record);
@@ -1619,10 +1675,7 @@ function canShowRowExtraAction(actionKey, record) {
 function canCreateInModule() {
   if (isSplitStockManagement.value) return false;
   if (props.moduleKey === 'requestItem' && isCurrentRequestCompleted()) return false;
-  if (props.allDataWrite) return isGoodsManagement.value || formKeys.value.length > 0;
-  if (props.moduleActions && !props.moduleActions.create) return false;
-  if (!canCreateModuleRecord(props.moduleKey, props.permissionCodes || [])) return false;
-  return isGoodsManagement.value || formKeys.value.length > 0;
+  return Boolean(props.moduleActions?.create) && (isGoodsManagement.value || formKeys.value.length > 0);
 }
 
 function isCompletedOutboundRecord(record) {
@@ -1669,27 +1722,21 @@ function isCurrentRequestCompleted() {
 
 function canBatchDeleteInModule() {
   if (isSplitStockManagement.value) return false;
-  if (props.allDataWrite) return props.moduleKey !== 'requestItem';
-  if (props.moduleActions && !props.moduleActions.batchDelete) return false;
   if (props.moduleKey === 'requestItem') return false;
-  return canBatchDeleteModuleRecord(props.moduleKey, props.permissionCodes || []);
+  return Boolean(props.moduleActions?.batchDelete);
 }
 
 function canDeleteRecord(_record) {
   if (props.moduleKey === 'requestForm' && isCompletedRequestRecord(_record)) return false;
   if (props.moduleKey === 'requestItem' && (isCompletedRequestRecord(_record) || isCurrentRequestCompleted())) return false;
-  if (props.allDataWrite) return true;
-  if (props.moduleActions && !props.moduleActions.delete) return false;
-  return canDeleteModuleRecord(props.moduleKey, props.permissionCodes || []);
+  return Boolean(props.moduleActions?.delete);
 }
 
 function canEditRecord(record) {
   if (props.moduleKey === 'requestForm' && isCompletedRequestRecord(record)) return false;
   if (props.moduleKey === 'requestItem' && (isCompletedRequestRecord(record) || isCurrentRequestCompleted())) return false;
   if (props.moduleKey === 'stockOrder' && Number(record?.state ?? record?.orderState) === 2) return false;
-  if (props.allDataWrite) return true;
-  if (props.moduleActions && !props.moduleActions.edit) return false;
-  return canEditModuleRecord(props.moduleKey, record, props.currentUser, props.permissionCodes || []);
+  return Boolean(props.moduleActions?.edit);
 }
 
 function canInlineEditRecord(record) {
@@ -1697,10 +1744,7 @@ function canInlineEditRecord(record) {
   if (props.moduleKey === 'requestItem' && (isCompletedRequestRecord(record) || isCurrentRequestCompleted())) return false;
   if (props.moduleKey === 'requestItem') return false;
   if (props.moduleKey === 'stockOrder' && Number(record?.state ?? record?.orderState) === 2) return false;
-  if (props.allDataWrite) return props.moduleKey !== 'goods';
-  if (props.moduleActions && !props.moduleActions.inlineEdit) return false;
-  if (props.moduleKey === 'goods') return false;
-  return canInlineEditModuleRecord(props.moduleKey, record, props.currentUser, props.permissionCodes || []);
+  return Boolean(props.moduleActions?.inlineEdit);
 }
 
 async function submitStockOrderApproval(record, approved) {

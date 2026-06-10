@@ -230,10 +230,6 @@ export async function addRequestItemsFromStockOrder(payload) {
   );
 }
 
-export async function matchRequestItems(payload) {
-  return http.post('/api/requestForm/items/match', payload || {});
-}
-
 function normalizePage(data) {
   const records = data?.records || data?.list || data?.rows || [];
   const total = Number(data?.total ?? records.length ?? 0);

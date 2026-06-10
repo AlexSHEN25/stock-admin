@@ -217,22 +217,12 @@ const {
 });
 
 const activeModuleActions = computed(() => {
-  if (props.allDataWrite) {
-    return {
-      read: true,
-      create: true,
-      edit: true,
-      delete: true,
-      batchDelete: true,
-      inlineEdit: true,
-    };
-  }
   const permissionKey = ['stockSelf', 'stockSummary', 'stockGroupA', 'stockGroupB', 'stockGroupC'].includes(activeModule.value)
     ? 'stock'
     : activeModule.value;
   const scope = (props.menuScopes || []).find((item) => item?.key === permissionKey);
   return scope?.actions || {
-    read: true,
+    read: false,
     create: false,
     edit: false,
     delete: false,

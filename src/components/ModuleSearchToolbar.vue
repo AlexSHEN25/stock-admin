@@ -96,6 +96,14 @@
       >
         {{ tableText.readAll }}
       </a-button>
+      <a-button
+        v-if="canGenerateRequestForm"
+        type="primary"
+        class="search-btn"
+        @click="$emit('generate-request-form')"
+      >
+        生成請求書
+      </a-button>
     </div>
   </div>
 </template>
@@ -113,6 +121,7 @@ const props = defineProps({
   canCreate: { type: Boolean, default: false },
   canSheetInbound: { type: Boolean, default: false },
   canSheetOutbound: { type: Boolean, default: false },
+  canGenerateRequestForm: { type: Boolean, default: false },
   selectedCount: { type: Number, default: 0 },
   queryInputType: { type: Function, required: true },
   queryOptions: { type: Function, required: true },
@@ -129,6 +138,7 @@ const emit = defineEmits([
   'sheet-inbound',
   'sheet-outbound',
   'read-all',
+  'generate-request-form',
   'update-field',
 ]);
 const showCreateButton = computed(() => (

@@ -9,13 +9,21 @@
         <div class="request-candidate-summary">
           出庫商品を納品予定へ追加できます。追加済み: {{ addedCount }}件
         </div>
-        <a-button
-          type="primary"
-          :disabled="pendingAddCount === 0"
-          @click="$emit('submit')"
-        >
-          {{ submitText }}
-        </a-button>
+        <a-space>
+          <a-button
+            :disabled="appendableSelectedCount === 0"
+            @click="$emit('match')"
+          >
+            匹配
+          </a-button>
+          <a-button
+            type="primary"
+            :disabled="appendableSelectedCount === 0"
+            @click="$emit('submit')"
+          >
+            {{ submitText }}
+          </a-button>
+        </a-space>
       </div>
       <a-table
         :row-key="rowKey"
@@ -32,8 +40,8 @@
             </a-tag>
           </template>
           <template v-else-if="column.key === 'cartStatus'">
-            <a-tag :color="record.selected ? 'processing' : 'default'">
-              {{ record.selected ? '追加済み' : '未追加' }}
+            <a-tag :color="candidateStatus(record) === '可追加' ? 'warning' : (candidateStatus(record) === '追加済み' ? 'processing' : 'default')">
+              {{ candidateStatus(record) }}
             </a-tag>
           </template>
           <template v-else-if="column.key === 'state'">
@@ -56,15 +64,6 @@
           </template>
           <template v-else-if="column.key === 'actions'">
             <a-space>
-              <a-button
-                v-if="record.selected"
-                type="link"
-                danger
-                size="small"
-                @click="$emit('remove', record)"
-              >
-                削除
-              </a-button>
               <a-popconfirm
                 title="この納品予定から入庫申請を作成しますか"
                 ok-text="はい"
@@ -104,21 +103,19 @@ const props = defineProps({
   maxRequestQty: { type: Function, required: true },
   formatQty: { type: Function, required: true },
   isInboundApplied: { type: Function, required: true },
+  candidateStatus: { type: Function, required: true },
 });
 
-const emit = defineEmits(['submit', 'selection-change', 'qty-change', 'inbound', 'remove']);
+const emit = defineEmits(['submit', 'match', 'selection-change', 'qty-change', 'inbound', 'remove']);
 
-const addedCount = computed(() => (props.rows || []).filter((row) => row?.selected).length);
-const pendingAddCount = computed(() => {
+const addedCount = computed(() => (props.rows || []).filter((row) => props.candidateStatus(row) === '追加済み').length);
+const appendableSelectedCount = computed(() => {
   const selected = new Set((props.selectedKeys || []).map((key) => String(key)));
-  return (props.rows || []).filter((row) => selected.has(String(props.rowKey(row))) && !row?.selected).length;
+  return (props.rows || []).filter((row) => selected.has(String(props.rowKey(row))) && props.candidateStatus(row) === '可追加').length;
 });
 const rowSelection = computed(() => ({
-  selectedRowKeys: props.selectedKeys,
+  selectedRowKeys: (props.selectedKeys || []).map((key) => String(key)),
   onChange: (keys) => emit('selection-change', keys),
-  getCheckboxProps: (record) => ({
-    disabled: !record?.selected && props.maxRequestQty(record) <= 0,
-  }),
 }));
 
 const columns = [

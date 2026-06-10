@@ -34,7 +34,7 @@ export function useRequestItemCandidates(options) {
     const selectedKeys = new Set((candidateSelectedKeys.value || []).map((x) => String(x)));
     return (candidateRows.value || [])
       .filter((item) => selectedKeys.has(String(candidateRowKey(item))))
-      .filter((item) => !isCandidateAdded(item));
+      .filter((item) => canStillAppendCandidate(item));
   });
   const candidateSubmitText = computed(() => (
     pendingSelectedRows.value.length > 0
@@ -76,7 +76,10 @@ export function useRequestItemCandidates(options) {
   }
 
   function candidateRowKey(record) {
-    return resolveCandidateStockOrderItemId(record) || resolveCandidateStockRecordId(record) || record?.id;
+    const raw = resolveCandidateStockOrderItemId(record)
+      || resolveCandidateStockRecordId(record)
+      || record?.id;
+    return raw === undefined || raw === null || String(raw).trim() === '' ? '' : String(raw);
   }
 
   function resolveCandidateOrderKey(record) {
@@ -98,6 +101,9 @@ export function useRequestItemCandidates(options) {
       record?.can_request_qty,
       record?.requestableQty,
       record?.requestable_qty,
+      record?.requestQty,
+      record?.outQty,
+      record?.changeQty,
     ];
     for (const value of sources) {
       const qty = Number(value);
@@ -108,6 +114,69 @@ export function useRequestItemCandidates(options) {
     return 0;
   }
 
+  function resolveCandidateFilledQty(record) {
+    const sources = [
+      record?.requestQty,
+      record?.approveQty,
+      record?.appliedQty,
+      record?.usedQty,
+      record?.linkedQty,
+      record?.selectedQty,
+    ];
+    for (const value of sources) {
+      const qty = Number(value);
+      if (!Number.isNaN(qty) && qty >= 0) {
+        return Math.floor(Math.abs(qty));
+      }
+    }
+    return 0;
+  }
+
+  function resolveCandidateRemainingQty(record) {
+    const maxQty = maxRequestQty(record);
+    if (maxQty <= 0) return 0;
+
+    const remainingSources = [
+      record?.remainingQty,
+      record?.remainQty,
+      record?.leftQty,
+      record?.availableQty,
+      record?.canRequestQty,
+      record?.requestableQty,
+    ];
+    for (const value of remainingSources) {
+      const qty = Number(value);
+      if (!Number.isNaN(qty) && qty >= 0) {
+        return Math.min(Math.floor(Math.abs(qty)), maxQty);
+      }
+    }
+
+    const filledQty = resolveCandidateFilledQty(record);
+    const rawRequestQty = Number(record?.requestQty);
+    const rawOutQty = Number(record?.outQty ?? record?.changeQty ?? 0);
+    if (!Number.isNaN(rawRequestQty) && !Number.isNaN(rawOutQty)) {
+      const sourceMax = Math.max(Math.abs(rawOutQty), Math.abs(rawRequestQty));
+      if (sourceMax > 0) {
+        const remaining = Math.max(sourceMax - filledQty, 0);
+        return Math.min(remaining || sourceMax, maxQty);
+      }
+    }
+
+    return Math.max(maxQty - filledQty, 0);
+  }
+
+  function canStillAppendCandidate(record) {
+    return resolveCandidateRemainingQty(record) > 0;
+  }
+
+  function candidateStatus(record) {
+    if (canStillAppendCandidate(record)) return '可追加';
+    if (Number(record?.selected) === 1 || record?.selected === true || Boolean(record?.requestItemId ?? record?.request_item_id ?? record?.requestItem?.id)) {
+      return '追加済み';
+    }
+    return '未追加';
+  }
+
   function maxRequestQty(record) {
     if (record?.availableQty !== undefined && record?.availableQty !== null) {
       const availableQty = Math.abs(Number(record.availableQty));
@@ -115,7 +184,7 @@ export function useRequestItemCandidates(options) {
     }
     const candidateMax = resolveCandidateMaxQty(record);
     if (candidateMax > 0) return candidateMax;
-    const qty = Number(record?.changeQty ?? 0);
+    const qty = Number(record?.changeQty ?? record?.outQty ?? record?.requestQty ?? 0);
     const normalized = Math.abs(qty);
     return normalized > 0 ? normalized : 1;
   }
@@ -152,7 +221,7 @@ export function useRequestItemCandidates(options) {
       candidateSelectedKeys.value = expandKnifeHandleSelection(candidateRows.value
         .filter(isCandidateAdded)
         .map((item) => candidateRowKey(item))
-        .filter((id) => id !== undefined && id !== null));
+        .filter((id) => id !== undefined && id !== null && String(id).trim() !== ''));
     } catch (error) {
       notify.error(error?.message || TABLE_TEXT.fetchFail);
     } finally {
@@ -406,9 +475,7 @@ export function useRequestItemCandidates(options) {
 
 
   function isCandidateAdded(record) {
-    return Number(record?.selected) === 1
-      || record?.selected === true
-      || Boolean(record?.requestItemId ?? record?.request_item_id ?? record?.requestItem?.id);
+    return !canStillAppendCandidate(record);
   }
 
   function isOutboundType(value) {
@@ -440,5 +507,7 @@ export function useRequestItemCandidates(options) {
     isCandidateInboundApplied,
     removeRequestItem,
     removeCandidate,
+    canStillAppendCandidate,
+    candidateStatus,
   };
 }
