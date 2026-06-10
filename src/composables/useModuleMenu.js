@@ -55,7 +55,7 @@ export function useModuleMenu(options) {
   }
 
   function walk(items, map) {
-    items.forEach((item) => {
+    (Array.isArray(items) ? items : []).forEach((item) => {
       map.set(item.key, item);
       if (item.children?.length) {
         walk(item.children, map);
@@ -108,6 +108,7 @@ export function useModuleMenu(options) {
   function initMenus() {
     const scopeItems = normalizeMenuScopes(menuScopes?.value || []);
     const scopeKeySet = new Set(scopeItems.map((item) => item.key));
+
     HIDDEN_MODULES.forEach((moduleKey) => scopeKeySet.add(moduleKey));
     if (allDataWrite?.value || isAdminMenuScope(scopeItems)) {
       MODULE_GROUPS.forEach((group) => {
@@ -123,8 +124,19 @@ export function useModuleMenu(options) {
       }))
       .filter((group) => group.children.length > 0);
 
+    const menuSource = filtered.length > 0
+      ? filtered
+      : [{
+        key: 'fallback',
+        label: 'メニュー',
+        children: scopeItems.map((item) => ({
+          key: item.key,
+          label: item.label || findLabelByKey(item.key) || item.key,
+        })),
+      }];
+
     const scopeMap = new Map(scopeItems.map((item) => [item.key, item]));
-    menuItems.value = filtered.map((group) => ({
+    menuItems.value = menuSource.map((group) => ({
       key: group.key,
       label: group.label,
       children: group.children.map((item) => ({
@@ -169,7 +181,6 @@ export function useModuleMenu(options) {
       const label = String(item?.label || '').toUpperCase();
       return key.includes('admin')
         || key.includes('super')
-        || label.includes('管理者')
         || label.includes('ADMIN')
         || label.includes('SUPER');
     });
@@ -188,7 +199,7 @@ export function useModuleMenu(options) {
   }
 
   function hasDanglingMenuLabelSeparator(label) {
-    return /[-－ー]\s*$/.test(String(label || ''));
+    return /[-・]\s*$/.test(String(label || ''));
   }
 
   return {
@@ -202,3 +213,4 @@ export function useModuleMenu(options) {
     onNavigateModule,
   };
 }
+

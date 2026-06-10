@@ -11,11 +11,10 @@
     </a-button>
 
     <a-button
-      v-if="showInbound"
+      v-if="showInbound && canOutbound"
       type="primary"
       size="small"
       danger
-      :disabled="!canOutbound"
       @click="$emit('outbound', record)"
     >
       {{ tableText.outbound }}

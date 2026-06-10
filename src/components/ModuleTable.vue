@@ -53,6 +53,7 @@
     />
 
     <a-table
+      :key="props.moduleKey"
       class="module-table"
       :row-key="getRowKey"
       :row-class-name="rowClassName"
@@ -238,6 +239,7 @@
       @update-field="updateGoodsOutboundField"
     />
     <stock-sheet-flow-modal
+      v-if="sheetOutboundModalOpen"
       :open="sheetOutboundModalOpen"
       :mode="sheetFlowMode"
       :rows="sheetOutboundRows"
@@ -654,7 +656,7 @@ const visibleGoodsOutboundFields = computed(() => GOODS_OUTBOUND_FIELDS.filter((
   return true;
 }));
 const canOpenSheetOutbound = computed(() => (
-  isGoodsManagement.value
+  (isGoodsManagement.value || isSplitStockManagement.value)
   && canWrite.value
   && selectedGoodsRows().length > 0
 ));
@@ -823,29 +825,11 @@ async function submitGoodsInbound() {
 }
 
 async function openGoodsOutboundModal(record) {
-  const rowKey = goodsRowKey(record);
-  const inboundState = goodsFlowByRowKey[rowKey];
-  if (isGoodsManagement.value && !isGoodsInboundDone(record)) {
+  if (!canGoodsOutbound(record)) {
     message.warning('先に入庫を完了してください');
     return;
   }
-  Object.keys(goodsOutboundForm).forEach((key) => delete goodsOutboundForm[key]);
-  activeGoodsRowKey.value = rowKey;
-  goodsOutboundForm.goodsId = inboundState?.goodsId || Number(record?.goodsId ?? record?.id);
-  goodsOutboundForm.skuId = inboundState?.skuId ?? record?.skuId ?? null;
-  goodsOutboundForm.sourceType = inboundState?.sourceType || 2;
-  goodsOutboundForm.warehouseId = inboundState?.warehouseId ?? null;
-  goodsOutboundForm.stockTypeId = inboundState?.stockTypeId ?? null;
-  goodsOutboundForm.outboundMode = GOODS_OUTBOUND_MODE_CUSTOMER;
-  goodsOutboundForm.stockScope = 'self';
-  goodsOutboundForm.groupCode = props.currentGroupCode || null;
-  goodsOutboundForm.currentDeptId = props.currentDeptId || null;
-  goodsOutboundForm.customerId = null;
-  goodsOutboundForm.deptId = null;
-  goodsOutboundForm.quantity = Math.max(1, availableGoodsOutboundQty(rowKey));
-  goodsOutboundForm.remark = null;
-  await loadRelationOptions(['customerId', 'deptId', 'warehouseId', 'stockTypeId'], keys.value);
-  goodsOutboundModalOpen.value = true;
+  await openSheetOutboundModal(record);
 }
 
 function updateGoodsOutboundField(field, value) {
@@ -952,24 +936,31 @@ async function submitGoodsOutbound() {
   }
 }
 
-async function openSheetOutboundModal() {
-  const selected = selectedGoodsRows();
+async function openSheetOutboundModal(record = null) {
+  const selected = record ? [record] : selectedGoodsRows();
   if (selected.length === 0) {
     message.warning('納品振分する商品を選択してください');
     return;
   }
-  sheetFlowMode.value = 'delivery';
+  sheetFlowMode.value = isSplitStockManagement.value ? 'outbound' : 'delivery';
   sheetOutboundRows.value = selected;
   Object.keys(sheetOutboundDrafts).forEach((key) => delete sheetOutboundDrafts[key]);
   selected.forEach((record) => {
-    sheetOutboundDrafts[goodsRowKey(record)] = {
-      deliveryQty: 0,
-      aQty: 0,
-      bQty: 0,
-      cQty: 0,
-      saleDeadline: null,
-      remark: '',
-    };
+    sheetOutboundDrafts[goodsRowKey(record)] = isSplitStockManagement.value
+      ? {
+        aQty: 0,
+        bQty: 0,
+        cQty: 0,
+        remark: '',
+      }
+      : {
+        deliveryQty: 0,
+        aQty: 0,
+        bQty: 0,
+        cQty: 0,
+        saleDeadline: null,
+        remark: '',
+      };
   });
   sheetOutboundSettings.warehouseId = firstNonEmptyValue(selected, 'warehouseId');
   sheetOutboundSettings.stockTypeId = firstNonEmptyValue(selected, 'stockTypeId');
@@ -1006,7 +997,7 @@ async function openSheetInboundModal() {
 }
 
 function selectedGoodsRows() {
-  if (!isGoodsManagement.value || selectedRowKeys.value.length === 0) return [];
+  if ((!isGoodsManagement.value && !isSplitStockManagement.value) || selectedRowKeys.value.length === 0) return [];
   const selected = new Set(selectedRowKeys.value.map((key) => String(key)));
   return (tableRows.value || []).filter((record) => selected.has(String(getRowKey(record))));
 }
@@ -1084,7 +1075,14 @@ async function submitSheetFlow() {
 
 function isGoodsInboundDone(record) {
   if (isSplitStockManagement.value) {
-    return Number(record?.currentQty ?? 0) > 0;
+    return Number(
+      record?.outboundMaxQty
+        ?? record?.currentQty
+        ?? record?.availableQty
+        ?? record?.stockQty
+        ?? record?.quantity
+        ?? 0,
+    ) > 0;
   }
   const state = goodsFlowByRowKey[goodsRowKey(record)];
   return Boolean(

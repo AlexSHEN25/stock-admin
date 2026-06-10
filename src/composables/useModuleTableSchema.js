@@ -37,7 +37,7 @@ export function useModuleTableSchema(options) {
 
     const first = rows.value[0];
     if (!first) return [];
-    const raw = displayKeys(first);
+    const raw = displayKeys(first).filter(isSafeColumnKey);
     const noStatus = raw.includes('statusDesc') ? raw.filter((key) => key !== 'status') : raw;
     const hasId = noStatus.some((key) => String(key || '').toLowerCase() === 'id');
     const noId = noStatus.filter((key) => String(key || '').toLowerCase() !== 'id');
@@ -153,6 +153,11 @@ export function useModuleTableSchema(options) {
 function isPermissionNamesKey(key) {
   const low = String(key || '').toLowerCase();
   return low === 'permissionname' || low === 'permissionnames';
+}
+
+function isSafeColumnKey(key) {
+  const value = String(key || '').trim();
+  return Boolean(value) && !value.startsWith('$') && !value.startsWith('__v_');
 }
 
 function columnFixed(key, isGoodsManagement) {

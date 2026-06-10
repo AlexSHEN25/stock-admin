@@ -1,120 +1,137 @@
 <template>
-  <a-modal
+  <a-drawer
     :open="open"
     :title="title"
-    width="1400px"
-    :ok-text="submitText"
-    :confirm-loading="submitting"
-    :ok-button-props="{ disabled: totalQuantity <= 0 }"
-    @ok="$emit('submit')"
-    @cancel="$emit('cancel')"
+    placement="right"
+    width="min(92vw, 1600px)"
+    :closable="true"
+    :get-container="false"
+    @close="$emit('cancel')"
   >
-    <a-space
-      class="sheet-flow-toolbar"
-      wrap
-    >
-      <a-select
-        :value="settings.warehouseId"
-        :options="relationOptions.warehouseId || []"
-        :placeholder="TEXT.warehouse"
-        show-search
-        allow-clear
-        option-filter-prop="label"
-        class="sheet-flow-control"
-        @update:value="(value) => $emit('update-setting', 'warehouseId', value)"
-      />
-      <a-select
-        :value="settings.stockTypeId"
-        :options="relationOptions.stockTypeId || []"
-        :placeholder="TEXT.stockType"
-        show-search
-        allow-clear
-        option-filter-prop="label"
-        class="sheet-flow-control"
-        @update:value="(value) => $emit('update-setting', 'stockTypeId', value)"
-      />
-      <a-select
-        v-if="isPureOutbound"
-        :value="settings.customerId"
-        :options="relationOptions.customerId || []"
-        :placeholder="TEXT.customer"
-        show-search
-        allow-clear
-        option-filter-prop="label"
-        class="sheet-flow-control"
-        @update:value="(value) => $emit('update-setting', 'customerId', value)"
-      />
-      <a-date-picker
-        v-if="isInbound"
-        :value="settings.saleDeadline"
-        value-format="YYYY-MM-DD HH:mm:ss"
-        show-time
-        :placeholder="TEXT.saleDeadline"
-        class="sheet-flow-control"
-        @update:value="(value) => $emit('update-setting', 'saleDeadline', value)"
-      />
-      <a-input
-        :value="settings.remark"
-        :placeholder="TEXT.commonRemark"
-        class="sheet-flow-remark"
-        @update:value="(value) => $emit('update-setting', 'remark', value)"
-      />
-      <a-tag color="blue">
-        {{ TEXT.total }} {{ totalQuantity }}
-      </a-tag>
-    </a-space>
+    <div class="sheet-flow-drawer">
+      <a-space
+        class="sheet-flow-toolbar"
+        wrap
+      >
+        <a-select
+          :value="settings.warehouseId"
+          :options="relationOptions.warehouseId || []"
+          :placeholder="TEXT.warehouse"
+          show-search
+          allow-clear
+          option-filter-prop="label"
+          class="sheet-flow-control"
+          @update:value="(value) => $emit('update-setting', 'warehouseId', value)"
+        />
+        <a-select
+          :value="settings.stockTypeId"
+          :options="relationOptions.stockTypeId || []"
+          :placeholder="TEXT.stockType"
+          show-search
+          allow-clear
+          option-filter-prop="label"
+          class="sheet-flow-control"
+          @update:value="(value) => $emit('update-setting', 'stockTypeId', value)"
+        />
+        <a-select
+          v-if="isPureOutbound"
+          :value="settings.customerId"
+          :options="relationOptions.customerId || []"
+          :placeholder="TEXT.customer"
+          show-search
+          allow-clear
+          option-filter-prop="label"
+          class="sheet-flow-control"
+          @update:value="(value) => $emit('update-setting', 'customerId', value)"
+        />
+        <a-date-picker
+          v-if="isInbound"
+          :value="settings.saleDeadline"
+          value-format="YYYY-MM-DD HH:mm:ss"
+          show-time
+          :placeholder="TEXT.saleDeadline"
+          class="sheet-flow-control"
+          @update:value="(value) => $emit('update-setting', 'saleDeadline', value)"
+        />
+        <a-input
+          :value="settings.remark"
+          :placeholder="TEXT.commonRemark"
+          class="sheet-flow-remark"
+          @update:value="(value) => $emit('update-setting', 'remark', value)"
+        />
+        <a-tag color="blue">
+          {{ TEXT.total }} {{ totalQuantity }}
+        </a-tag>
+      </a-space>
 
-    <a-table
-      class="sheet-flow-table"
-      :row-key="rowKey"
-      :data-source="rows"
-      :columns="columns"
-      :pagination="false"
-      :scroll="{ x: 'max-content', y: 560 }"
-      size="small"
-      bordered
-    >
-      <template #bodyCell="{ column, record }">
-        <template v-if="quantityFields.includes(column.key)">
-          <a-input-number
-            :value="draftValue(record, column.key)"
-            :min="0"
-            :max="isPureOutbound ? maxQty(record) : undefined"
-            :precision="0"
-            class="sheet-flow-number"
-            @update:value="(value) => $emit('update-draft', rowKey(record), column.key, value)"
-          />
+      <a-table
+        class="sheet-flow-table"
+        :row-key="rowKey"
+        :data-source="rows"
+        :columns="columns"
+        :pagination="false"
+        :scroll="{ x: 'max-content', y: 560 }"
+        size="small"
+        bordered
+      >
+        <template #bodyCell="{ column, record }">
+          <template v-if="quantityFields.includes(column.key)">
+            <a-input-number
+              :value="draftValue(record, column.key)"
+              :min="0"
+              :max="isPureOutbound ? maxQty(record) : undefined"
+              :precision="0"
+              class="sheet-flow-number"
+              @update:value="(value) => $emit('update-draft', rowKey(record), column.key, value)"
+            />
+          </template>
+          <template v-else-if="column.key === 'saleDeadline'">
+            <a-date-picker
+              :value="draftValue(record, 'saleDeadline')"
+              value-format="YYYY-MM-DD HH:mm:ss"
+              show-time
+              class="sheet-flow-date"
+              @update:value="(value) => $emit('update-draft', rowKey(record), 'saleDeadline', value)"
+            />
+          </template>
+          <template v-else-if="column.key === 'remainQty'">
+            <a-tag :color="remainQty(record) < 0 ? 'red' : 'default'">
+              {{ remainQty(record) }}
+            </a-tag>
+          </template>
+          <template v-else-if="column.key === 'afterQty'">
+            {{ maxQty(record) + rowTotal(record) }}
+          </template>
+          <template v-else-if="column.key === 'rowTotal'">
+            {{ rowTotal(record) }}
+          </template>
+          <template v-else-if="column.key === 'remark'">
+            <a-input
+              :value="draftValue(record, 'remark')"
+              :placeholder="TEXT.remark"
+              @update:value="(value) => $emit('update-draft', rowKey(record), 'remark', value)"
+            />
+          </template>
         </template>
-        <template v-else-if="column.key === 'saleDeadline'">
-          <a-date-picker
-            :value="draftValue(record, 'saleDeadline')"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            show-time
-            class="sheet-flow-date"
-            @update:value="(value) => $emit('update-draft', rowKey(record), 'saleDeadline', value)"
-          />
-        </template>
-        <template v-else-if="column.key === 'remainQty'">
-          <a-tag :color="remainQty(record) < 0 ? 'red' : 'default'">
-            {{ remainQty(record) }}
-          </a-tag>
-        </template>
-        <template v-else-if="column.key === 'afterQty'">
-          {{ maxQty(record) + rowTotal(record) }}
-        </template>
-        <template v-else-if="column.key === 'rowTotal'">
-          {{ rowTotal(record) }}
-        </template>
-        <template v-else-if="column.key === 'remark'">
-          <a-input
-            :value="draftValue(record, 'remark')"
-            :placeholder="TEXT.remark"
-            @update:value="(value) => $emit('update-draft', rowKey(record), 'remark', value)"
-          />
-        </template>
-      </template>
-    </a-table>
-  </a-modal>
+      </a-table>
+
+      <div class="sheet-flow-footer">
+        <a-space>
+          <a-button @click="$emit('cancel')">
+            取消
+          </a-button>
+          <a-button
+            type="primary"
+            :loading="submitting"
+            :disabled="totalQuantity <= 0"
+            @click="$emit('submit')"
+          >
+            {{ submitText }}
+          </a-button>
+        </a-space>
+      </div>
+    </div>
+  </a-drawer>
 </template>
 
 <script setup>
@@ -256,6 +273,19 @@ function maxQty(record) {
 <style scoped>
 .sheet-flow-toolbar {
   margin-bottom: 12px;
+}
+
+.sheet-flow-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sheet-flow-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .sheet-flow-control {

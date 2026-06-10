@@ -64,8 +64,10 @@ export function useModuleTableState(options) {
         sortOrder: 'desc',
         ...buildQueryParams(),
       });
-      rows.value = page.records;
-      pagination.total = page.total;
+      rows.value = Array.isArray(page?.records)
+        ? page.records.filter((record) => record && typeof record === 'object')
+        : [];
+      pagination.total = Number(page?.total) || 0;
     } catch (error) {
       message.error(error.message || TABLE_TEXT.fetchFail);
     } finally {
