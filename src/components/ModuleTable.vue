@@ -116,13 +116,28 @@
         <template v-else-if="String(column.key) === 'changeQty'">
           {{ formatQty(record.changeQty) }}
         </template>
+        <template v-else-if="String(column.key) === 'currentQty' && isSplitStockManagement">
+          <div class="qty-breakdown">
+            <div class="qty-breakdown-total">
+              {{ formatQty(record.currentQty) }}
+            </div>
+            <div
+              v-if="customerQtyBreakdown(record).length > 0"
+              class="qty-breakdown-list"
+            >
+              <div
+                v-for="item in customerQtyBreakdown(record)"
+                :key="item.key"
+                class="qty-breakdown-line"
+              >
+                <span class="qty-breakdown-customer">{{ item.label }}</span>
+                <span class="qty-breakdown-qty">{{ formatQty(item.qty) }}</span>
+              </div>
+            </div>
+          </div>
+        </template>
         <template v-else-if="String(column.key) === 'updateTime'">
           {{ formatTime(record.updateTime) }}
-        </template>
-        <template v-else-if="String(column.key) === 'inventoryStatus'">
-          <a-tag :color="record.inboundDone ? 'success' : 'default'">
-            {{ record.inventoryStatus }}
-          </a-tag>
         </template>
         <template v-else-if="isPermissionNamesField(column.key)">
           <div
@@ -248,10 +263,14 @@
       :relation-options="relationOptions"
       :submitting="sheetOutboundSubmitting"
       :row-key="goodsRowKey"
+      :active-row-key="sheetOutboundActiveRowKey"
       @cancel="sheetOutboundModalOpen = false"
       @submit="submitSheetFlow"
       @update-draft="updateSheetOutboundDraft"
       @update-setting="updateSheetOutboundSetting"
+      @add-customer-allocation="addCustomerAllocation"
+      @update-customer-allocation="updateCustomerAllocation"
+      @remove-customer-allocation="removeCustomerAllocation"
     />
     <goods-drawer
       :open="goodsDrawerOpen"
@@ -305,7 +324,7 @@ import { useRequestItemCandidates } from '../composables/useRequestItemCandidate
 import { useRelationOptions } from '../composables/useRelationOptions';
 import { useModuleTableSchema } from '../composables/useModuleTableSchema';
 import { useModuleTableState } from '../composables/useModuleTableState';
-import { approveStockOrder } from '../api/module';
+import { approveStockOrder, fetchCurrentUserCustomerPage } from '../api/module';
 import { downloadRequestFormFile, downloadRequestFormPdf } from '../utils/download';
 import { markAllMessageListRead, markAllMessagesRead, markMessageListRead, markMessageRead } from '../utils/message';
 import { submitDeliveryAllocationFlow, submitGoodsStockOutboundFlow, submitSheetStockInboundFlow, submitSheetStockOutboundFlow, submitStockInboundFlow, submitStockOrderItemReturnFlow, submitStockQuantityAdjustment } from '../utils/stock';
@@ -343,6 +362,7 @@ const props = defineProps({
   allDataWrite: { type: Boolean, default: false },
   permissionReady: { type: Boolean, default: false },
   currentUser: { type: String, default: '' },
+  currentUserId: { type: Number, default: null },
   currentDeptId: { type: Number, default: null },
   currentDeptName: { type: String, default: '' },
   currentGroupCode: { type: String, default: '' },
@@ -358,11 +378,14 @@ const sheetOutboundModalOpen = ref(false);
 const sheetOutboundSubmitting = ref(false);
 const sheetFlowMode = ref('outbound');
 const sheetOutboundRows = ref([]);
+const sheetOutboundActiveRowKey = ref('');
 const sheetOutboundDrafts = reactive({});
 const sheetOutboundSettings = reactive({
+  outboundMode: 'CUSTOMER',
   warehouseId: null,
   stockTypeId: null,
   customerId: null,
+  customerAllocations: [],
   saleDeadline: null,
   remark: '',
 });
@@ -375,6 +398,7 @@ const isSplitStockManagement = computed(() => (
   props.moduleKey === 'stock'
   || props.moduleKey === 'stockSelf'
   || props.moduleKey === 'stockSummary'
+  || props.moduleKey === 'stockGroup'
   || /^stockGroup[ABC]$/.test(props.moduleKey)
 ));
 const modulePath = computed(() => {
@@ -540,6 +564,7 @@ const {
   invalidateRelationModuleOptions,
 } = useRelationOptions({
   fetchModuleOptions,
+  fetchCurrentUserCustomerPage,
   relationLabel,
   relationModuleByField,
   inputType,
@@ -548,6 +573,9 @@ const {
   mapNameFieldToIdField,
   currentDeptId: props.currentDeptId,
   currentDeptName: props.currentDeptName,
+  currentUser: props.currentUser,
+  currentUserId: props.currentUserId,
+  allDataWrite: props.allDataWrite,
 });
 const {
   loadDynamicEnumOptions,
@@ -637,6 +665,10 @@ const tableRows = computed(() => {
 function stockViewQueryParams() {
   if (props.moduleKey === 'stockSelf' || props.moduleKey === 'stockSummary' || props.moduleKey === 'stock') {
     return { stockScope: 'self' };
+  }
+  if (props.moduleKey === 'stockGroup') {
+    const groupCode = String(props.currentGroupCode || '').trim().toUpperCase();
+    return groupCode ? { stockScope: 'group', groupCode } : { stockScope: 'group' };
   }
   const match = String(props.moduleKey || '').match(/^stockGroup([ABC])$/);
   if (!match) return {};
@@ -962,9 +994,12 @@ async function openSheetOutboundModal(record = null) {
         remark: '',
       };
   });
+  sheetOutboundActiveRowKey.value = goodsRowKey(selected[0]);
+  sheetOutboundSettings.outboundMode = (props.moduleKey === 'stockGroup' || /^stockGroup[ABC]$/.test(props.moduleKey)) ? 'GROUP' : 'CUSTOMER';
   sheetOutboundSettings.warehouseId = firstNonEmptyValue(selected, 'warehouseId');
   sheetOutboundSettings.stockTypeId = firstNonEmptyValue(selected, 'stockTypeId');
   sheetOutboundSettings.customerId = null;
+  sheetOutboundSettings.customerAllocations = [];
   sheetOutboundSettings.saleDeadline = null;
   sheetOutboundSettings.remark = '';
   await loadRelationOptions(['warehouseId', 'stockTypeId'], keys.value);
@@ -990,6 +1025,7 @@ async function openSheetInboundModal() {
   sheetOutboundSettings.warehouseId = firstNonEmptyValue(selected, 'warehouseId');
   sheetOutboundSettings.stockTypeId = firstNonEmptyValue(selected, 'stockTypeId');
   sheetOutboundSettings.customerId = null;
+  sheetOutboundSettings.customerAllocations = [];
   sheetOutboundSettings.saleDeadline = null;
   sheetOutboundSettings.remark = '';
   await loadRelationOptions(['warehouseId', 'stockTypeId'], keys.value);
@@ -1018,6 +1054,34 @@ function updateSheetOutboundSetting(field, value) {
   sheetOutboundSettings[field] = value;
 }
 
+function addCustomerAllocation() {
+  const list = Array.isArray(sheetOutboundSettings.customerAllocations)
+    ? [...sheetOutboundSettings.customerAllocations]
+    : [];
+  list.push({
+    key: `customer-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    customerId: null,
+    quantity: 0,
+  });
+  sheetOutboundSettings.customerAllocations = list;
+}
+
+function updateCustomerAllocation(key, field, value) {
+  const list = Array.isArray(sheetOutboundSettings.customerAllocations)
+    ? [...sheetOutboundSettings.customerAllocations]
+    : [];
+  const item = list.find((row) => String(row.key) === String(key));
+  if (!item) return;
+  item[field] = value;
+  sheetOutboundSettings.customerAllocations = list;
+}
+
+function removeCustomerAllocation(key) {
+  sheetOutboundSettings.customerAllocations = (Array.isArray(sheetOutboundSettings.customerAllocations)
+    ? sheetOutboundSettings.customerAllocations
+    : []).filter((row) => String(row.key) !== String(key));
+}
+
 async function submitSheetFlow() {
   if (!sheetOutboundSettings.warehouseId || !sheetOutboundSettings.stockTypeId) {
     message.warning(TABLE_TEXT.requiredField);
@@ -1026,7 +1090,9 @@ async function submitSheetFlow() {
   if (sheetFlowMode.value === 'outbound') {
     const invalid = sheetOutboundRows.value.some((record) => {
       const draft = sheetOutboundDrafts[goodsRowKey(record)] || {};
-      const total = Number(draft.aQty || 0) + Number(draft.bQty || 0) + Number(draft.cQty || 0);
+      const total = Array.isArray(sheetOutboundSettings.customerAllocations) && sheetOutboundSettings.customerAllocations.length > 0
+        ? sheetOutboundSettings.customerAllocations.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+        : Number(draft.aQty || 0) + Number(draft.bQty || 0) + Number(draft.cQty || 0);
       return total > availableGoodsOutboundQty(goodsRowKey(record));
     });
     if (invalid) {
@@ -1063,6 +1129,7 @@ async function submitSheetFlow() {
     if (success) {
       sheetOutboundModalOpen.value = false;
       selectedRowKeys.value = [];
+      sheetOutboundActiveRowKey.value = '';
       await reload();
       await loadGoodsStockRows();
     }
@@ -1156,13 +1223,11 @@ function mergeGoodsWithStock(goodsRows, stockRows) {
   return (Array.isArray(goodsRows) ? goodsRows : []).map((goods) => {
     const matched = stocks.filter((stock) => isSameGoodsStock(goods, stock));
     const currentQty = matched.reduce((total, stock) => total + stockCurrentQty(stock), 0);
-    const hasStock = matched.some((stock) => stockCurrentQty(stock) > 0);
     return {
       ...goods,
       currentQty,
       outboundMaxQty: currentQty,
-      inboundDone: hasStock,
-      inventoryStatus: hasStock ? '入庫済み' : '未入庫',
+      customerQtyBreakdown: buildCustomerQtyBreakdown(matched),
       stockId: matched.length === 1 ? matched[0]?.id : null,
     };
   });
@@ -1181,6 +1246,40 @@ function stockCurrentQty(stock) {
   const value = stock?.currentQty ?? stock?.availableQty ?? stock?.stockQty ?? stock?.quantity ?? 0;
   const quantity = Number(value);
   return Number.isNaN(quantity) ? 0 : quantity;
+}
+
+function buildCustomerQtyBreakdown(stocks) {
+  const grouped = new Map();
+  (Array.isArray(stocks) ? stocks : []).forEach((stock, index) => {
+    const qty = stockCurrentQty(stock);
+    if (qty <= 0) return;
+    const customerId = stock?.customerId ?? stock?.customer_code ?? stock?.customerCode ?? '';
+    const label = String(
+      stock?.customerName
+        || stock?.customer_name
+        || stock?.customerCode
+        || stock?.customer_code
+        || customerId
+        || '?????',
+    ).trim() || '?????';
+    const key = String(customerId || label || index);
+    const current = grouped.get(key) || { key, label, qty: 0 };
+    current.qty += qty;
+    grouped.set(key, current);
+  });
+  return Array.from(grouped.values()).sort((a, b) => a.label.localeCompare(b.label, 'ja'));
+}
+
+function customerQtyBreakdown(record) {
+  if (!record || !isSplitStockManagement.value) return [];
+  const source = Array.isArray(record?.customerQtyBreakdown) ? record.customerQtyBreakdown : [];
+  return source
+    .map((item, index) => ({
+      key: String(item?.key ?? index),
+      label: String(item?.label || '?????').trim() || '?????',
+      qty: Number(item?.qty ?? 0),
+    }))
+    .filter((item) => !Number.isNaN(item.qty) && item.qty !== 0);
 }
 
 function restoreGoodsFlowState() {

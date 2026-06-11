@@ -14,6 +14,7 @@ export function useModuleMenu(options) {
     menuScopes,
     permissionReady,
     allDataWrite,
+    currentGroupCode,
   } = options;
 
   const menuItems = ref([]);
@@ -36,6 +37,18 @@ export function useModuleMenu(options) {
     ],
     () => initMenus(),
     { immediate: true, deep: true },
+  );
+
+  watch(
+    () => currentGroupCode?.value || '',
+    () => {
+      if (activeModule.value === 'stockGroup') {
+        const key = resolveGroupStockModuleKey(currentGroupCode?.value);
+        activeModule.value = key;
+        selectedKeys.value = [key];
+        activeLabel.value = findLabelByKey(key) || activeLabel.value;
+      }
+    },
   );
 
   function normalizeModuleKey(key) {
@@ -73,7 +86,10 @@ export function useModuleMenu(options) {
   }
 
   function isValidModule(moduleKey) {
-    return Boolean(moduleKey) && (allowedModules.value.has(moduleKey) || HIDDEN_MODULE_SET.has(moduleKey));
+    return Boolean(moduleKey) && (
+      allowedModules.value.has(moduleKey)
+      || HIDDEN_MODULE_SET.has(moduleKey)
+    );
   }
 
   function onMenuClick({ key }) {
@@ -116,12 +132,18 @@ export function useModuleMenu(options) {
         group.children.forEach((item) => scopeKeySet.add(item.key));
       });
     }
+    if (scopeKeySet.has('stockGroupA') || scopeKeySet.has('stockGroupB') || scopeKeySet.has('stockGroupC')) {
+      scopeKeySet.add('stockGroup');
+    }
     allowedModules.value = scopeKeySet;
 
     const filtered = MODULE_GROUPS
       .map((group) => ({
         ...group,
-        children: group.children.filter((item) => allowedModules.value.has(item.key) && isVisibleScope(item.key, visibleScopeItems)),
+        children: group.children.filter((item) => (
+          allowedModules.value.has(item.key)
+          && isVisibleScope(item.key, visibleScopeItems, group.key)
+        )),
       }))
       .filter((group) => group.children.length > 0);
 
@@ -177,9 +199,17 @@ export function useModuleMenu(options) {
       .filter((item) => item.key);
   }
 
+  function resolveGroupStockModuleKey(groupCode) {
+    const code = String(groupCode || '').trim().toUpperCase();
+    if (code === 'B') return 'stockGroupB';
+    if (code === 'C') return 'stockGroupC';
+    return 'stockGroupA';
+  }
+
   function isVisibleScope(key, scopeItems) {
     const hit = (Array.isArray(scopeItems) ? scopeItems : []).find((item) => item.key === key);
-    return hit ? hit.visible !== false : true;
+    if (hit) return hit.visible !== false;
+    return true;
   }
 
   function isAdminMenuScope(scopeItems) {
@@ -195,9 +225,7 @@ export function useModuleMenu(options) {
 
   function resolveMenuLabel(scope, item) {
     const localLabel = String(item?.label || '').trim();
-    if (localLabel) {
-      return localLabel;
-    }
+    if (localLabel) return localLabel;
     const label = String(scope?.label || '').trim();
     if (!label || hasDanglingMenuLabelSeparator(label)) {
       return item.label;
@@ -220,4 +248,3 @@ export function useModuleMenu(options) {
     onNavigateModule,
   };
 }
-

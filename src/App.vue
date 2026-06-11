@@ -22,6 +22,7 @@
       :all-data-write="allDataWrite"
       :permission-ready="permissionReady"
       :current-user="currentUser"
+      :current-user-id="currentUserId"
       :current-dept-id="currentDeptId"
       :current-dept-name="currentDeptName"
       :current-group-code="currentGroupCode"
@@ -54,6 +55,7 @@ const APP_MESSAGES = {
 const token = ref(getStoredToken());
 const darkMode = ref(localStorage.getItem(THEME_KEY) === '1');
 const currentUser = ref(localStorage.getItem(USERNAME_KEY) || '');
+const currentUserId = ref(null);
 const currentDeptId = ref(null);
 const currentDeptName = ref('');
 const currentGroupCode = ref('');
@@ -80,6 +82,7 @@ onBeforeUnmount(() => {
 function handleAuthExpired() {
   token.value = null;
   currentUser.value = '';
+  currentUserId.value = null;
   currentDeptId.value = null;
   currentDeptName.value = '';
   currentGroupCode.value = '';
@@ -158,6 +161,7 @@ async function loadPermissions() {
     currentDeptId.value = scope.deptId || null;
     currentDeptName.value = scope.deptName || '';
     currentGroupCode.value = scope.groupCode || '';
+    currentUserId.value = scope.userId || null;
     allDataWrite.value = Boolean(
       scope.allDataWrite
       || scope.superAdmin
@@ -179,6 +183,7 @@ async function loadPermissions() {
     localStorage.removeItem(USERNAME_KEY);
     token.value = null;
     currentUser.value = '';
+    currentUserId.value = null;
     currentDeptId.value = null;
     currentDeptName.value = '';
     currentGroupCode.value = '';

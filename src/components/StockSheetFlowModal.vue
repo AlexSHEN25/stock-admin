@@ -3,122 +3,176 @@
     :open="open"
     :title="title"
     placement="right"
-    width="min(92vw, 1600px)"
+    width="min(94vw, 1680px)"
     :closable="true"
     :get-container="false"
     @close="$emit('cancel')"
   >
     <div class="sheet-flow-drawer">
-      <a-space
-        class="sheet-flow-toolbar"
-        wrap
+      <a-tabs
+        v-model:active-key="activeTab"
+        class="sheet-flow-tabs"
       >
-        <a-select
-          :value="settings.warehouseId"
-          :options="relationOptions.warehouseId || []"
-          :placeholder="TEXT.warehouse"
-          show-search
-          allow-clear
-          option-filter-prop="label"
-          class="sheet-flow-control"
-          @update:value="(value) => $emit('update-setting', 'warehouseId', value)"
-        />
-        <a-select
-          :value="settings.stockTypeId"
-          :options="relationOptions.stockTypeId || []"
-          :placeholder="TEXT.stockType"
-          show-search
-          allow-clear
-          option-filter-prop="label"
-          class="sheet-flow-control"
-          @update:value="(value) => $emit('update-setting', 'stockTypeId', value)"
-        />
-        <a-select
-          v-if="isPureOutbound"
-          :value="settings.customerId"
-          :options="relationOptions.customerId || []"
-          :placeholder="TEXT.customer"
-          show-search
-          allow-clear
-          option-filter-prop="label"
-          class="sheet-flow-control"
-          @update:value="(value) => $emit('update-setting', 'customerId', value)"
-        />
-        <a-date-picker
-          v-if="isInbound"
-          :value="settings.saleDeadline"
-          value-format="YYYY-MM-DD HH:mm:ss"
-          show-time
-          :placeholder="TEXT.saleDeadline"
-          class="sheet-flow-control"
-          @update:value="(value) => $emit('update-setting', 'saleDeadline', value)"
-        />
-        <a-input
-          :value="settings.remark"
-          :placeholder="TEXT.commonRemark"
-          class="sheet-flow-remark"
-          @update:value="(value) => $emit('update-setting', 'remark', value)"
-        />
-        <a-tag color="blue">
-          {{ TEXT.total }} {{ totalQuantity }}
-        </a-tag>
-      </a-space>
+        <a-tab-pane
+          key="group"
+          tab="グループ別在庫配分"
+        >
+          <a-table
+            class="sheet-flow-table"
+            :row-key="rowKey"
+            :data-source="rows"
+            :columns="groupColumns"
+            :pagination="false"
+            :scroll="{ x: 'max-content', y: 560 }"
+            size="small"
+            bordered
+          >
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'skuCode'">
+                {{ record.skuCode || record.sku_code || '-' }}
+              </template>
+              <template v-else-if="column.key === 'name'">
+                {{ record.goodsName || record.name || record.title || '-' }}
+              </template>
+              <template v-else-if="column.key === 'brandName'">
+                {{ record.brandName || record.brand || '-' }}
+              </template>
+              <template v-else-if="column.key === 'makerName'">
+                {{ record.makerName || record.maker || '-' }}
+              </template>
+              <template v-else-if="column.key === 'warehouseName'">
+                {{ record.warehouseName || record.warehouse || '-' }}
+              </template>
+              <template v-else-if="column.key === 'currentQty'">
+                {{ maxQty(record) }}
+              </template>
+              <template v-if="column.key === 'aQty' || column.key === 'bQty' || column.key === 'cQty'">
+                <a-input-number
+                  :value="draftValue(record, column.key)"
+                  :min="0"
+                  :precision="0"
+                  class="sheet-flow-number"
+                  @update:value="(value) => $emit('update-draft', rowKey(record), column.key, value)"
+                />
+              </template>
+              <template v-else-if="column.key === 'remainQty'">
+                <a-tag :color="remainQty(record) < 0 ? 'red' : 'default'">
+                  {{ remainQty(record) }}
+                </a-tag>
+              </template>
+              <template v-else-if="column.key === 'rowTotal'">
+                {{ rowTotal(record) }}
+              </template>
+              <template v-else-if="column.key === 'remark'">
+                <a-input
+                  :value="draftValue(record, 'remark')"
+                  placeholder="備考"
+                  @update:value="(value) => $emit('update-draft', rowKey(record), 'remark', value)"
+                />
+              </template>
+            </template>
+          </a-table>
+        </a-tab-pane>
 
-      <a-table
-        class="sheet-flow-table"
-        :row-key="rowKey"
-        :data-source="rows"
-        :columns="columns"
-        :pagination="false"
-        :scroll="{ x: 'max-content', y: 560 }"
-        size="small"
-        bordered
-      >
-        <template #bodyCell="{ column, record }">
-          <template v-if="quantityFields.includes(column.key)">
-            <a-input-number
-              :value="draftValue(record, column.key)"
-              :min="0"
-              :max="isPureOutbound ? maxQty(record) : undefined"
-              :precision="0"
-              class="sheet-flow-number"
-              @update:value="(value) => $emit('update-draft', rowKey(record), column.key, value)"
-            />
-          </template>
-          <template v-else-if="column.key === 'saleDeadline'">
-            <a-date-picker
-              :value="draftValue(record, 'saleDeadline')"
-              value-format="YYYY-MM-DD HH:mm:ss"
-              show-time
-              class="sheet-flow-date"
-              @update:value="(value) => $emit('update-draft', rowKey(record), 'saleDeadline', value)"
-            />
-          </template>
-          <template v-else-if="column.key === 'remainQty'">
-            <a-tag :color="remainQty(record) < 0 ? 'red' : 'default'">
-              {{ remainQty(record) }}
-            </a-tag>
-          </template>
-          <template v-else-if="column.key === 'afterQty'">
-            {{ maxQty(record) + rowTotal(record) }}
-          </template>
-          <template v-else-if="column.key === 'rowTotal'">
-            {{ rowTotal(record) }}
-          </template>
-          <template v-else-if="column.key === 'remark'">
-            <a-input
-              :value="draftValue(record, 'remark')"
-              :placeholder="TEXT.remark"
-              @update:value="(value) => $emit('update-draft', rowKey(record), 'remark', value)"
-            />
-          </template>
-        </template>
-      </a-table>
+        <a-tab-pane
+          key="customer"
+          tab="顧客別在庫配分"
+        >
+          <a-table
+            class="sheet-flow-table"
+            :row-key="rowKey"
+            :data-source="rows"
+            :columns="customerColumns"
+            :pagination="false"
+            :scroll="{ x: 'max-content', y: 380 }"
+            size="small"
+            bordered
+          >
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'skuCode'">
+                {{ record.skuCode || record.sku_code || '-' }}
+              </template>
+              <template v-else-if="column.key === 'name'">
+                {{ record.goodsName || record.name || record.title || '-' }}
+              </template>
+              <template v-else-if="column.key === 'brandName'">
+                {{ record.brandName || record.brand || '-' }}
+              </template>
+              <template v-else-if="column.key === 'makerName'">
+                {{ record.makerName || record.maker || '-' }}
+              </template>
+              <template v-else-if="column.key === 'warehouseName'">
+                {{ record.warehouseName || record.warehouse || '-' }}
+              </template>
+              <template v-else-if="column.key === 'currentQty'">
+                {{ maxQty(record) }}
+              </template>
+              <template v-else-if="column.key === 'remark'">
+                {{ draftValue(record, 'remark') || '-' }}
+              </template>
+            </template>
+          </a-table>
+
+          <div class="customer-allocation-panel">
+            <div class="customer-allocation-header">
+              <strong>顧客追加</strong>
+              <a-button
+                type="dashed"
+                size="small"
+                @click="$emit('add-customer-allocation')"
+              >
+                顧客を追加
+              </a-button>
+            </div>
+            <div
+              v-if="customerAllocations.length === 0"
+              class="empty-state"
+            >
+              顧客を追加してください
+            </div>
+            <div
+              v-else
+              class="customer-allocation-list"
+            >
+              <div
+                v-for="allocation in customerAllocations"
+                :key="allocation.key"
+                class="customer-allocation-row"
+              >
+                <a-select
+                  :value="allocation.customerId"
+                  :options="relationOptions.customerId || []"
+                  placeholder="顧客を選択"
+                  show-search
+                  allow-clear
+                  option-filter-prop="label"
+                  class="customer-allocation-select"
+                  @update:value="(value) => $emit('update-customer-allocation', allocation.key, 'customerId', value)"
+                />
+                <a-input-number
+                  :value="allocation.quantity"
+                  :min="0"
+                  :precision="0"
+                  placeholder="数量"
+                  class="customer-allocation-number"
+                  @update:value="(value) => $emit('update-customer-allocation', allocation.key, 'quantity', value)"
+                />
+                <a-button
+                  danger
+                  @click="$emit('remove-customer-allocation', allocation.key)"
+                >
+                  削除
+                </a-button>
+              </div>
+            </div>
+          </div>
+        </a-tab-pane>
+      </a-tabs>
 
       <div class="sheet-flow-footer">
         <a-space>
           <a-button @click="$emit('cancel')">
-            取消
+            キャンセル
           </a-button>
           <a-button
             type="primary"
@@ -135,37 +189,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
-
-const TEXT = {
-  inboundTitle: '入庫一括処理',
-  outboundTitle: '出庫一括処理',
-  deliveryTitle: '納品振分処理',
-  inboundSubmit: '入庫申請',
-  outboundSubmit: '出庫申請',
-  deliverySubmit: '納品振分登録',
-  warehouse: '倉庫',
-  stockType: '在庫分類',
-  customer: '顧客',
-  saleDeadline: '販売期限',
-  commonRemark: '共通備考',
-  total: '総数',
-  skuCode: '品番',
-  goodsName: '商品名',
-  brand: 'ブランド',
-  maker: 'メーカー',
-  currentQty: '現在在庫',
-  deliveryQty: '納品数',
-  inboundQty: '入庫数',
-  afterQty: '入庫後',
-  groupA: 'A組',
-  groupB: 'B組',
-  groupC: 'C組',
-  groupTotal: '組別合計',
-  selfInbound: '自社入庫',
-  remain: '残数',
-  remark: '備考',
-};
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -178,70 +202,81 @@ const props = defineProps({
   rowKey: { type: Function, required: true },
 });
 
-defineEmits(['cancel', 'submit', 'update-draft', 'update-setting']);
+defineEmits([
+  'cancel',
+  'submit',
+  'update-draft',
+  'update-setting',
+  'add-customer-allocation',
+  'update-customer-allocation',
+  'remove-customer-allocation',
+]);
 
+const activeTab = ref('group');
+
+watch(
+  () => props.open,
+  (open) => {
+    if (open) activeTab.value = 'group';
+  },
+);
+
+const title = computed(() => '納品振分処理');
 const isInbound = computed(() => props.mode === 'inbound');
 const isDelivery = computed(() => props.mode === 'delivery');
-const isPureOutbound = computed(() => props.mode === 'outbound');
-const title = computed(() => {
-  if (isInbound.value) return TEXT.inboundTitle;
-  if (isDelivery.value) return TEXT.deliveryTitle;
-  return TEXT.outboundTitle;
-});
-const quantityFields = computed(() => {
-  if (isInbound.value) return ['quantity'];
-  if (isDelivery.value) return ['deliveryQty', 'aQty', 'bQty', 'cQty'];
-  return ['aQty', 'bQty', 'cQty'];
-});
-const columns = computed(() => {
-  const base = [
-    { title: TEXT.skuCode, dataIndex: 'skuCode', key: 'skuCode', width: 120, fixed: 'left' },
-    { title: TEXT.goodsName, dataIndex: 'name', key: 'name', width: 180, fixed: 'left' },
-    { title: TEXT.brand, dataIndex: 'brandName', key: 'brandName', width: 110 },
-    { title: TEXT.maker, dataIndex: 'makerName', key: 'makerName', width: 110 },
-    { title: TEXT.currentQty, dataIndex: 'currentQty', key: 'currentQty', width: 90 },
-  ];
+const isCustomerMode = computed(() => String(activeTab.value) === 'customer');
+const customerAllocations = computed(() => (Array.isArray(props.settings?.customerAllocations) ? props.settings.customerAllocations : []));
+
+const baseColumns = [
+  { title: '品番', dataIndex: 'skuCode', key: 'skuCode', width: 120, fixed: 'left' },
+  { title: '商品名', dataIndex: 'name', key: 'name', width: 180, fixed: 'left' },
+  { title: 'ブランド', dataIndex: 'brandName', key: 'brandName', width: 120 },
+  { title: 'メーカー', dataIndex: 'makerName', key: 'makerName', width: 120 },
+  { title: '倉庫', dataIndex: 'warehouseName', key: 'warehouseName', width: 140 },
+  { title: '現在数量', dataIndex: 'currentQty', key: 'currentQty', width: 96 },
+];
+
+const groupColumns = computed(() => {
   if (isInbound.value) {
     return [
-      ...base,
-      { title: TEXT.inboundQty, dataIndex: 'quantity', key: 'quantity', width: 120 },
-      { title: TEXT.afterQty, dataIndex: 'afterQty', key: 'afterQty', width: 90 },
-      { title: TEXT.saleDeadline, dataIndex: 'saleDeadline', key: 'saleDeadline', width: 190 },
-      { title: TEXT.remark, dataIndex: 'remark', key: 'remark', width: 220 },
+      ...baseColumns,
+      { title: '入庫数量', dataIndex: 'quantity', key: 'quantity', width: 120 },
+      { title: '入庫後数量', dataIndex: 'afterQty', key: 'afterQty', width: 100 },
+      { title: '販売期限', dataIndex: 'saleDeadline', key: 'saleDeadline', width: 190 },
+      { title: '備考', dataIndex: 'remark', key: 'remark', width: 240 },
     ];
   }
   if (isDelivery.value) {
     return [
-      ...base,
-      { title: TEXT.deliveryQty, dataIndex: 'deliveryQty', key: 'deliveryQty', width: 110 },
-      { title: TEXT.groupA, dataIndex: 'aQty', key: 'aQty', width: 110 },
-      { title: TEXT.groupB, dataIndex: 'bQty', key: 'bQty', width: 110 },
-      { title: TEXT.groupC, dataIndex: 'cQty', key: 'cQty', width: 110 },
-      { title: TEXT.groupTotal, dataIndex: 'rowTotal', key: 'rowTotal', width: 110 },
-      { title: TEXT.selfInbound, dataIndex: 'remainQty', key: 'remainQty', width: 110 },
-      { title: TEXT.saleDeadline, dataIndex: 'saleDeadline', key: 'saleDeadline', width: 190 },
-      { title: TEXT.remark, dataIndex: 'remark', key: 'remark', width: 220 },
+      ...baseColumns,
+      { title: '納品数量', dataIndex: 'deliveryQty', key: 'deliveryQty', width: 110 },
+      { title: 'A組', dataIndex: 'aQty', key: 'aQty', width: 110 },
+      { title: 'B組', dataIndex: 'bQty', key: 'bQty', width: 110 },
+      { title: 'C組', dataIndex: 'cQty', key: 'cQty', width: 110 },
+      { title: '合計', dataIndex: 'rowTotal', key: 'rowTotal', width: 110 },
+      { title: '残数', dataIndex: 'remainQty', key: 'remainQty', width: 110 },
+      { title: '販売期限', dataIndex: 'saleDeadline', key: 'saleDeadline', width: 190 },
+      { title: '備考', dataIndex: 'remark', key: 'remark', width: 240 },
     ];
   }
   return [
-    ...base,
-    { title: TEXT.groupA, dataIndex: 'aQty', key: 'aQty', width: 110 },
-    { title: TEXT.groupB, dataIndex: 'bQty', key: 'bQty', width: 110 },
-    { title: TEXT.groupC, dataIndex: 'cQty', key: 'cQty', width: 110 },
-    { title: TEXT.total, dataIndex: 'rowTotal', key: 'rowTotal', width: 80 },
-    { title: TEXT.remain, dataIndex: 'remainQty', key: 'remainQty', width: 80 },
-    { title: TEXT.remark, dataIndex: 'remark', key: 'remark', width: 220 },
+    ...baseColumns,
+    { title: 'A組', dataIndex: 'aQty', key: 'aQty', width: 110 },
+    { title: 'B組', dataIndex: 'bQty', key: 'bQty', width: 110 },
+    { title: 'C組', dataIndex: 'cQty', key: 'cQty', width: 110 },
+    { title: '合計', dataIndex: 'rowTotal', key: 'rowTotal', width: 110 },
+    { title: '残数', dataIndex: 'remainQty', key: 'remainQty', width: 110 },
+    { title: '備考', dataIndex: 'remark', key: 'remark', width: 240 },
   ];
 });
 
-const totalQuantity = computed(() => props.rows.reduce((total, record) => {
-  if (isDelivery.value) return total + Number(draftValue(record, 'deliveryQty') || 0);
-  return total + rowTotal(record);
-}, 0));
-const submitText = computed(() => {
-  const label = isInbound.value ? TEXT.inboundSubmit : (isDelivery.value ? TEXT.deliverySubmit : TEXT.outboundSubmit);
-  return totalQuantity.value > 0 ? `${label} (${totalQuantity.value})` : label;
-});
+const customerColumns = computed(() => [
+  ...baseColumns,
+  { title: '備考', dataIndex: 'remark', key: 'remark', width: 240 },
+]);
+
+const totalQuantity = computed(() => props.rows.reduce((total, record) => total + rowTotal(record), 0));
+const submitText = computed(() => '納品振分登録');
 
 function draft(record) {
   return props.drafts[props.rowKey(record)] || {};
@@ -252,10 +287,13 @@ function draftValue(record, field) {
 }
 
 function rowTotal(record) {
+  if (isCustomerMode.value) {
+    return customerAllocations.value.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+  }
   if (isDelivery.value) {
     return ['aQty', 'bQty', 'cQty'].reduce((total, field) => total + Number(draftValue(record, field) || 0), 0);
   }
-  return quantityFields.value.reduce((total, field) => total + Number(draftValue(record, field) || 0), 0);
+  return ['aQty', 'bQty', 'cQty'].reduce((total, field) => total + Number(draftValue(record, field) || 0), 0);
 }
 
 function remainQty(record) {
@@ -271,33 +309,68 @@ function maxQty(record) {
 </script>
 
 <style scoped>
-.sheet-flow-toolbar {
-  margin-bottom: 12px;
-}
-
 .sheet-flow-drawer {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+}
+
+.sheet-flow-table :deep(.ant-table-tbody > tr > td) {
+  vertical-align: top;
+}
+
+.sheet-flow-number {
+  width: 100%;
 }
 
 .sheet-flow-footer {
   display: flex;
   justify-content: flex-end;
   padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.sheet-flow-control {
-  width: 180px;
+.customer-allocation-panel {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
-.sheet-flow-remark {
-  width: 260px;
+.customer-allocation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
 }
 
-.sheet-flow-number,
-.sheet-flow-date {
+.customer-allocation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.customer-allocation-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.customer-allocation-select,
+.customer-allocation-number {
   width: 100%;
+}
+
+.empty-state {
+  padding: 14px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.03);
+  color: rgba(0, 0, 0, 0.65);
+}
+
+@media (max-width: 768px) {
+  .customer-allocation-row {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

@@ -276,7 +276,7 @@ export function displayKeys(record) {
   return keyList.filter((key) => {
     const low = key.toLowerCase();
   if (String(key).startsWith('__')) return false;
-    if (low === 'beforeqty' || low === 'afterqty' || low === 'lockqty' || low === 'inbounddone') return false;
+  if (low === 'beforeqty' || low === 'afterqty' || low === 'lockqty' || low === 'inbounddone' || low === 'inventorystatus') return false;
     if (!low.endsWith('id') && !low.endsWith('ids')) return true;
     if (low === 'id') return true;
     if (alwaysDisplayIdFields.has(low)) return true;

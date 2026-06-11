@@ -7,10 +7,15 @@
   >
     <a-spin :spinning="loading">
       <a-form layout="vertical">
-        <a-divider orientation="left">商品基本</a-divider>
+        <a-divider orientation="left">
+          商品基本
+        </a-divider>
         <a-row :gutter="12">
           <a-col :span="12">
-            <a-form-item label="名称" required>
+            <a-form-item
+              label="名称"
+              required
+            >
               <a-input v-model:value="form.name" />
             </a-form-item>
           </a-col>
@@ -20,7 +25,10 @@
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="品牌" required>
+            <a-form-item
+              label="ブランド"
+              required
+            >
               <a-select
                 v-model:value="form.brandId"
                 :options="relationOptions.brandId || []"
@@ -42,7 +50,10 @@
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="カテゴリ" required>
+            <a-form-item
+              label="カテゴリ"
+              required
+            >
               <a-select
                 v-model:value="form.categoryId"
                 :options="relationOptions.categoryId || []"
@@ -74,10 +85,15 @@
           </a-col>
         </a-row>
 
-        <a-divider orientation="left">SKU情報</a-divider>
+        <a-divider orientation="left">
+          SKU情報
+        </a-divider>
         <a-row :gutter="12">
           <a-col :span="12">
-            <a-form-item label="品番" required>
+            <a-form-item
+              label="品番"
+              required
+            >
               <a-input v-model:value="form.skuCode" />
             </a-form-item>
           </a-col>
@@ -87,7 +103,10 @@
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="価格" required>
+            <a-form-item
+              label="価格"
+              required
+            >
               <a-input-number
                 v-model:value="form.price"
                 :min="0.01"
@@ -131,7 +150,9 @@
           </a-col>
         </a-row>
 
-        <a-divider orientation="left">詳細設定</a-divider>
+        <a-divider orientation="left">
+          詳細設定
+        </a-divider>
         <a-row :gutter="12">
           <a-col :span="12">
             <a-form-item label="原価">
@@ -196,7 +217,9 @@
           </a-col>
         </a-row>
 
-        <a-divider orientation="left">画像</a-divider>
+        <a-divider orientation="left">
+          画像
+        </a-divider>
         <a-row :gutter="12">
           <a-col :span="24">
             <a-upload
@@ -251,15 +274,14 @@ const props = defineProps({
   resolveImageUrl: { type: Function, required: true },
 });
 
+const emit = defineEmits(['cancel', 'save', 'upload-image', 'update-field']);
+
 const form = computed(() => new Proxy(props.form, {
   set(_target, field, value) {
-    // Forward edits back to the parent state.
     emit('update-field', field, value);
     return true;
   },
 }));
-
-const emit = defineEmits(['cancel', 'save', 'upload-image', 'update-field']);
 
 function beforeUploadImage(file) {
   emit('upload-image', file);

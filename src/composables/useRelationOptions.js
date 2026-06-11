@@ -3,12 +3,17 @@ import { reactive } from 'vue';
 export function useRelationOptions(options) {
   const {
     fetchModuleOptions,
+    fetchCurrentUserCustomerPage,
     relationLabel,
     relationModuleByField,
     inputType,
     isReadonlyField,
     inlineField,
     mapNameFieldToIdField,
+    currentUser,
+    currentUserId,
+    currentDeptId,
+    allDataWrite,
   } = options;
 
   const queryRelationOptions = reactive({});
@@ -58,7 +63,11 @@ export function useRelationOptions(options) {
     }
 
     if (!relationModuleOptionPromise[targetModule]) {
-      relationModuleOptionPromise[targetModule] = fetchModuleOptions(targetModule)
+      const loader = targetModule === 'customer' && typeof fetchCurrentUserCustomerPage === 'function'
+        ? () => fetchCurrentUserCustomerPage(buildCustomerQueryParams())
+        : () => fetchModuleOptions(targetModule);
+
+      relationModuleOptionPromise[targetModule] = loader()
         .then((list) => dedupeOptions((list || []).map((item) => ({
           label: relationOptionLabel(targetModule, item),
           value: item.id,
@@ -73,6 +82,29 @@ export function useRelationOptions(options) {
     }
 
     return relationModuleOptionPromise[targetModule];
+  }
+
+  function buildCustomerQueryParams() {
+    const params = {
+      pageNum: 1,
+      pageSize: 100,
+      sortBy: 'updateTime',
+      sortOrder: 'desc',
+    };
+    if (allDataWrite?.value) {
+      return params;
+    }
+    if (currentUserId?.value) {
+      params.ownerUserId = Number(currentUserId.value);
+      return params;
+    }
+    if (currentUser?.value) {
+      params.ownerUserName = String(currentUser.value).trim();
+    }
+    if (currentDeptId?.value) {
+      params.ownerDeptId = currentDeptId.value;
+    }
+    return params;
   }
 
   function dedupeOptions(optionList) {
@@ -95,6 +127,14 @@ export function useRelationOptions(options) {
     if (targetModule === 'user') {
       const username = String(item?.username ?? item?.userName ?? '').trim();
       if (username) return username;
+    }
+    if (targetModule === 'customer') {
+      const customerName = String(item?.customerName ?? item?.name ?? '').trim();
+      if (customerName) return customerName;
+      const customerCode = String(item?.customerCode ?? item?.code ?? '').trim();
+      if (customerCode) return customerCode;
+      const englishName = String(item?.englishName ?? '').trim();
+      if (englishName) return englishName;
     }
     return relationLabel(item);
   }

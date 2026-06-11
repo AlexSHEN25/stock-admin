@@ -1,4 +1,4 @@
-import { createItem, fetchItem, fetchModuleOptions } from '../api/module';
+import { createItem, createItemByUrl, fetchItem, fetchModuleOptions } from '../api/module';
 import TABLE_TEXT from './module-ui';
 
 const STOCK_REQUIRED_FIELDS = ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity'];
@@ -200,7 +200,7 @@ export async function submitSheetStockOutboundFlow({ items, settings, notify }) 
 
   for (const payload of payloads) {
     // eslint-disable-next-line no-await-in-loop
-    await createItem('stock/outbound', payload);
+    await createItemByUrl(resolveCustomerOutboundPath(payload.outboundMode), payload);
   }
   notify.success(TABLE_TEXT.stockOutboundSuccess);
   return true;
@@ -306,14 +306,33 @@ function buildDeliveryAllocationPayloads(items, settings) {
 }
 
 function buildSheetOutboundPayloads(items, settings) {
-  const groups = [
-    ['aQty', 'A'],
-    ['bQty', 'B'],
-    ['cQty', 'C'],
-  ];
+  const apiOutboundMode = String(settings?.outboundMode || 'CUSTOMER');
   const payloads = [];
   (items || []).forEach(({ record, draft }) => {
-    groups.forEach(([field, groupCode]) => {
+    const customerAllocations = Array.isArray(settings?.customerAllocations) ? settings.customerAllocations : [];
+    if (customerAllocations.length > 0) {
+      customerAllocations.forEach((allocation) => {
+        const quantity = Number(allocation?.quantity || 0);
+        const customerId = Number(allocation?.customerId);
+        if (!quantity || quantity <= 0 || !customerId) return;
+        payloads.push({
+          goodsId: Number(record?.goodsId ?? record?.id),
+          skuId: record?.skuId ? Number(record.skuId) : null,
+          sourceType: 2,
+          warehouseId: Number(settings?.warehouseId ?? record?.warehouseId),
+          stockTypeId: Number(settings?.stockTypeId ?? record?.stockTypeId),
+          quantity,
+          outboundMode: apiOutboundMode,
+          stockScope: 'self',
+          groupCode: null,
+          customerId,
+          remark: [settings?.remark, draft?.remark].filter(Boolean).join(' / ') || null,
+        });
+      });
+      return;
+    }
+
+    [['aQty', 'A'], ['bQty', 'B'], ['cQty', 'C']].forEach(([field, groupCode]) => {
       const quantity = Number(draft?.[field] || 0);
       if (!quantity || quantity <= 0) return;
       payloads.push({
@@ -323,10 +342,12 @@ function buildSheetOutboundPayloads(items, settings) {
         warehouseId: Number(settings?.warehouseId ?? record?.warehouseId),
         stockTypeId: Number(settings?.stockTypeId ?? record?.stockTypeId),
         quantity,
-        outboundMode: 'group',
+        outboundMode: apiOutboundMode,
         stockScope: 'self',
         groupCode,
-        customerId: settings?.customerId ? Number(settings.customerId) : null,
+        customerId: apiOutboundMode === 'GROUP_CUSTOMER' && settings?.customerId
+          ? Number(settings.customerId)
+          : null,
         remark: [settings?.remark, draft?.remark].filter(Boolean).join(' / ') || null,
       });
     });
@@ -337,6 +358,12 @@ function buildSheetOutboundPayloads(items, settings) {
     && payload.stockTypeId
     && payload.quantity > 0
   ));
+}
+
+function resolveCustomerOutboundPath(outboundMode) {
+  if (outboundMode === 'GROUP_CUSTOMER') return '/api/stock/group/customer/outbound';
+  if (outboundMode === 'CUSTOMER') return '/api/stock/customer/outbound';
+  return '/api/stock/outbound';
 }
 
 function buildGoodsOutboundRemark(formState) {

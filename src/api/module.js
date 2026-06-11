@@ -16,6 +16,12 @@ export async function fetchPage(modulePath, params) {
   return normalizePage(response);
 }
 
+export async function fetchPageByUrl(url, params) {
+  const safeParams = normalizePageParams(params);
+  const response = await requestPageWithSortFallback(url, safeParams);
+  return normalizePage(response);
+}
+
 export async function createItem(modulePath, payload) {
   if (modulePath === 'user') {
     return requestWithFallback(
@@ -24,6 +30,10 @@ export async function createItem(modulePath, payload) {
     );
   }
   return http.post(`/api/${resolveModulePath(modulePath)}`, payload);
+}
+
+export async function createItemByUrl(url, payload) {
+  return http.post(url, payload);
 }
 
 export async function fetchItem(modulePath, id) {
@@ -40,6 +50,10 @@ export async function updateItem(modulePath, payload) {
     );
   }
   return http.put(`/api/${resolveModulePath(modulePath)}`, payload);
+}
+
+export async function updateItemByUrl(url, payload) {
+  return http.put(url, payload || {});
 }
 
 export async function removeItem(modulePath, id) {
@@ -78,6 +92,35 @@ export async function fetchModuleOptions(modulePath) {
     sortOrder: 'desc',
   });
   return page.records || [];
+}
+
+export async function fetchCustomerStockPage(params) {
+  return fetchPageByUrl('/api/stock/customer/page', params);
+}
+
+export async function fetchCustomerStockGoodsPage(params) {
+  return fetchPageByUrl('/api/stock/customer/goods/page', params);
+}
+
+export async function fetchCustomerStockGoodsDetailPage(params) {
+  return fetchPageByUrl('/api/stock/customer/goods/detail/page', params);
+}
+
+export async function fetchCustomerStockOrderPage(params) {
+  return fetchPageByUrl('/api/stockOrder/customer/page', params);
+}
+
+export async function fetchCurrentUserCustomerPage(params) {
+  return fetchPageByUrl('/api/customer/page', params);
+}
+
+export async function fetchCustomerStockOrderDetail(id) {
+  if (id === undefined || id === null || String(id).trim() === '') return null;
+  return http.get(`/api/stockOrder/customer/${id}`);
+}
+
+export async function updateCustomerStockOrder(payload) {
+  return updateItemByUrl('/api/stockOrder/customer', payload || {});
 }
 
 export async function fetchMyGroupStockAvailable(params) {
@@ -305,5 +348,10 @@ function normalizePageSize(input) {
 }
 
 function resolveModulePath(modulePath) {
-  return modulePath;
+  const customMap = {
+    stockCustomerSummary: 'stock/customer',
+    stockCustomerGoods: 'stock/customer/goods',
+    stockCustomerOrder: 'stockOrder/customer',
+  };
+  return customMap[modulePath] || modulePath;
 }

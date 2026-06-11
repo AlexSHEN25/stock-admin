@@ -191,6 +191,7 @@ const props = defineProps({
   allDataWrite: { type: Boolean, default: false },
   permissionReady: { type: Boolean, default: false },
   currentUser: { type: String, default: '' },
+  currentUserId: { type: Number, default: null },
   currentDeptId: { type: Number, default: null },
   currentDeptName: { type: String, default: '' },
   currentGroupCode: { type: String, default: '' },
@@ -214,10 +215,11 @@ const {
   permissionReady: toRef(props, 'permissionReady'),
   allDataWrite: toRef(props, 'allDataWrite'),
   currentGroupCode: toRef(props, 'currentGroupCode'),
+  currentUserId: toRef(props, 'currentUserId'),
 });
 
 const activeModuleActions = computed(() => {
-  const permissionKey = ['stockSelf', 'stockSummary', 'stockGroupA', 'stockGroupB', 'stockGroupC'].includes(activeModule.value)
+  const permissionKey = ['stockSelf', 'stockSummary', 'stockGroup', 'stockGroupA', 'stockGroupB', 'stockGroupC'].includes(activeModule.value)
     ? 'stock'
     : activeModule.value;
   const scope = (props.menuScopes || []).find((item) => item?.key === permissionKey);
