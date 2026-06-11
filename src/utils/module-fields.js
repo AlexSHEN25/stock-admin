@@ -98,6 +98,7 @@ export const FIELD_LABELS = {
   updatePrice: '改定価格',
   currentQty: '現在数量',
   inventoryStatus: '在庫状態',
+  outboundMaxQty: '出庫上限数',
   groupAQty: 'A組在庫',
   groupBQty: 'B組在庫',
   groupCQty: 'C組在庫',
@@ -274,8 +275,8 @@ export function displayKeys(record) {
 
   return keyList.filter((key) => {
     const low = key.toLowerCase();
-    if (String(key).startsWith('__')) return false;
-    if (low === 'beforeqty' || low === 'afterqty' || low === 'lockqty') return false;
+  if (String(key).startsWith('__')) return false;
+    if (low === 'beforeqty' || low === 'afterqty' || low === 'lockqty' || low === 'inbounddone') return false;
     if (!low.endsWith('id') && !low.endsWith('ids')) return true;
     if (low === 'id') return true;
     if (alwaysDisplayIdFields.has(low)) return true;

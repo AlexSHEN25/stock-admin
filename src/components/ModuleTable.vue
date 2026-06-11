@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <a-card
     :title="null"
     :bordered="false"

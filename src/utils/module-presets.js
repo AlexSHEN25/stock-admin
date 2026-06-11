@@ -96,7 +96,7 @@ export const MODULE_PRESETS = {
   },
   goods: {
     queryFields: ['id', 'name', 'englishName', 'seriesId', 'brandId', 'categoryId', 'makerId', 'currentQty', 'sort', 'status', 'isHot'],
-    formFields: ['name', 'englishName', 'brandId', 'seriesId', 'categoryId', 'makerId', 'description', 'isHot', 'skuCode', 'skuName', 'price', 'status'],
+    formFields: ['name', 'englishName', 'brandId', 'seriesId', 'categoryId', 'makerId', 'description', 'sort', 'isHot', 'skuCode', 'skuName', 'price', 'status'],
     fieldTypes: {
       brandId: 'relation',
       seriesId: 'relation',

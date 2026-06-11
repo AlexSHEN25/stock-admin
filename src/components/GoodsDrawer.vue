@@ -7,28 +7,20 @@
   >
     <a-spin :spinning="loading">
       <a-form layout="vertical">
-        <a-divider orientation="left">
-          商品基本
-        </a-divider>
+        <a-divider orientation="left">商品基本</a-divider>
         <a-row :gutter="12">
           <a-col :span="12">
-            <a-form-item
-              label="名称"
-              required
-            >
+            <a-form-item label="名称" required>
               <a-input v-model:value="form.name" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="英語名">
+            <a-form-item label="英文名称">
               <a-input v-model:value="form.englishName" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item
-              label="ブランド"
-              required
-            >
+            <a-form-item label="品牌" required>
               <a-select
                 v-model:value="form.brandId"
                 :options="relationOptions.brandId || []"
@@ -50,10 +42,7 @@
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item
-              label="カテゴリ"
-              required
-            >
+            <a-form-item label="カテゴリ" required>
               <a-select
                 v-model:value="form.categoryId"
                 :options="relationOptions.categoryId || []"
@@ -85,15 +74,10 @@
           </a-col>
         </a-row>
 
-        <a-divider orientation="left">
-          SKU情報
-        </a-divider>
+        <a-divider orientation="left">SKU情報</a-divider>
         <a-row :gutter="12">
           <a-col :span="12">
-            <a-form-item
-              label="品番"
-              required
-            >
+            <a-form-item label="品番" required>
               <a-input v-model:value="form.skuCode" />
             </a-form-item>
           </a-col>
@@ -103,10 +87,7 @@
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item
-              label="価格"
-              required
-            >
+            <a-form-item label="価格" required>
               <a-input-number
                 v-model:value="form.price"
                 :min="0.01"
@@ -120,6 +101,14 @@
               <a-select
                 v-model:value="form.currency"
                 :options="selectOptions('currency')"
+              />
+            </a-form-item>
+          </a-col>
+          <a-col :span="24">
+            <a-form-item label="説明">
+              <a-textarea
+                v-model:value="form.description"
+                :rows="3"
               />
             </a-form-item>
           </a-col>
@@ -140,19 +129,9 @@
               />
             </a-form-item>
           </a-col>
-          <a-col :span="24">
-            <a-form-item label="説明">
-              <a-textarea
-                v-model:value="form.description"
-                :rows="3"
-              />
-            </a-form-item>
-          </a-col>
         </a-row>
 
-        <a-divider orientation="left">
-          詳細設定
-        </a-divider>
+        <a-divider orientation="left">詳細設定</a-divider>
         <a-row :gutter="12">
           <a-col :span="12">
             <a-form-item label="原価">
@@ -217,9 +196,7 @@
           </a-col>
         </a-row>
 
-        <a-divider orientation="left">
-          画像
-        </a-divider>
+        <a-divider orientation="left">画像</a-divider>
         <a-row :gutter="12">
           <a-col :span="24">
             <a-upload
@@ -227,7 +204,7 @@
               :show-upload-list="false"
               :before-upload="beforeUploadImage"
             >
-              <a-button>画像アップロード</a-button>
+              <a-button>画像をアップロード</a-button>
             </a-upload>
             <div style="margin-top:8px;">
               <img
@@ -274,13 +251,15 @@ const props = defineProps({
   resolveImageUrl: { type: Function, required: true },
 });
 
-const emit = defineEmits(['cancel', 'save', 'upload-image', 'update-field']);
 const form = computed(() => new Proxy(props.form, {
   set(_target, field, value) {
+    // Forward edits back to the parent state.
     emit('update-field', field, value);
     return true;
   },
 }));
+
+const emit = defineEmits(['cancel', 'save', 'upload-image', 'update-field']);
 
 function beforeUploadImage(file) {
   emit('upload-image', file);

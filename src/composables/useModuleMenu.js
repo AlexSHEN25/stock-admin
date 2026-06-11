@@ -107,7 +107,8 @@ export function useModuleMenu(options) {
 
   function initMenus() {
     const scopeItems = normalizeMenuScopes(menuScopes?.value || []);
-    const scopeKeySet = new Set(scopeItems.map((item) => item.key));
+    const visibleScopeItems = scopeItems.filter((item) => item.visible !== false);
+    const scopeKeySet = new Set(visibleScopeItems.map((item) => item.key));
 
     HIDDEN_MODULES.forEach((moduleKey) => scopeKeySet.add(moduleKey));
     if (allDataWrite?.value || isAdminMenuScope(scopeItems)) {
@@ -120,7 +121,7 @@ export function useModuleMenu(options) {
     const filtered = MODULE_GROUPS
       .map((group) => ({
         ...group,
-        children: group.children.filter((item) => allowedModules.value.has(item.key)),
+        children: group.children.filter((item) => allowedModules.value.has(item.key) && isVisibleScope(item.key, visibleScopeItems)),
       }))
       .filter((group) => group.children.length > 0);
 
@@ -129,7 +130,7 @@ export function useModuleMenu(options) {
       : [{
         key: 'fallback',
         label: 'メニュー',
-        children: scopeItems.map((item) => ({
+        children: visibleScopeItems.map((item) => ({
           key: item.key,
           label: item.label || findLabelByKey(item.key) || item.key,
         })),
@@ -171,8 +172,14 @@ export function useModuleMenu(options) {
       .map((item) => ({
         key: normalizeModuleKey(item?.key),
         label: String(item?.label || '').trim(),
+        visible: item?.visible !== false,
       }))
       .filter((item) => item.key);
+  }
+
+  function isVisibleScope(key, scopeItems) {
+    const hit = (Array.isArray(scopeItems) ? scopeItems : []).find((item) => item.key === key);
+    return hit ? hit.visible !== false : true;
   }
 
   function isAdminMenuScope(scopeItems) {
@@ -199,7 +206,7 @@ export function useModuleMenu(options) {
   }
 
   function hasDanglingMenuLabelSeparator(label) {
-    return /[-・]\s*$/.test(String(label || ''));
+    return /[-]\s*$/.test(String(label || ''));
   }
 
   return {

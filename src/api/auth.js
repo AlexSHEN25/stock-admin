@@ -100,6 +100,7 @@ function normalizeMenuScopes(source) {
       module: String(item?.module || '').trim(),
       path: String(item?.path || '').trim(),
       sort: Number.isFinite(Number(item?.sort)) ? Number(item.sort) : 0,
+      visible: item?.visible !== false,
       actions: normalizeActions(item?.actions),
     }))
     .filter((item) => item.key);
