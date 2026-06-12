@@ -43,6 +43,7 @@ import { isAdminByPermissionCodes } from './utils/module-ui';
 
 const THEME_KEY = 'stock_admin_theme_dark';
 const USERNAME_KEY = 'stock_admin_username';
+const USER_ID_KEY = 'stock_admin_user_id';
 const PERMISSION_TIMEOUT_MS = 8000;
 const APP_MESSAGES = {
   authExpired: 'ログインの有効期限が切れました',
@@ -55,7 +56,7 @@ const APP_MESSAGES = {
 const token = ref(getStoredToken());
 const darkMode = ref(localStorage.getItem(THEME_KEY) === '1');
 const currentUser = ref(localStorage.getItem(USERNAME_KEY) || '');
-const currentUserId = ref(null);
+const currentUserId = ref(Number(localStorage.getItem(USER_ID_KEY)) || null);
 const currentDeptId = ref(null);
 const currentDeptName = ref('');
 const currentGroupCode = ref('');
@@ -83,6 +84,7 @@ function handleAuthExpired() {
   token.value = null;
   currentUser.value = '';
   currentUserId.value = null;
+  localStorage.removeItem(USER_ID_KEY);
   currentDeptId.value = null;
   currentDeptName.value = '';
   currentGroupCode.value = '';
@@ -114,6 +116,17 @@ function onLoginSuccess(payload) {
     currentUser.value = displayName;
     localStorage.setItem(USERNAME_KEY, displayName);
   }
+  const loginUserId = Number(
+    payload?.userId
+      ?? payload?.id
+      ?? payload?.user?.id
+      ?? payload?.userInfo?.id
+      ?? 0,
+  ) || null;
+  if (loginUserId) {
+    currentUserId.value = loginUserId;
+    localStorage.setItem(USER_ID_KEY, String(loginUserId));
+  }
 
   token.value = payload.token;
   permissionReady.value = false;
@@ -142,6 +155,8 @@ async function onLogout() {
   localStorage.removeItem(USERNAME_KEY);
   token.value = null;
   currentUser.value = '';
+  currentUserId.value = null;
+  localStorage.removeItem(USER_ID_KEY);
   currentDeptId.value = null;
   currentDeptName.value = '';
   currentGroupCode.value = '';
@@ -161,7 +176,10 @@ async function loadPermissions() {
     currentDeptId.value = scope.deptId || null;
     currentDeptName.value = scope.deptName || '';
     currentGroupCode.value = scope.groupCode || '';
-    currentUserId.value = scope.userId || null;
+    if (scope.userId) {
+      currentUserId.value = scope.userId;
+      localStorage.setItem(USER_ID_KEY, String(scope.userId));
+    }
     allDataWrite.value = Boolean(
       scope.allDataWrite
       || scope.superAdmin
@@ -184,6 +202,7 @@ async function loadPermissions() {
     token.value = null;
     currentUser.value = '';
     currentUserId.value = null;
+    localStorage.removeItem(USER_ID_KEY);
     currentDeptId.value = null;
     currentDeptName.value = '';
     currentGroupCode.value = '';

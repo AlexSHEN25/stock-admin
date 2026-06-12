@@ -10,10 +10,7 @@ export function useRelationOptions(options) {
     isReadonlyField,
     inlineField,
     mapNameFieldToIdField,
-    currentUser,
     currentUserId,
-    currentDeptId,
-    allDataWrite,
   } = options;
 
   const queryRelationOptions = reactive({});
@@ -22,8 +19,12 @@ export function useRelationOptions(options) {
   const relationModuleOptionPromise = reactive({});
 
   async function loadRelationOptions(formFields, tableKeys) {
-    const relatedFields = [...new Set([...(formFields || []), ...((tableKeys || []).map((key) => inlineField(key)))])]
+    const explicitFields = (formFields || [])
+      .filter((field) => inputType(field) === 'relation');
+    const inlineFields = (tableKeys || [])
+      .map((key) => inlineField(key))
       .filter((field) => !isReadonlyField(field) && inputType(field) === 'relation');
+    const relatedFields = [...new Set([...explicitFields, ...inlineFields])];
 
     relatedFields.forEach((field) => {
       relationOptions[field] = [];
@@ -58,16 +59,17 @@ export function useRelationOptions(options) {
   }
 
   async function getRelationModuleOptions(targetModule) {
-    if (relationModuleOptionCache[targetModule]) {
-      return relationModuleOptionCache[targetModule];
+    const cacheKey = relationOptionCacheKey(targetModule);
+    if (relationModuleOptionCache[cacheKey]) {
+      return relationModuleOptionCache[cacheKey];
     }
 
-    if (!relationModuleOptionPromise[targetModule]) {
+    if (!relationModuleOptionPromise[cacheKey]) {
       const loader = targetModule === 'customer' && typeof fetchCurrentUserCustomerPage === 'function'
         ? () => fetchCurrentUserCustomerPage(buildCustomerQueryParams())
         : () => fetchModuleOptions(targetModule);
 
-      relationModuleOptionPromise[targetModule] = loader()
+      relationModuleOptionPromise[cacheKey] = loader()
         .then((list) => {
           const rows = Array.isArray(list)
             ? list
@@ -85,46 +87,29 @@ export function useRelationOptions(options) {
           })));
         })
         .then((optionList) => {
-          relationModuleOptionCache[targetModule] = optionList;
+          relationModuleOptionCache[cacheKey] = optionList;
           return optionList;
         })
         .finally(() => {
-          relationModuleOptionPromise[targetModule] = null;
+          relationModuleOptionPromise[cacheKey] = null;
         });
     }
 
-    return relationModuleOptionPromise[targetModule];
+    return relationModuleOptionPromise[cacheKey];
+  }
+
+  function relationOptionCacheKey(targetModule) {
+    if (targetModule !== 'customer') return targetModule;
+    return `customer:owner:${Number(currentUserId?.value) || 0}`;
   }
 
   function buildCustomerQueryParams() {
-    const params = {
-      pageNum: 1,
-      pageSize: 10,
-      sortBy: 'updateTime',
-      sortOrder: 'desc',
-    };
-    if (allDataWrite?.value) {
-      return params;
-    }
     if (currentUserId?.value) {
-      const userId = Number(currentUserId.value);
-      params.ownerUserId = userId;
-      params.userId = userId;
-      params.requesterId = userId;
-      params.currentUserId = userId;
-      return params;
+      return {
+        ownerUserId: Number(currentUserId.value),
+      };
     }
-    if (currentUser?.value) {
-      const username = String(currentUser.value).trim();
-      params.ownerUserName = username;
-      params.username = username;
-      params.currentUser = username;
-    }
-    if (currentDeptId?.value) {
-      params.ownerDeptId = currentDeptId.value;
-      params.deptId = currentDeptId.value;
-    }
-    return params;
+    return {};
   }
 
   function dedupeOptions(optionList) {
@@ -149,8 +134,7 @@ export function useRelationOptions(options) {
       if (username) return username;
     }
     if (targetModule === 'customer') {
-      const customerName = String(item?.name ?? '').trim();
-      if (customerName) return customerName;
+      return String(item?.name ?? '').trim();
     }
     return relationLabel(item);
   }
@@ -158,8 +142,12 @@ export function useRelationOptions(options) {
   function invalidateRelationModuleOptions(targetModules) {
     const modules = Array.isArray(targetModules) ? targetModules : [targetModules];
     modules.filter(Boolean).forEach((moduleKey) => {
-      delete relationModuleOptionCache[moduleKey];
-      delete relationModuleOptionPromise[moduleKey];
+      Object.keys(relationModuleOptionCache)
+        .filter((key) => key === moduleKey || key.startsWith(`${moduleKey}:`))
+        .forEach((key) => delete relationModuleOptionCache[key]);
+      Object.keys(relationModuleOptionPromise)
+        .filter((key) => key === moduleKey || key.startsWith(`${moduleKey}:`))
+        .forEach((key) => delete relationModuleOptionPromise[key]);
     });
   }
 

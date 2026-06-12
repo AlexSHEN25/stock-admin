@@ -294,7 +294,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, reactive, ref, toRef, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import {
   fetchEnumOptions,
@@ -577,8 +577,7 @@ const {
   currentDeptId: props.currentDeptId,
   currentDeptName: props.currentDeptName,
   currentUser: props.currentUser,
-  currentUserId: props.currentUserId,
-  allDataWrite: props.allDataWrite,
+  currentUserId: toRef(props, 'currentUserId'),
 });
 const {
   loadDynamicEnumOptions,
@@ -1007,6 +1006,7 @@ async function openSheetOutboundModal(record = null) {
   sheetOutboundSettings.customerAllocations = [];
   sheetOutboundSettings.saleDeadline = null;
   sheetOutboundSettings.remark = '';
+  invalidateRelationModuleOptions('customer');
   await loadRelationOptions(['warehouseId', 'stockTypeId', 'customerId'], keys.value);
   sheetOutboundModalOpen.value = true;
 }
@@ -1060,7 +1060,9 @@ function updateSheetOutboundSetting(field, value) {
   sheetOutboundSettings[field] = value;
 }
 
-function addCustomerAllocation() {
+async function addCustomerAllocation() {
+  invalidateRelationModuleOptions('customer');
+  await loadRelationOptions(['customerId'], []);
   const list = Array.isArray(sheetOutboundSettings.customerAllocations)
     ? [...sheetOutboundSettings.customerAllocations]
     : [];
