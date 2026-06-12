@@ -35,6 +35,11 @@ export function useModuleTableSchema(options) {
       return orderGoodsKeys([...preferred, ...rest], noStatus);
     }
 
+    const presetTableFields = preset.value.tableFields || [];
+    if (presetTableFields.length > 0) {
+      return [...presetTableFields];
+    }
+
     const first = rows.value[0];
     if (!first) return [];
     const raw = displayKeys(first).filter(isSafeColumnKey);
@@ -51,7 +56,11 @@ export function useModuleTableSchema(options) {
     const presetFields = preset.value.queryFields || [];
     const source = presetFields.length > 0 ? presetFields : buildAutoQueryFields(keys.value);
     return [...new Set(source.map((field) => normalizeQueryField(field)))]
-      .filter((field) => String(field || '').toLowerCase() !== 'id' && (!isTimeLikeField(field) || isLastUpdateField(field)));
+      .filter((field) => String(field || '').toLowerCase() !== 'id' && (
+        presetFields.length > 0
+        || !isTimeLikeField(field)
+        || isLastUpdateField(field)
+      ));
   });
 
   const columns = computed(() => {
@@ -66,7 +75,7 @@ export function useModuleTableSchema(options) {
       width: columnWidth(key, isGoodsManagement.value),
       ellipsis: false,
       onCell: (record) => {
-        if (isReadonlyField(key)) return {};
+        if (preset.value.hideActions || isReadonlyField(key)) return {};
         return {
           ondblclick: () => {
             if (canWrite.value && !isEditing(record)) {
@@ -88,16 +97,19 @@ export function useModuleTableSchema(options) {
       }]
       : [];
 
-    return [
+    const result = [
       ...base,
       ...updateTimeColumn,
-      {
+    ];
+    if (!preset.value.hideActions) {
+      result.push({
         title: TABLE_TEXT.actions,
         key: '__actions',
         width: isGoodsManagement.value ? 220 : 140,
         fixed: 'right',
-      },
-    ];
+      });
+    }
+    return result;
   });
 
   const formKeys = computed(() => {

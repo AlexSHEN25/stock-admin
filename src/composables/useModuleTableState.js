@@ -23,6 +23,7 @@ export function useModuleTableState(options) {
     moduleSubmitHandlers,
     buildQueryFieldAlias,
     buildExtraQueryParams,
+    fetchPageData = fetchPage,
   } = options;
 
   const rows = ref([]);
@@ -57,7 +58,7 @@ export function useModuleTableState(options) {
   async function reload() {
     loading.value = true;
     try {
-      const page = await fetchPage(modulePath.value, {
+      const page = await fetchPageData(modulePath.value, {
         pageNum: pagination.current,
         pageSize: pagination.pageSize,
         sortBy: 'updateTime',

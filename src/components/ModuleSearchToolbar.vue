@@ -20,6 +20,15 @@
           class="search-control"
           @press-enter="$emit('reload')"
         />
+        <a-date-picker
+          v-else-if="queryInputType(field) === 'datetime'"
+          v-model:value="query[field]"
+          format="YYYY-MM-DD"
+          value-format="YYYY-MM-DD"
+          :placeholder="queryPlaceholder(field)"
+          class="search-control"
+          allow-clear
+        />
         <a-input-number
           v-else
           v-model:value="query[field]"

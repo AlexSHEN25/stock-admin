@@ -1,5 +1,6 @@
 <template>
   <a-card
+    :class="['module-surface', { 'customer-matrix-surface': isCustomerGoodsSummary }]"
     :title="null"
     :bordered="false"
   >
@@ -8,7 +9,7 @@
       :query-state="queryState"
       :table-text="TABLE_TEXT"
       :module-key="props.moduleKey"
-      :can-write="canWrite"
+      :can-write="canWrite && !isCustomerGoodsSummary"
       :can-batch-delete="canBatchDeleteInModule()"
       :can-create="canCreateInModule()"
       :can-sheet-inbound="canOpenSheetInbound"
@@ -52,138 +53,141 @@
       @remove="removeCandidate"
     />
 
-    <a-table
-      :key="props.moduleKey"
-      class="module-table"
-      :row-key="getRowKey"
-      :row-class-name="rowClassName"
-      :columns="columns"
-      :data-source="tableRows"
-      :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
-      :loading="loading || goodsStockLoading"
-      :pagination="tablePagination"
-      :scroll="{ x: 'max-content' }"
-      @change="onChange"
-    >
-      <template #bodyCell="{ column, record }">
-        <template v-if="isEditing(record) && column.key !== '__actions' && !isReadonlyField(column.key)">
-          <module-inline-editor
-            :field="column.key"
-            :edit-state="editState"
-            :relation-options="relationOptions"
-            :is-avatar-field="isAvatarField"
-            :before-avatar-upload="beforeInlineAvatarUpload"
-            :inline-field="inlineField"
-            :input-type="inlineInputType"
-            :is-multi-relation-field="isMultiRelationField"
-            :number-min-by-field="numberMinByField"
-            :number-precision-by-field="numberPrecisionByField"
-            :select-options="scopedSelectOptions"
-            @update-field="updateInlineField"
-          />
-        </template>
-        <template v-else-if="String(column.key) === 'skuId'">
-          {{ record.skuId ?? '-' }}
-        </template>
-        <template v-else-if="column.key === 'mainImage' || column.key === 'image' || column.key === 'imageUrl'">
-          <a-image
-            v-if="resolveGoodsImageUrl(record)"
-            :src="resolveGoodsImageUrl(record)"
-            :width="56"
-            :height="56"
-            style="object-fit: cover; border-radius: 6px;"
-          />
-          <span v-else>-</span>
-        </template>
-        <template v-else-if="isAvatarField(column.key)">
-          <a-image
-            v-if="resolveAvatarSrc(record)"
-            :src="resolveAvatarSrc(record)"
-            :width="56"
-            :height="56"
-            style="object-fit: cover; border-radius: 6px;"
-          />
-          <span v-else>-</span>
-        </template>
-        <template v-else-if="column.key === 'statusDesc'">
-          <a-tag :color="Number(record.status) === 1 ? 'success' : 'default'">
-            {{ normalizeDisplayLabel(record.statusDesc || (Number(record.status) === 1 ? 'ON' : 'OFF')) }}
-          </a-tag>
-        </template>
-        <template v-else-if="String(column.key) === 'isHot'">
-          {{ Number(record.isHot) === 1 ? TABLE_TEXT.hotYes : TABLE_TEXT.hotNo }}
-        </template>
-        <template v-else-if="String(column.key) === 'changeQty'">
-          {{ formatQty(record.changeQty) }}
-        </template>
-        <template v-else-if="String(column.key) === 'currentQty' && isSplitStockManagement">
-          <div class="qty-breakdown">
-            <div class="qty-breakdown-total">
-              {{ formatQty(record.currentQty) }}
-            </div>
-            <div
-              v-if="customerQtyBreakdown(record).length > 0"
-              class="qty-breakdown-list"
-            >
+    <div :class="['table-stage', { 'customer-matrix-stage': isCustomerGoodsSummary }]">
+      <a-table
+        :key="props.moduleKey"
+        class="module-table"
+        :row-key="getRowKey"
+        :row-class-name="rowClassName"
+        :columns="isCustomerGoodsSummary ? customerGoodsMatrixTableColumns : columns"
+        :data-source="tableRows"
+        :row-selection="isCustomerGoodsSummary ? undefined : { selectedRowKeys, onChange: onSelectChange }"
+        :loading="loading || goodsStockLoading"
+        :pagination="tablePagination"
+        :scroll="tableScroll"
+        :sticky="tableSticky"
+        @change="onChange"
+      >
+        <template #bodyCell="{ column, record }">
+          <template v-if="isEditing(record) && column.key !== '__actions' && !isReadonlyField(column.key)">
+            <module-inline-editor
+              :field="column.key"
+              :edit-state="editState"
+              :relation-options="relationOptions"
+              :is-avatar-field="isAvatarField"
+              :before-avatar-upload="beforeInlineAvatarUpload"
+              :inline-field="inlineField"
+              :input-type="inlineInputType"
+              :is-multi-relation-field="isMultiRelationField"
+              :number-min-by-field="numberMinByField"
+              :number-precision-by-field="numberPrecisionByField"
+              :select-options="scopedSelectOptions"
+              @update-field="updateInlineField"
+            />
+          </template>
+          <template v-else-if="String(column.key) === 'skuId'">
+            {{ record.skuId ?? '-' }}
+          </template>
+          <template v-else-if="column.key === 'mainImage' || column.key === 'image' || column.key === 'imageUrl'">
+            <a-image
+              v-if="resolveGoodsImageUrl(record)"
+              :src="resolveGoodsImageUrl(record)"
+              :width="56"
+              :height="56"
+              style="object-fit: cover; border-radius: 6px;"
+            />
+            <span v-else>-</span>
+          </template>
+          <template v-else-if="isAvatarField(column.key)">
+            <a-image
+              v-if="resolveAvatarSrc(record)"
+              :src="resolveAvatarSrc(record)"
+              :width="56"
+              :height="56"
+              style="object-fit: cover; border-radius: 6px;"
+            />
+            <span v-else>-</span>
+          </template>
+          <template v-else-if="column.key === 'statusDesc'">
+            <a-tag :color="Number(record.status) === 1 ? 'success' : 'default'">
+              {{ normalizeDisplayLabel(record.statusDesc || (Number(record.status) === 1 ? 'ON' : 'OFF')) }}
+            </a-tag>
+          </template>
+          <template v-else-if="String(column.key) === 'isHot'">
+            {{ Number(record.isHot) === 1 ? TABLE_TEXT.hotYes : TABLE_TEXT.hotNo }}
+          </template>
+          <template v-else-if="String(column.key) === 'changeQty'">
+            {{ formatQty(record.changeQty) }}
+          </template>
+          <template v-else-if="String(column.key) === 'currentQty' && isSplitStockManagement">
+            <div class="qty-breakdown">
+              <div class="qty-breakdown-total">
+                {{ formatQty(record.currentQty) }}
+              </div>
               <div
-                v-for="item in customerQtyBreakdown(record)"
-                :key="item.key"
-                class="qty-breakdown-line"
+                v-if="customerQtyBreakdown(record).length > 0"
+                class="qty-breakdown-list"
               >
-                <span class="qty-breakdown-customer">{{ item.label }}</span>
-                <span class="qty-breakdown-qty">{{ formatQty(item.qty) }}</span>
+                <div
+                  v-for="item in customerQtyBreakdown(record)"
+                  :key="item.key"
+                  class="qty-breakdown-line"
+                >
+                  <span class="qty-breakdown-customer">{{ item.label }}</span>
+                  <span class="qty-breakdown-qty">{{ formatQty(item.qty) }}</span>
+                </div>
               </div>
             </div>
-          </div>
-        </template>
-        <template v-else-if="String(column.key) === 'updateTime'">
-          {{ formatTime(record.updateTime) }}
-        </template>
-        <template v-else-if="isPermissionNamesField(column.key)">
-          <div
-            v-if="permissionNameList(record).length"
-            class="permission-chip-list"
-          >
-            <a-tag
-              v-for="item in permissionNameList(record)"
-              :key="item"
-              class="permission-chip"
+          </template>
+          <template v-else-if="String(column.key) === 'updateTime'">
+            {{ formatTime(record.updateTime) }}
+          </template>
+          <template v-else-if="isPermissionNamesField(column.key)">
+            <div
+              v-if="permissionNameList(record).length"
+              class="permission-chip-list"
             >
-              {{ item }}
-            </a-tag>
-          </div>
-          <span v-else>-</span>
-        </template>
-        <template v-else-if="hasEnumOptionsMerged(column.key)">
-          {{ enumLabelMerged(column.key, record[column.key]) }}
-        </template>
+              <a-tag
+                v-for="item in permissionNameList(record)"
+                :key="item"
+                class="permission-chip"
+              >
+                {{ item }}
+              </a-tag>
+            </div>
+            <span v-else>-</span>
+          </template>
+          <template v-else-if="hasEnumOptionsMerged(column.key)">
+            {{ enumLabelMerged(column.key, record[column.key]) }}
+          </template>
 
-        <template v-else-if="column.key === '__actions'">
-          <module-row-actions
-            :record="record"
-            :actions="rowExtraActions"
-            :table-text="TABLE_TEXT"
-            :can-write="canWrite"
-            :can-inline-edit="canInlineEditRecord(record)"
-            :can-edit="canEditRecord(record)"
-            :can-delete="canDeleteRecord(record)"
-            :editing="isEditing(record)"
-            :show-inbound="isGoodsManagement || isSplitStockManagement"
-            :inbound-done="isGoodsInboundDone(record)"
-            :can-outbound="canGoodsOutbound(record)"
-            :can-show-extra-action="canShowRowExtraAction"
-            @inbound="openGoodsInboundModal"
-            @outbound="openGoodsOutboundModal"
-            @extra-action="handleRowExtraAction"
-            @inline-edit="startInlineEdit"
-            @save="saveInlineEdit"
-            @cancel="cancelInlineEdit"
-            @edit="openEdit"
-            @delete="onDelete"
-          />
+          <template v-else-if="column.key === '__actions'">
+            <module-row-actions
+              :record="record"
+              :actions="rowExtraActions"
+              :table-text="TABLE_TEXT"
+              :can-write="canWrite"
+              :can-inline-edit="canInlineEditRecord(record)"
+              :can-edit="canEditRecord(record)"
+              :can-delete="canDeleteRecord(record)"
+              :editing="isEditing(record)"
+              :show-inbound="isGoodsManagement || isSplitStockManagement"
+              :inbound-done="isGoodsInboundDone(record)"
+              :can-outbound="canGoodsOutbound(record)"
+              :can-show-extra-action="canShowRowExtraAction"
+              @inbound="openGoodsInboundModal"
+              @outbound="openGoodsOutboundModal"
+              @extra-action="handleRowExtraAction"
+              @inline-edit="startInlineEdit"
+              @save="saveInlineEdit"
+              @cancel="cancelInlineEdit"
+              @edit="openEdit"
+              @delete="onDelete"
+            />
+          </template>
         </template>
-      </template>
-    </a-table>
+      </a-table>
+    </div>
 
     <module-edit-modal
       v-if="!isGoodsManagement"
@@ -302,6 +306,7 @@ import {
   fetchItem,
   fetchOutboundStockOrderOptions,
   fetchGoodsFormOptions,
+  fetchCustomerStockGoodsMatrix,
   fetchMyGroupStockAvailable,
   fetchModuleOptions,
   updateItem,
@@ -394,6 +399,7 @@ const sheetOutboundSettings = reactive({
 });
 const goodsFlowByRowKey = reactive({});
 const goodsStockRows = ref([]);
+const customerGoodsMatrixColumns = ref([]);
 const activeGoodsRowKey = ref('');
 restoreGoodsFlowState();
 const isGoodsManagement = computed(() => props.moduleKey === 'goods');
@@ -403,6 +409,67 @@ const isSplitStockManagement = computed(() => (
   || props.moduleKey === 'stockSummary'
   || props.moduleKey === 'stockGroup'
   || /^stockGroup[ABC]$/.test(props.moduleKey)
+));
+const isCustomerGoodsSummary = computed(() => props.moduleKey === 'stockCustomerGoods');
+const customerGoodsMatrixTableColumns = computed(() => {
+  if (!isCustomerGoodsSummary.value) return [];
+  const staticColumns = [
+    {
+      title: '商品名',
+      dataIndex: 'goodsName',
+      key: 'goodsName',
+      fixed: 'left',
+      width: 180,
+      ellipsis: false,
+    },
+    {
+      title: 'カテゴリ名',
+      dataIndex: 'categoryName',
+      key: 'categoryName',
+      fixed: 'left',
+      width: 160,
+      ellipsis: false,
+    },
+    {
+      title: '合計数量',
+      dataIndex: 'totalQuantity',
+      key: 'totalQuantity',
+      fixed: 'right',
+      width: 110,
+      ellipsis: false,
+      align: 'right',
+    },
+  ];
+  const dynamicColumns = (customerGoodsMatrixColumns.value || []).map((item) => ({
+    title: String(item?.customerName || item?.customerId || '-'),
+    dataIndex: customerGoodsMatrixKey(item?.customerId),
+    key: customerGoodsMatrixKey(item?.customerId),
+    width: 120,
+    ellipsis: false,
+    align: 'right',
+  }));
+  return [
+    staticColumns[0],
+    staticColumns[1],
+    ...dynamicColumns,
+    staticColumns[2],
+  ];
+});
+const tableScroll = computed(() => {
+  if (!isCustomerGoodsSummary.value) {
+    return { x: 'max-content' };
+  }
+  const totalWidth = customerGoodsMatrixTableColumns.value.reduce((sum, column) => (
+    sum + Number(column?.width || 120)
+  ), 0);
+  return {
+    x: Math.max(totalWidth, 960),
+  };
+});
+const tableSticky = computed(() => (
+  isCustomerGoodsSummary.value
+    ? { offsetScroll: 0 }
+    : false
 ));
 const modulePath = computed(() => {
   if (isSplitStockManagement.value) return 'stock';
@@ -503,6 +570,11 @@ const {
     props.moduleKey === 'message' && isAdminUser.value
       ? { all: true, scope: 'all' }
       : stockViewQueryParams()
+  ),
+  fetchPageData: (path, params) => (
+    props.moduleKey === 'stockCustomerGoods'
+      ? fetchCustomerGoodsMatrixPage(params)
+      : fetchPage(path, params)
   ),
 });
 
@@ -729,12 +801,41 @@ watch(
 
 function normalizeQueryField(field) {
   const key = String(field || '');
+  if (props.moduleKey === 'stockCustomerGoods') return key;
   if (key === 'sourceOrderId') return key;
   if (!key.endsWith('Id')) return key;
   if (relationModuleByField(key)) return `${key.slice(0, -2)}Name`;
   const nameField = `${key.slice(0, -2)}Name`;
   if (backendFieldSet.value.has(nameField)) return nameField;
   return key;
+}
+
+async function fetchCustomerGoodsMatrixPage(params) {
+  const data = await fetchCustomerStockGoodsMatrix(params);
+  customerGoodsMatrixColumns.value = Array.isArray(data?.columns) ? data.columns : [];
+  const records = Array.isArray(data?.rows)
+    ? data.rows.map((row) => normalizeCustomerGoodsMatrixRow(row, customerGoodsMatrixColumns.value))
+    : [];
+  return {
+    total: Number(data?.total) || 0,
+    records,
+  };
+}
+
+function normalizeCustomerGoodsMatrixRow(row, matrixColumns) {
+  const record = row && typeof row === 'object' ? { ...row } : {};
+  const quantities = row?.quantities && typeof row.quantities === 'object' ? row.quantities : {};
+  (matrixColumns || []).forEach((column) => {
+    const customerId = column?.customerId;
+    record[customerGoodsMatrixKey(customerId)] = Number(
+      quantities?.[String(customerId)] ?? quantities?.[customerId] ?? 0,
+    );
+  });
+  return record;
+}
+
+function customerGoodsMatrixKey(customerId) {
+  return `customer_${String(customerId ?? '')}`;
 }
 
 async function submitStockFlow({ buildEditPayload, getRecordId, normalizePayload: normalizeSubmitPayload }) {
@@ -1894,9 +1995,52 @@ function formPlaceholder(field) {
 </script>
 
 <style scoped>
+:deep(.module-surface) {
+  width: 100%;
+}
+
+:deep(.customer-matrix-surface) {
+  max-width: 1480px;
+  margin: 0 auto;
+}
+
+:deep(.customer-matrix-surface > .ant-card-body) {
+  padding: 20px 24px 16px;
+}
+
+.table-stage {
+  min-width: 0;
+}
+
+.customer-matrix-stage {
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.92) 0%, rgba(255, 255, 255, 0.98) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
 :deep(.row-highlight-new > td) {
   background: #fff7e6 !important;
   transition: background-color 0.3s ease;
+}
+
+:deep(.module-table .ant-table-content) {
+  overflow-x: auto !important;
+}
+
+:deep(.customer-matrix-stage .ant-table-wrapper) {
+  min-width: 0;
+}
+
+:deep(.customer-matrix-stage .ant-table-container) {
+  border-radius: 12px;
+}
+
+:deep(.customer-matrix-stage .ant-table-pagination) {
+  margin-bottom: 0;
+  padding-inline: 4px;
 }
 
 </style>

@@ -118,8 +118,16 @@ export const MODULE_PRESETS = {
     fieldTypes: { customerId: 'relation', deptId: 'relation', lastOutboundDate: 'datetime' },
   },
   stockCustomerGoods: {
-    queryFields: ['customerId', 'customerName', 'deptId', 'deptName', 'groupCode', 'goodsId', 'goodsName', 'skuId', 'skuCode', 'currentQty', 'lastOutboundDate'],
-    fieldTypes: { customerId: 'relation', deptId: 'relation', goodsId: 'relation', skuId: 'relation', lastOutboundDate: 'datetime' },
+    hideActions: true,
+    tableFields: ['categoryName', 'goodsName', 'totalQuantity'],
+    queryFields: ['customerId', 'categoryId', 'goodsId', 'skuCode', 'groupCode', 'startDate', 'endDate'],
+    fieldTypes: {
+      customerId: 'relation',
+      categoryId: 'relation',
+      goodsId: 'relation',
+      startDate: 'datetime',
+      endDate: 'datetime',
+    },
   },
   stockCustomerOrder: {
     queryFields: ['id', 'bizNo', 'customerId', 'customerName', 'deptId', 'deptName', 'outboundMode', 'orderType', 'state', 'bizDate', 'warehouseId', 'stockTypeId', 'totalQty', 'remark'],
