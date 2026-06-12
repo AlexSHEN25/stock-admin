@@ -325,7 +325,7 @@ import { useRequestItemCandidates } from '../composables/useRequestItemCandidate
 import { useRelationOptions } from '../composables/useRelationOptions';
 import { useModuleTableSchema } from '../composables/useModuleTableSchema';
 import { useModuleTableState } from '../composables/useModuleTableState';
-import { approveStockOrder, fetchCurrentUserCustomerPage, fetchDeptIdByCode } from '../api/module';
+import { approveStockOrder, fetchCurrentUserCustomerPage } from '../api/module';
 import { downloadRequestFormFile, downloadRequestFormPdf } from '../utils/download';
 import { markAllMessageListRead, markAllMessagesRead, markMessageListRead, markMessageRead } from '../utils/message';
 import { submitDeliveryAllocationFlow, submitGoodsStockOutboundFlow, submitSheetStockInboundFlow, submitSheetStockOutboundFlow, submitStockInboundFlow, submitStockOrderItemReturnFlow, submitStockQuantityAdjustment } from '../utils/stock';
@@ -388,7 +388,6 @@ const sheetOutboundSettings = reactive({
   stockTypeId: null,
   customerId: null,
   deptId: null,
-  groupDeptMap: {},
   customerAllocations: [],
   saleDeadline: null,
   remark: '',
@@ -1005,12 +1004,10 @@ async function openSheetOutboundModal(record = null) {
   sheetOutboundSettings.stockTypeId = firstNonEmptyValue(selected, 'stockTypeId');
   sheetOutboundSettings.customerId = null;
   sheetOutboundSettings.deptId = props.currentDeptId || null;
-  sheetOutboundSettings.groupDeptMap = {};
   sheetOutboundSettings.customerAllocations = [];
   sheetOutboundSettings.saleDeadline = null;
   sheetOutboundSettings.remark = '';
-  await loadRelationOptions(['warehouseId', 'stockTypeId', 'customerId', 'deptId'], keys.value);
-  sheetOutboundSettings.groupDeptMap = await buildGroupDeptMap();
+  await loadRelationOptions(['warehouseId', 'stockTypeId', 'customerId'], keys.value);
   sheetOutboundModalOpen.value = true;
 }
 
@@ -1034,7 +1031,6 @@ async function openSheetInboundModal() {
   sheetOutboundSettings.stockTypeId = firstNonEmptyValue(selected, 'stockTypeId');
   sheetOutboundSettings.customerId = null;
   sheetOutboundSettings.deptId = props.currentDeptId || null;
-  sheetOutboundSettings.groupDeptMap = {};
   sheetOutboundSettings.customerAllocations = [];
   sheetOutboundSettings.saleDeadline = null;
   sheetOutboundSettings.remark = '';
@@ -1491,11 +1487,6 @@ function ensureCurrentDeptRelationOption() {
   if (!list.some((option) => String(option?.value) === String(currentOption.value))) {
     relationOptions.deptId = dedupeOptions([...list, currentOption]);
   }
-}
-
-async function buildGroupDeptMap() {
-  const entries = await Promise.all(['A', 'B', 'C'].map(async (code) => [code, await fetchDeptIdByCode(code)]));
-  return Object.fromEntries(entries.filter(([, value]) => Number(value) > 0));
 }
 
 function activeFormKeys() {

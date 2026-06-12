@@ -243,9 +243,9 @@ export async function submitDeliveryAllocationFlow({ items, settings, notify }) 
     return false;
   }
 
-  for (const { path, payload } of payloads) {
+  for (const payload of payloads) {
     // eslint-disable-next-line no-await-in-loop
-    await createItem(path, payload);
+    await createItemByUrl('/api/stock/group/allocate', payload);
   }
   notify.success('納品振分を登録しました');
   return true;
@@ -258,43 +258,19 @@ function buildDeliveryAllocationPayloads(items, settings) {
     ['cQty', 'C'],
   ];
   const payloads = [];
-  const groupDeptMap = settings?.groupDeptMap && typeof settings.groupDeptMap === 'object'
-    ? settings.groupDeptMap
-    : {};
   (items || []).forEach(({ record, draft }) => {
-    const base = {
-      goodsId: Number(record?.goodsId ?? record?.id),
-      skuId: record?.skuId ? Number(record.skuId) : null,
-      sourceType: 2,
-      warehouseId: Number(record?.warehouseId ?? settings?.warehouseId),
-      stockTypeId: Number(record?.stockTypeId ?? settings?.stockTypeId),
-      saleDeadline: draft?.saleDeadline || settings?.saleDeadline || null,
-      remark: [settings?.remark, draft?.remark].filter(Boolean).join(' / ') || null,
-    };
-
-    groupFields.forEach(([field, groupCode]) => {
+    const allocations = groupFields.map(([field, groupCode]) => {
       const quantity = Number(draft?.[field] || 0);
-      const deptId = Number(groupDeptMap?.[groupCode] || 0) || null;
-      if (!quantity || quantity <= 0) return;
-      payloads.push({
-        path: 'stock/outbound',
-        payload: {
-          ...base,
-          quantity,
-          outboundMode: 'GROUP_ALLOCATE',
-          deptId,
-        },
-      });
+      return quantity > 0 ? { groupCode, quantity } : null;
+    }).filter(Boolean);
+    if (allocations.length === 0) return;
+    payloads.push({
+      stockId: Number(record?.stockId ?? record?.id ?? 0) || null,
+      allocations,
+      remark: [settings?.remark, draft?.remark].filter(Boolean).join(' / ') || '納品振分',
     });
   });
-  return payloads.filter(({ payload }) => (
-    payload.goodsId
-    && payload.skuId
-    && payload.warehouseId
-    && payload.stockTypeId
-    && payload.deptId
-    && payload.quantity > 0
-  ));
+  return payloads.filter((payload) => payload.stockId && payload.allocations.length > 0);
 }
 
 function buildSheetOutboundPayloads(items, settings) {
