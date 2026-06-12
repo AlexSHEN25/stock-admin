@@ -274,7 +274,9 @@ export async function addRequestItemsFromStockOrder(payload) {
 }
 
 function normalizePage(data) {
-  const records = data?.records || data?.list || data?.rows || [];
+  const records = Array.isArray(data)
+    ? data
+    : data?.records || data?.list || data?.rows || [];
   const total = Number(data?.total ?? records.length ?? 0);
   return {
     records: Array.isArray(records) ? records : [],

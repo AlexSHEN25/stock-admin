@@ -99,7 +99,7 @@ export function useRelationOptions(options) {
   function buildCustomerQueryParams() {
     const params = {
       pageNum: 1,
-      pageSize: 100,
+      pageSize: 10,
       sortBy: 'updateTime',
       sortOrder: 'desc',
     };
@@ -107,14 +107,18 @@ export function useRelationOptions(options) {
       return params;
     }
     if (currentUserId?.value) {
-      params.ownerUserId = Number(currentUserId.value);
-      params.userId = Number(currentUserId.value);
-      params.requesterId = Number(currentUserId.value);
+      const userId = Number(currentUserId.value);
+      params.ownerUserId = userId;
+      params.userId = userId;
+      params.requesterId = userId;
+      params.currentUserId = userId;
       return params;
     }
     if (currentUser?.value) {
-      params.ownerUserName = String(currentUser.value).trim();
-      params.username = String(currentUser.value).trim();
+      const username = String(currentUser.value).trim();
+      params.ownerUserName = username;
+      params.username = username;
+      params.currentUser = username;
     }
     if (currentDeptId?.value) {
       params.ownerDeptId = currentDeptId.value;
@@ -145,12 +149,8 @@ export function useRelationOptions(options) {
       if (username) return username;
     }
     if (targetModule === 'customer') {
-      const customerName = String(item?.customerName ?? item?.name ?? '').trim();
+      const customerName = String(item?.name ?? '').trim();
       if (customerName) return customerName;
-      const customerCode = String(item?.customerCode ?? item?.code ?? '').trim();
-      if (customerCode) return customerCode;
-      const englishName = String(item?.englishName ?? '').trim();
-      if (englishName) return englishName;
     }
     return relationLabel(item);
   }
