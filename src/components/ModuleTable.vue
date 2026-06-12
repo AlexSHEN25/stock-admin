@@ -257,6 +257,7 @@
       v-if="sheetOutboundModalOpen"
       :open="sheetOutboundModalOpen"
       :mode="sheetFlowMode"
+      :allow-group-outbound="isAdminUser"
       :rows="sheetOutboundRows"
       :drafts="sheetOutboundDrafts"
       :settings="sheetOutboundSettings"
@@ -324,7 +325,7 @@ import { useRequestItemCandidates } from '../composables/useRequestItemCandidate
 import { useRelationOptions } from '../composables/useRelationOptions';
 import { useModuleTableSchema } from '../composables/useModuleTableSchema';
 import { useModuleTableState } from '../composables/useModuleTableState';
-import { approveStockOrder, fetchCurrentUserCustomerPage } from '../api/module';
+import { approveStockOrder, fetchCurrentUserCustomerPage, fetchDeptIdByCode } from '../api/module';
 import { downloadRequestFormFile, downloadRequestFormPdf } from '../utils/download';
 import { markAllMessageListRead, markAllMessagesRead, markMessageListRead, markMessageRead } from '../utils/message';
 import { submitDeliveryAllocationFlow, submitGoodsStockOutboundFlow, submitSheetStockInboundFlow, submitSheetStockOutboundFlow, submitStockInboundFlow, submitStockOrderItemReturnFlow, submitStockQuantityAdjustment } from '../utils/stock';
@@ -381,10 +382,13 @@ const sheetOutboundRows = ref([]);
 const sheetOutboundActiveRowKey = ref('');
 const sheetOutboundDrafts = reactive({});
 const sheetOutboundSettings = reactive({
+  allocationMode: 'group',
   outboundMode: 'CUSTOMER',
   warehouseId: null,
   stockTypeId: null,
   customerId: null,
+  deptId: null,
+  groupDeptMap: {},
   customerAllocations: [],
   saleDeadline: null,
   remark: '',
@@ -801,7 +805,7 @@ async function openGoodsInboundModal(record) {
   goodsInboundForm.quantity = null;
   goodsInboundForm.saleDeadline = null;
   goodsInboundForm.remark = null;
-  await loadRelationOptions(['warehouseId', 'stockTypeId'], keys.value);
+  await loadRelationOptions(['warehouseId', 'stockTypeId', 'customerId'], keys.value);
   goodsInboundModalOpen.value = true;
 }
 
@@ -995,14 +999,18 @@ async function openSheetOutboundModal(record = null) {
       };
   });
   sheetOutboundActiveRowKey.value = goodsRowKey(selected[0]);
-  sheetOutboundSettings.outboundMode = (props.moduleKey === 'stockGroup' || /^stockGroup[ABC]$/.test(props.moduleKey)) ? 'GROUP' : 'CUSTOMER';
+  sheetOutboundSettings.outboundMode = 'GROUP_ALLOCATE';
+  sheetOutboundSettings.allocationMode = 'group';
   sheetOutboundSettings.warehouseId = firstNonEmptyValue(selected, 'warehouseId');
   sheetOutboundSettings.stockTypeId = firstNonEmptyValue(selected, 'stockTypeId');
   sheetOutboundSettings.customerId = null;
+  sheetOutboundSettings.deptId = props.currentDeptId || null;
+  sheetOutboundSettings.groupDeptMap = {};
   sheetOutboundSettings.customerAllocations = [];
   sheetOutboundSettings.saleDeadline = null;
   sheetOutboundSettings.remark = '';
-  await loadRelationOptions(['warehouseId', 'stockTypeId'], keys.value);
+  await loadRelationOptions(['warehouseId', 'stockTypeId', 'customerId', 'deptId'], keys.value);
+  sheetOutboundSettings.groupDeptMap = await buildGroupDeptMap();
   sheetOutboundModalOpen.value = true;
 }
 
@@ -1025,6 +1033,8 @@ async function openSheetInboundModal() {
   sheetOutboundSettings.warehouseId = firstNonEmptyValue(selected, 'warehouseId');
   sheetOutboundSettings.stockTypeId = firstNonEmptyValue(selected, 'stockTypeId');
   sheetOutboundSettings.customerId = null;
+  sheetOutboundSettings.deptId = props.currentDeptId || null;
+  sheetOutboundSettings.groupDeptMap = {};
   sheetOutboundSettings.customerAllocations = [];
   sheetOutboundSettings.saleDeadline = null;
   sheetOutboundSettings.remark = '';
@@ -1083,10 +1093,6 @@ function removeCustomerAllocation(key) {
 }
 
 async function submitSheetFlow() {
-  if (!sheetOutboundSettings.warehouseId || !sheetOutboundSettings.stockTypeId) {
-    message.warning(TABLE_TEXT.requiredField);
-    return;
-  }
   if (sheetFlowMode.value === 'outbound') {
     const invalid = sheetOutboundRows.value.some((record) => {
       const draft = sheetOutboundDrafts[goodsRowKey(record)] || {};
@@ -1103,27 +1109,32 @@ async function submitSheetFlow() {
   if (sheetFlowMode.value === 'delivery') {
     const invalid = sheetOutboundRows.value.some((record) => {
       const draft = sheetOutboundDrafts[goodsRowKey(record)] || {};
-      const deliveryQty = Number(draft.deliveryQty || 0);
       const groupTotal = Number(draft.aQty || 0) + Number(draft.bQty || 0) + Number(draft.cQty || 0);
-      return deliveryQty < 0 || groupTotal > deliveryQty;
+      return groupTotal > availableGoodsOutboundQty(goodsRowKey(record));
     });
     if (invalid) {
-      message.warning('A/B/C組振分合計は納品数以下で入力してください');
+      message.warning('A/B/C組振分合計は現在数量以下で入力してください');
       return;
     }
   }
 
   sheetOutboundSubmitting.value = true;
   try {
+    const customerAllocation = sheetOutboundSettings.allocationMode === 'customer';
     const submitFlow = sheetFlowMode.value === 'inbound'
       ? submitSheetStockInboundFlow
-      : (sheetFlowMode.value === 'delivery' ? submitDeliveryAllocationFlow : submitSheetStockOutboundFlow);
+      : (sheetFlowMode.value === 'delivery' && !customerAllocation
+        ? submitDeliveryAllocationFlow
+        : submitSheetStockOutboundFlow);
     const success = await submitFlow({
       items: sheetOutboundRows.value.map((record) => ({
         record,
         draft: sheetOutboundDrafts[goodsRowKey(record)] || {},
       })),
-      settings: sheetOutboundSettings,
+      settings: {
+        ...sheetOutboundSettings,
+        currentDeptId: props.currentDeptId || null,
+      },
       notify: message,
     });
     if (success) {
@@ -1223,8 +1234,15 @@ function mergeGoodsWithStock(goodsRows, stockRows) {
   return (Array.isArray(goodsRows) ? goodsRows : []).map((goods) => {
     const matched = stocks.filter((stock) => isSameGoodsStock(goods, stock));
     const currentQty = matched.reduce((total, stock) => total + stockCurrentQty(stock), 0);
+    const stock = matched.find((item) => stockCurrentQty(item) > 0) || matched[0] || {};
     return {
       ...goods,
+      goodsId: goods?.goodsId ?? goods?.id ?? stock?.goodsId ?? null,
+      skuId: goods?.skuId ?? stock?.skuId ?? null,
+      warehouseId: goods?.warehouseId ?? stock?.warehouseId ?? null,
+      warehouseName: goods?.warehouseName ?? stock?.warehouseName ?? null,
+      stockTypeId: goods?.stockTypeId ?? stock?.stockTypeId ?? null,
+      stockTypeName: goods?.stockTypeName ?? stock?.stockTypeName ?? null,
       currentQty,
       outboundMaxQty: currentQty,
       customerQtyBreakdown: buildCustomerQtyBreakdown(matched),
@@ -1473,6 +1491,11 @@ function ensureCurrentDeptRelationOption() {
   if (!list.some((option) => String(option?.value) === String(currentOption.value))) {
     relationOptions.deptId = dedupeOptions([...list, currentOption]);
   }
+}
+
+async function buildGroupDeptMap() {
+  const entries = await Promise.all(['A', 'B', 'C'].map(async (code) => [code, await fetchDeptIdByCode(code)]));
+  return Object.fromEntries(entries.filter(([, value]) => Number(value) > 0));
 }
 
 function activeFormKeys() {

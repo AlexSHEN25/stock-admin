@@ -258,49 +258,41 @@ function buildDeliveryAllocationPayloads(items, settings) {
     ['cQty', 'C'],
   ];
   const payloads = [];
+  const groupDeptMap = settings?.groupDeptMap && typeof settings.groupDeptMap === 'object'
+    ? settings.groupDeptMap
+    : {};
   (items || []).forEach(({ record, draft }) => {
-    const deliveryQty = Number(draft?.deliveryQty || 0);
-    const groupTotal = groupFields.reduce((total, [field]) => total + Number(draft?.[field] || 0), 0);
-    const selfQty = deliveryQty - groupTotal;
     const base = {
       goodsId: Number(record?.goodsId ?? record?.id),
       skuId: record?.skuId ? Number(record.skuId) : null,
       sourceType: 2,
-      warehouseId: Number(settings?.warehouseId ?? record?.warehouseId),
-      stockTypeId: Number(settings?.stockTypeId ?? record?.stockTypeId),
+      warehouseId: Number(record?.warehouseId ?? settings?.warehouseId),
+      stockTypeId: Number(record?.stockTypeId ?? settings?.stockTypeId),
       saleDeadline: draft?.saleDeadline || settings?.saleDeadline || null,
       remark: [settings?.remark, draft?.remark].filter(Boolean).join(' / ') || null,
     };
 
     groupFields.forEach(([field, groupCode]) => {
       const quantity = Number(draft?.[field] || 0);
+      const deptId = Number(groupDeptMap?.[groupCode] || 0) || null;
       if (!quantity || quantity <= 0) return;
       payloads.push({
         path: 'stock/outbound',
         payload: {
           ...base,
           quantity,
-          outboundMode: 'group',
-          stockScope: 'self',
-          groupCode,
+          outboundMode: 'GROUP_ALLOCATE',
+          deptId,
         },
       });
     });
-
-    if (selfQty > 0) {
-      payloads.push({
-        path: 'stock/inbound',
-        payload: {
-          ...base,
-          quantity: selfQty,
-        },
-      });
-    }
   });
   return payloads.filter(({ payload }) => (
     payload.goodsId
+    && payload.skuId
     && payload.warehouseId
     && payload.stockTypeId
+    && payload.deptId
     && payload.quantity > 0
   ));
 }
@@ -319,8 +311,8 @@ function buildSheetOutboundPayloads(items, settings) {
           goodsId: Number(record?.goodsId ?? record?.id),
           skuId: record?.skuId ? Number(record.skuId) : null,
           sourceType: 2,
-          warehouseId: Number(settings?.warehouseId ?? record?.warehouseId),
-          stockTypeId: Number(settings?.stockTypeId ?? record?.stockTypeId),
+          warehouseId: Number(record?.warehouseId ?? settings?.warehouseId),
+          stockTypeId: Number(record?.stockTypeId ?? settings?.stockTypeId),
           quantity,
           outboundMode: apiOutboundMode,
           stockScope: 'self',
@@ -339,8 +331,8 @@ function buildSheetOutboundPayloads(items, settings) {
         goodsId: Number(record?.goodsId ?? record?.id),
         skuId: record?.skuId ? Number(record.skuId) : null,
         sourceType: 2,
-        warehouseId: Number(settings?.warehouseId ?? record?.warehouseId),
-        stockTypeId: Number(settings?.stockTypeId ?? record?.stockTypeId),
+        warehouseId: Number(record?.warehouseId ?? settings?.warehouseId),
+        stockTypeId: Number(record?.stockTypeId ?? settings?.stockTypeId),
         quantity,
         outboundMode: apiOutboundMode,
         stockScope: 'self',

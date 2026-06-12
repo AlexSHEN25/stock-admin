@@ -6,6 +6,9 @@ const HIDDEN_MODULES = MODULE_LAYOUT_CONFIG.hiddenModules;
 const HIDDEN_MODULE_SET = new Set(HIDDEN_MODULES);
 const HIDDEN_MODULE_CONFIG = MODULE_LAYOUT_CONFIG.hiddenModuleMap;
 const DEFAULT_MODULE = MODULE_GROUPS[0]?.children?.[0]?.key || '';
+const MODULE_KEY_ALIASES = {
+  stockCustomer: 'stockCustomerGoods',
+};
 
 export function useModuleMenu(options) {
   const {
@@ -55,10 +58,10 @@ export function useModuleMenu(options) {
     const value = String(key || '');
     const parts = value.split('/').filter(Boolean);
     if (parts.length === 0) return '';
-    if (parts[parts.length - 1] === 'page' && parts.length > 1) {
-      return parts[parts.length - 2];
-    }
-    return parts[parts.length - 1];
+    const normalized = parts[parts.length - 1] === 'page' && parts.length > 1
+      ? parts[parts.length - 2]
+      : parts[parts.length - 1];
+    return MODULE_KEY_ALIASES[normalized] || normalized;
   }
 
   function rebuildMap(items) {

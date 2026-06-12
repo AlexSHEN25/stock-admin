@@ -68,10 +68,22 @@ export function useRelationOptions(options) {
         : () => fetchModuleOptions(targetModule);
 
       relationModuleOptionPromise[targetModule] = loader()
-        .then((list) => dedupeOptions((list || []).map((item) => ({
-          label: relationOptionLabel(targetModule, item),
-          value: item.id,
-        }))))
+        .then((list) => {
+          const rows = Array.isArray(list)
+            ? list
+            : Array.isArray(list?.records)
+              ? list.records
+              : Array.isArray(list?.list)
+                ? list.list
+                : Array.isArray(list?.rows)
+                  ? list.rows
+                  : [];
+          return dedupeOptions(rows.map((item) => ({
+            label: relationOptionLabel(targetModule, item),
+            value: item.id,
+            raw: item,
+          })));
+        })
         .then((optionList) => {
           relationModuleOptionCache[targetModule] = optionList;
           return optionList;
@@ -96,13 +108,17 @@ export function useRelationOptions(options) {
     }
     if (currentUserId?.value) {
       params.ownerUserId = Number(currentUserId.value);
+      params.userId = Number(currentUserId.value);
+      params.requesterId = Number(currentUserId.value);
       return params;
     }
     if (currentUser?.value) {
       params.ownerUserName = String(currentUser.value).trim();
+      params.username = String(currentUser.value).trim();
     }
     if (currentDeptId?.value) {
       params.ownerDeptId = currentDeptId.value;
+      params.deptId = currentDeptId.value;
     }
     return params;
   }

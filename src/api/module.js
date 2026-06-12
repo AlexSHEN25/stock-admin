@@ -114,6 +114,22 @@ export async function fetchCurrentUserCustomerPage(params) {
   return fetchPageByUrl('/api/customer/page', params);
 }
 
+export async function fetchDeptIdByCode(code) {
+  const deptCode = String(code || '').trim();
+  if (!deptCode) return null;
+  const page = await fetchPageByUrl('/api/dept/page', {
+    pageNum: 1,
+    pageSize: 20,
+    code: deptCode,
+    sortBy: 'updateTime',
+    sortOrder: 'desc',
+  });
+  const rows = Array.isArray(page?.records) ? page.records : [];
+  const exact = rows.find((item) => String(item?.code || item?.deptCode || '').trim().toUpperCase() === deptCode.toUpperCase());
+  const matched = exact || rows[0];
+  return Number(matched?.id ?? 0) || null;
+}
+
 export async function fetchCustomerStockOrderDetail(id) {
   if (id === undefined || id === null || String(id).trim() === '') return null;
   return http.get(`/api/stockOrder/customer/${id}`);

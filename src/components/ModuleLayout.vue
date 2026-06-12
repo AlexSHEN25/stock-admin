@@ -130,6 +130,7 @@
           :all-data-write="allDataWrite"
           :permission-ready="permissionReady"
           :current-user="currentUser"
+          :current-user-id="currentUserId"
           :current-dept-id="currentDeptId"
           :current-dept-name="currentDeptName"
           :current-group-code="currentGroupCode"
@@ -219,10 +220,7 @@ const {
 });
 
 const activeModuleActions = computed(() => {
-  const permissionKey = ['stockSelf', 'stockSummary', 'stockGroup', 'stockGroupA', 'stockGroupB', 'stockGroupC'].includes(activeModule.value)
-    ? 'stock'
-    : activeModule.value;
-  const scope = (props.menuScopes || []).find((item) => item?.key === permissionKey);
+  const scope = (props.menuScopes || []).find((item) => item?.key === activeModule.value);
   return scope?.actions || {
     read: false,
     create: false,

@@ -14,6 +14,7 @@
         class="sheet-flow-tabs"
       >
         <a-tab-pane
+          v-if="allowGroupOutbound"
           key="group"
           tab="グループ別在庫配分"
         >
@@ -60,6 +61,16 @@
                   {{ remainQty(record) }}
                 </a-tag>
               </template>
+              <template v-else-if="column.key === 'saleDeadline'">
+                <a-date-picker
+                  :value="draftValue(record, 'saleDeadline') || null"
+                  show-time
+                  format="YYYY-MM-DD HH:mm:ss"
+                  value-format="YYYY-MM-DD HH:mm:ss"
+                  class="sheet-flow-date"
+                  @update:value="(value) => $emit('update-draft', rowKey(record), 'saleDeadline', value)"
+                />
+              </template>
               <template v-else-if="column.key === 'rowTotal'">
                 {{ rowTotal(record) }}
               </template>
@@ -84,7 +95,7 @@
             :data-source="rows"
             :columns="customerColumns"
             :pagination="false"
-            :scroll="{ x: 'max-content', y: 380 }"
+            :scroll="{ x: 'max-content', y: isDelivery ? 560 : 380 }"
             size="small"
             bordered
           >
@@ -107,8 +118,30 @@
               <template v-else-if="column.key === 'currentQty'">
                 {{ maxQty(record) }}
               </template>
+              <template v-else-if="column.key === 'remainQty'">
+                <a-tag :color="remainQty(record) < 0 ? 'red' : 'default'">
+                  {{ remainQty(record) }}
+                </a-tag>
+              </template>
+              <template v-else-if="column.key === 'saleDeadline'">
+                <a-date-picker
+                  :value="draftValue(record, 'saleDeadline') || null"
+                  show-time
+                  format="YYYY-MM-DD HH:mm:ss"
+                  value-format="YYYY-MM-DD HH:mm:ss"
+                  class="sheet-flow-date"
+                  @update:value="(value) => $emit('update-draft', rowKey(record), 'saleDeadline', value)"
+                />
+              </template>
+              <template v-else-if="column.key === 'rowTotal'">
+                {{ rowTotal(record) }}
+              </template>
               <template v-else-if="column.key === 'remark'">
-                {{ draftValue(record, 'remark') || '-' }}
+                <a-input
+                  :value="draftValue(record, 'remark')"
+                  placeholder="備考"
+                  @update:value="(value) => $emit('update-draft', rowKey(record), 'remark', value)"
+                />
               </template>
             </template>
           </a-table>
@@ -194,6 +227,7 @@ import { computed, ref, watch } from 'vue';
 const props = defineProps({
   open: { type: Boolean, default: false },
   mode: { type: String, default: 'outbound' },
+  allowGroupOutbound: { type: Boolean, default: false },
   rows: { type: Array, default: () => [] },
   drafts: { type: Object, default: () => ({}) },
   settings: { type: Object, default: () => ({}) },
@@ -202,7 +236,7 @@ const props = defineProps({
   rowKey: { type: Function, required: true },
 });
 
-defineEmits([
+const emit = defineEmits([
   'cancel',
   'submit',
   'update-draft',
@@ -217,9 +251,29 @@ const activeTab = ref('group');
 watch(
   () => props.open,
   (open) => {
-    if (open) activeTab.value = 'group';
+    if (open) {
+      if (isDelivery.value) {
+        activeTab.value = props.allowGroupOutbound ? 'group' : 'customer';
+      } else {
+        activeTab.value = props.allowGroupOutbound ? 'group' : 'customer';
+      }
+      syncAllocationMode(activeTab.value);
+    }
   },
 );
+
+watch(
+  activeTab,
+  syncAllocationMode,
+);
+
+function syncAllocationMode(tab) {
+  emit('update-setting', 'allocationMode', tab);
+  emit('update-setting', 'outboundMode', tab === 'group' ? 'GROUP_ALLOCATE' : 'CUSTOMER');
+  if (tab === 'group') {
+    emit('update-setting', 'customerAllocations', []);
+  }
+}
 
 const title = computed(() => '納品振分処理');
 const isInbound = computed(() => props.mode === 'inbound');
@@ -249,7 +303,6 @@ const groupColumns = computed(() => {
   if (isDelivery.value) {
     return [
       ...baseColumns,
-      { title: '納品数量', dataIndex: 'deliveryQty', key: 'deliveryQty', width: 110 },
       { title: 'A組', dataIndex: 'aQty', key: 'aQty', width: 110 },
       { title: 'B組', dataIndex: 'bQty', key: 'bQty', width: 110 },
       { title: 'C組', dataIndex: 'cQty', key: 'cQty', width: 110 },
@@ -266,14 +319,26 @@ const groupColumns = computed(() => {
     { title: 'C組', dataIndex: 'cQty', key: 'cQty', width: 110 },
     { title: '合計', dataIndex: 'rowTotal', key: 'rowTotal', width: 110 },
     { title: '残数', dataIndex: 'remainQty', key: 'remainQty', width: 110 },
+    { title: '販売期限', dataIndex: 'saleDeadline', key: 'saleDeadline', width: 190 },
     { title: '備考', dataIndex: 'remark', key: 'remark', width: 240 },
   ];
 });
 
-const customerColumns = computed(() => [
-  ...baseColumns,
-  { title: '備考', dataIndex: 'remark', key: 'remark', width: 240 },
-]);
+const customerColumns = computed(() => {
+  if (isDelivery.value) {
+    return [
+      ...baseColumns,
+      { title: '合計', dataIndex: 'rowTotal', key: 'rowTotal', width: 110 },
+      { title: '残数', dataIndex: 'remainQty', key: 'remainQty', width: 110 },
+      { title: '販売期限', dataIndex: 'saleDeadline', key: 'saleDeadline', width: 190 },
+      { title: '備考', dataIndex: 'remark', key: 'remark', width: 240 },
+    ];
+  }
+  return [
+    ...baseColumns,
+    { title: '備考', dataIndex: 'remark', key: 'remark', width: 240 },
+  ];
+});
 
 const totalQuantity = computed(() => props.rows.reduce((total, record) => total + rowTotal(record), 0));
 const submitText = computed(() => '納品振分登録');
@@ -298,13 +363,15 @@ function rowTotal(record) {
 
 function remainQty(record) {
   if (isDelivery.value) {
-    return Number(draftValue(record, 'deliveryQty') || 0) - rowTotal(record);
+    return maxQty(record) - rowTotal(record);
   }
   return maxQty(record) - rowTotal(record);
 }
 
 function maxQty(record) {
-  return Math.max(0, Number(record?.outboundMaxQty ?? record?.currentQty ?? 0));
+  const outboundMaxQty = Number(record?.outboundMaxQty);
+  const currentQty = Number(record?.currentQty ?? 0);
+  return Math.max(0, outboundMaxQty > 0 ? outboundMaxQty : currentQty);
 }
 </script>
 
@@ -320,6 +387,10 @@ function maxQty(record) {
 }
 
 .sheet-flow-number {
+  width: 100%;
+}
+
+.sheet-flow-date {
   width: 100%;
 }
 
