@@ -44,6 +44,7 @@ import { isAdminByPermissionCodes } from './utils/module-ui';
 
 const PERMISSION_TIMEOUT_MS = 8000;
 const USERNAME_KEY = 'stock_admin_username';
+const THEME_MODE_KEY = 'stock_admin_theme_mode';
 const APP_MESSAGES = {
   authExpired: 'ログインの有効期限が切れました',
   permissionLoading: '権限情報を読み込み中です',
@@ -53,7 +54,7 @@ const APP_MESSAGES = {
 };
 
 const token = ref(getStoredToken());
-const darkMode = ref(false);
+const darkMode = ref(localStorage.getItem(THEME_MODE_KEY) === 'dark');
 const currentUser = ref(localStorage.getItem(USERNAME_KEY) || '');
 const currentUserId = ref(null);
 const currentDeptId = ref(null);
@@ -133,6 +134,7 @@ function onLoginSuccess(payload) {
 
 function onToggleTheme(next) {
   darkMode.value = Boolean(next);
+  localStorage.setItem(THEME_MODE_KEY, darkMode.value ? 'dark' : 'light');
   applyThemeMode();
 }
 

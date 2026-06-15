@@ -49,7 +49,7 @@ export const MODULE_GROUPS = [
     children: [
       { key: 'stockSelf', label: '自社在庫管理' },
       { key: 'stockGroup', label: '組在庫管理' },
-      { key: 'stockCustomerGoods', label: '顧客商品明細' },
+      { key: 'stockCustomerGoods', label: '顧客出庫明細' },
       { key: 'stockOrder', label: '入出庫伝票' },
       { key: 'stockType', label: '在庫分類' },
       { key: 'stockRecord', label: '在庫履歴' },
@@ -119,11 +119,11 @@ export const MODULE_PRESETS = {
   },
   stockCustomerGoods: {
     hideActions: true,
-    tableFields: ['categoryName', 'goodsName', 'totalQuantity'],
-    queryFields: ['customerId', 'categoryId', 'goodsId', 'skuCode', 'groupCode', 'startDate', 'endDate'],
+    tableFields: ['country', 'customerName', 'groupCode', 'bizNo', 'goodsName', 'skuCode', 'stockTypeName', 'quantity', 'totalQuantity', 'goodsKinds', 'outboundDate', 'operatorName'],
+    queryFields: ['country', 'customerId', 'customerName', 'goodsId', 'goodsName', 'skuCode', 'groupCode', 'startDate', 'endDate'],
     fieldTypes: {
+      country: 'text',
       customerId: 'relation',
-      categoryId: 'relation',
       goodsId: 'relation',
       startDate: 'datetime',
       endDate: 'datetime',
@@ -313,7 +313,7 @@ export const MODULE_PRESETS = {
   customer: {
     queryFields: ['id', 'customerCode', 'name', 'englishName', 'ownerUserName', 'phone', 'email', 'country', 'city', 'address', 'levelName', 'ownerDeptName', 'remark', 'status'],
     formFields: ['customerCode', 'name', 'englishName', 'ownerUserId', 'phone', 'email', 'country', 'city', 'address', 'levelId', 'ownerDeptId', 'remark', 'status'],
-    fieldTypes: { levelId: 'relation', ownerUserId: 'relation', ownerDeptId: 'relation', status: 'select' },
+    fieldTypes: { country: 'text', levelId: 'relation', ownerUserId: 'relation', ownerDeptId: 'relation', status: 'select' },
   },
   customerLevel: {
     queryFields: ['id', 'name', 'discount', 'remark', 'status'],

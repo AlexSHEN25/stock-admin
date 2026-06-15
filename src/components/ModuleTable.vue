@@ -59,7 +59,7 @@
         class="module-table"
         :row-key="getRowKey"
         :row-class-name="rowClassName"
-        :columns="isCustomerGoodsSummary ? customerGoodsMatrixTableColumns : columns"
+        :columns="columns"
         :data-source="tableRows"
         :row-selection="isCustomerGoodsSummary ? undefined : { selectedRowKeys, onChange: onSelectChange }"
         :loading="loading || goodsStockLoading"
@@ -307,7 +307,7 @@ import {
   fetchItem,
   fetchOutboundStockOrderOptions,
   fetchGoodsFormOptions,
-  fetchCustomerStockGoodsMatrix,
+  fetchCustomerStockGoodsTreePage,
   fetchMyGroupStockAvailable,
   fetchModuleOptions,
   updateItem,
@@ -579,7 +579,7 @@ const {
   ),
   fetchPageData: (path, params) => (
     props.moduleKey === 'stockCustomerGoods'
-      ? fetchCustomerGoodsMatrixPage(params)
+      ? fetchCustomerStockGoodsTreePage(params).then(normalizeCustomerGoodsTreePage)
       : fetchPage(path, params)
   ),
 });
@@ -817,32 +817,29 @@ function normalizeQueryField(field) {
   return key;
 }
 
-async function fetchCustomerGoodsMatrixPage(params) {
-  const data = await fetchCustomerStockGoodsMatrix(params);
-  customerGoodsMatrixColumns.value = Array.isArray(data?.columns) ? data.columns : [];
-  const records = Array.isArray(data?.rows)
-    ? data.rows.map((row) => normalizeCustomerGoodsMatrixRow(row, customerGoodsMatrixColumns.value))
-    : [];
+function customerGoodsMatrixKey(customerId) {
+  return `customer_${String(customerId ?? '')}`;
+}
+
+function normalizeCustomerGoodsTreePage(page) {
+  const records = Array.isArray(page?.records) ? page.records : [];
   return {
-    total: Number(data?.total) || 0,
-    records,
+    ...page,
+    records: stripEmptyTreeChildren(records),
   };
 }
 
-function normalizeCustomerGoodsMatrixRow(row, matrixColumns) {
-  const record = row && typeof row === 'object' ? { ...row } : {};
-  const quantities = row?.quantities && typeof row.quantities === 'object' ? row.quantities : {};
-  (matrixColumns || []).forEach((column) => {
-    const customerId = column?.customerId;
-    record[customerGoodsMatrixKey(customerId)] = Number(
-      quantities?.[String(customerId)] ?? quantities?.[customerId] ?? 0,
-    );
+function stripEmptyTreeChildren(rows) {
+  return (Array.isArray(rows) ? rows : []).map((row) => {
+    if (!row || typeof row !== 'object') return row;
+    const next = { ...row };
+    if (Array.isArray(next.children) && next.children.length > 0) {
+      next.children = stripEmptyTreeChildren(next.children);
+    } else {
+      delete next.children;
+    }
+    return next;
   });
-  return record;
-}
-
-function customerGoodsMatrixKey(customerId) {
-  return `customer_${String(customerId ?? '')}`;
 }
 
 async function submitStockFlow({ buildEditPayload, getRecordId, normalizePayload: normalizeSubmitPayload }) {
@@ -2007,6 +2004,20 @@ function formPlaceholder(field) {
   padding: 20px 24px 16px;
 }
 
+:global(html[data-theme-mode='dark']) :deep(.customer-matrix-surface.ant-card) {
+  background: #101010 !important;
+  border-color: #2f2f2f !important;
+  box-shadow: none !important;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.customer-matrix-surface.ant-card > .ant-card-body) {
+  background: #101010 !important;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.customer-matrix-surface .ant-table-wrapper) {
+  background: #0f0f0f !important;
+}
+
 .table-stage {
   min-width: 0;
 }
@@ -2018,6 +2029,25 @@ function formPlaceholder(field) {
   border-radius: 14px;
   background: linear-gradient(180deg, rgba(248, 250, 252, 0.92) 0%, rgba(255, 255, 255, 0.98) 100%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+:global(html[data-theme-mode='dark']) :deep(.customer-matrix-surface) {
+  background: #101010;
+  border-color: #2f2f2f;
+}
+
+:global(html[data-theme-mode='dark']) .customer-matrix-stage {
+  border-color: #2e2e2e;
+  background: #0f0f0f;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+:global(html[data-theme-mode='dark']) .customer-matrix-stage :deep(.ant-table-wrapper) {
+  background: #0f0f0f;
+}
+
+:global(html[data-theme-mode='dark']) .customer-matrix-stage :deep(.ant-table) {
+  background: #0f0f0f;
 }
 
 :deep(.row-highlight-new > td) {

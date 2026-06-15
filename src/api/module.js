@@ -106,6 +106,10 @@ export async function fetchCustomerStockGoodsMatrix(params) {
   return http.get('/api/stock/customer/goods/matrix', { params: normalizePageParams(params) });
 }
 
+export async function fetchCustomerStockGoodsTreePage(params) {
+  return fetchPageByUrl('/api/stock/customer/goods/tree/page', params);
+}
+
 export async function fetchCustomerStockGoodsDetailPage(params) {
   return fetchPageByUrl('/api/stock/customer/goods/detail/page', params);
 }
