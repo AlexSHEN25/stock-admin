@@ -35,16 +35,15 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { message, theme } from 'ant-design-vue';
+import { fetchItem } from './api/module';
 import { fetchPermissionScope, logout } from './api/auth';
 import { clearAuthToken, getStoredToken, saveAuthToken } from './api/http';
 import LoginForm from './components/LoginForm.vue';
 import ModuleLayout from './components/ModuleLayout.vue';
 import { isAdminByPermissionCodes } from './utils/module-ui';
 
-const THEME_KEY = 'stock_admin_theme_dark';
-const USERNAME_KEY = 'stock_admin_username';
-const USER_ID_KEY = 'stock_admin_user_id';
 const PERMISSION_TIMEOUT_MS = 8000;
+const USERNAME_KEY = 'stock_admin_username';
 const APP_MESSAGES = {
   authExpired: 'ログインの有効期限が切れました',
   permissionLoading: '権限情報を読み込み中です',
@@ -54,9 +53,9 @@ const APP_MESSAGES = {
 };
 
 const token = ref(getStoredToken());
-const darkMode = ref(localStorage.getItem(THEME_KEY) === '1');
+const darkMode = ref(false);
 const currentUser = ref(localStorage.getItem(USERNAME_KEY) || '');
-const currentUserId = ref(Number(localStorage.getItem(USER_ID_KEY)) || null);
+const currentUserId = ref(null);
 const currentDeptId = ref(null);
 const currentDeptName = ref('');
 const currentGroupCode = ref('');
@@ -84,7 +83,6 @@ function handleAuthExpired() {
   token.value = null;
   currentUser.value = '';
   currentUserId.value = null;
-  localStorage.removeItem(USER_ID_KEY);
   currentDeptId.value = null;
   currentDeptName.value = '';
   currentGroupCode.value = '';
@@ -125,7 +123,6 @@ function onLoginSuccess(payload) {
   ) || null;
   if (loginUserId) {
     currentUserId.value = loginUserId;
-    localStorage.setItem(USER_ID_KEY, String(loginUserId));
   }
 
   token.value = payload.token;
@@ -136,7 +133,6 @@ function onLoginSuccess(payload) {
 
 function onToggleTheme(next) {
   darkMode.value = Boolean(next);
-  localStorage.setItem(THEME_KEY, darkMode.value ? '1' : '0');
   applyThemeMode();
 }
 
@@ -152,14 +148,13 @@ async function onLogout() {
   }
 
   clearAuthToken();
-  localStorage.removeItem(USERNAME_KEY);
   token.value = null;
   currentUser.value = '';
   currentUserId.value = null;
-  localStorage.removeItem(USER_ID_KEY);
   currentDeptId.value = null;
   currentDeptName.value = '';
   currentGroupCode.value = '';
+  localStorage.removeItem(USERNAME_KEY);
   menuCodes.value = [];
   permissionCodes.value = [];
   menuScopes.value = [];
@@ -178,7 +173,10 @@ async function loadPermissions() {
     currentGroupCode.value = scope.groupCode || '';
     if (scope.userId) {
       currentUserId.value = scope.userId;
-      localStorage.setItem(USER_ID_KEY, String(scope.userId));
+    }
+    currentUser.value = await resolveCurrentUserName(scope);
+    if (currentUser.value) {
+      localStorage.setItem(USERNAME_KEY, currentUser.value);
     }
     allDataWrite.value = Boolean(
       scope.allDataWrite
@@ -198,16 +196,38 @@ async function loadPermissions() {
     allDataWrite.value = false;
     permissionReady.value = false;
     clearAuthToken();
-    localStorage.removeItem(USERNAME_KEY);
     token.value = null;
     currentUser.value = '';
     currentUserId.value = null;
-    localStorage.removeItem(USER_ID_KEY);
     currentDeptId.value = null;
     currentDeptName.value = '';
     currentGroupCode.value = '';
+    localStorage.removeItem(USERNAME_KEY);
     const isTimeout = String(error?.message || '') === 'PERMISSION_TIMEOUT';
     message.warning(isTimeout ? APP_MESSAGES.permissionLoadTimeout : APP_MESSAGES.permissionLoadFail);
+  }
+}
+
+async function resolveCurrentUserName(scope) {
+  const fallback = String(currentUser.value || '').trim();
+  const direct = String(scope?.username || '').trim();
+  if (direct) return direct;
+  if (!scope?.userId) return fallback;
+
+  try {
+    const user = await fetchItem('user', scope.userId);
+    const resolved = String(
+      user?.username
+      ?? user?.userName
+      ?? user?.nickname
+      ?? user?.nickName
+      ?? user?.loginName
+      ?? user?.account
+      ?? '',
+    ).trim();
+    return resolved || fallback;
+  } catch {
+    return fallback;
   }
 }
 

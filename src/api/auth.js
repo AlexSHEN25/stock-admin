@@ -58,6 +58,17 @@ function normalizePermissionPayload(payload) {
     ...normalizedCodes,
     superAdmin: Boolean(payload?.superAdmin),
     allDataWrite: Boolean(payload?.allDataWrite),
+    username: String(
+      payload?.username
+      ?? payload?.userName
+      ?? payload?.nickname
+      ?? payload?.nickName
+      ?? payload?.loginName
+      ?? payload?.account
+      ?? payload?.user?.username
+      ?? payload?.user?.userName
+      ?? '',
+    ).trim(),
     userId: Number(payload?.userId ?? payload?.user?.id ?? 0) || null,
     deptId: Number(payload?.deptId ?? payload?.user?.deptId ?? payload?.dept?.id ?? 0) || null,
     deptName: String(payload?.deptName ?? payload?.user?.deptName ?? payload?.dept?.name ?? '').trim(),

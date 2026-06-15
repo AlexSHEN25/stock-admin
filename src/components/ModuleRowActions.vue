@@ -11,7 +11,7 @@
     </a-button>
 
     <a-button
-      v-if="showInbound && canOutbound"
+      v-if="showOutbound && canOutbound"
       type="primary"
       size="small"
       danger
@@ -24,9 +24,22 @@
       v-for="action in actions"
       v-show="canShowExtraAction(action.key, record)"
       :key="action.key"
-      @click="$emit('extra-action', action.key, record)"
     >
-      {{ action.label }}
+      <a-popconfirm
+        v-if="action.key === 'approve' || action.key === 'reject'"
+        :title="getConfirmTitle(action.key)"
+        :ok-text="tableText.yes"
+        :cancel-text="tableText.no"
+        @confirm="$emit('extra-action', action.key, record)"
+      >
+        <a>{{ action.label }}</a>
+      </a-popconfirm>
+      <a
+        v-else
+        @click="$emit('extra-action', action.key, record)"
+      >
+        {{ action.label }}
+      </a>
     </a>
     <a
       v-if="canWrite && canInlineEdit && !editing"
@@ -69,6 +82,7 @@ defineProps({
   editing: { type: Boolean, default: false },
   showInbound: { type: Boolean, default: false },
   inboundDone: { type: Boolean, default: false },
+  showOutbound: { type: Boolean, default: false },
   canOutbound: { type: Boolean, default: false },
   canShowExtraAction: { type: Function, required: true },
 });
@@ -83,4 +97,10 @@ defineEmits([
   'inbound',
   'outbound',
 ]);
+
+function getConfirmTitle(actionKey) {
+  if (actionKey === 'approve') return '承認しますか？';
+  if (actionKey === 'reject') return '却下しますか？';
+  return '実行しますか？';
+}
 </script>

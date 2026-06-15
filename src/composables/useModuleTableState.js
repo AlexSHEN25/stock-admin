@@ -2,6 +2,7 @@
 import { message } from 'ant-design-vue';
 import { createItem, fetchPage, removeItem, removeItems, updateItem } from '../api/module';
 import TABLE_TEXT from '../utils/module-ui';
+import { takeNavigationState } from '../utils/navigation-state';
 
 export function useModuleTableState(options) {
   const {
@@ -47,12 +48,11 @@ export function useModuleTableState(options) {
 
   function applyPendingQuery(jump) {
     if (!jump) return;
-    const raw = sessionStorage.getItem(jump.storageKey);
+    const raw = takeNavigationState(jump.storageKey);
     if (!raw) return;
     if (Object.prototype.hasOwnProperty.call(queryState, jump.queryField)) {
       queryState[jump.queryField] = Number(raw);
     }
-    sessionStorage.removeItem(jump.storageKey);
   }
 
   async function reload() {

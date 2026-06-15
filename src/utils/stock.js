@@ -274,10 +274,16 @@ function buildDeliveryAllocationPayloads(items, settings) {
 }
 
 function buildSheetOutboundPayloads(items, settings) {
-  const apiOutboundMode = String(settings?.outboundMode || 'CUSTOMER');
   const payloads = [];
   (items || []).forEach(({ record, draft }) => {
     const customerAllocations = Array.isArray(settings?.customerAllocations) ? settings.customerAllocations : [];
+    const apiOutboundMode = String(
+      settings?.outboundMode
+      || settings?.customerOutboundMode
+      || 'CUSTOMER',
+    );
+    const targetDeptId = settings?.deptId ? Number(settings.deptId) : null;
+    const targetGroupCode = settings?.groupCode ? String(settings.groupCode) : null;
     if (customerAllocations.length > 0) {
       customerAllocations.forEach((allocation) => {
         const quantity = Number(allocation?.quantity || 0);
@@ -292,7 +298,8 @@ function buildSheetOutboundPayloads(items, settings) {
           quantity,
           outboundMode: apiOutboundMode,
           stockScope: 'self',
-          groupCode: null,
+          deptId: apiOutboundMode === 'GROUP_CUSTOMER' ? targetDeptId : null,
+          groupCode: apiOutboundMode === 'GROUP_CUSTOMER' ? targetGroupCode : null,
           customerId,
           remark: [settings?.remark, draft?.remark].filter(Boolean).join(' / ') || null,
         });
@@ -313,6 +320,7 @@ function buildSheetOutboundPayloads(items, settings) {
         outboundMode: apiOutboundMode,
         stockScope: 'self',
         groupCode,
+        deptId: apiOutboundMode === 'GROUP_CUSTOMER' ? targetDeptId : null,
         customerId: apiOutboundMode === 'GROUP_CUSTOMER' && settings?.customerId
           ? Number(settings.customerId)
           : null,

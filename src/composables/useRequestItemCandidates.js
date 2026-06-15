@@ -6,6 +6,7 @@ import {
   reapplyRequestItemInbound,
   removeRequestItems,
 } from '../api/module';
+import { getNavigationState } from '../utils/navigation-state';
 import TABLE_TEXT from '../utils/module-ui';
 
 export function useRequestItemCandidates(options) {
@@ -48,7 +49,7 @@ export function useRequestItemCandidates(options) {
     const first = rows.value?.[0];
     const fromRow = Number(first?.requestId);
     if (fromRow) return fromRow;
-    const raw = sessionStorage.getItem('jump_request_form_id');
+    const raw = getNavigationState('jump_request_form_id');
     const fromJump = Number(raw);
     if (fromJump) return fromJump;
     return null;

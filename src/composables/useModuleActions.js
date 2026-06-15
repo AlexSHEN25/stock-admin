@@ -1,5 +1,6 @@
 import { message } from 'ant-design-vue';
 import { reapplyRequestInbound } from '../api/module';
+import { setNavigationState } from '../utils/navigation-state';
 import TABLE_TEXT from '../utils/module-ui';
 
 export function useModuleActions(options) {
@@ -24,7 +25,7 @@ export function useModuleActions(options) {
     if (!navigation) return;
     const id = getRecordId(record);
     if (!id) return;
-    sessionStorage.setItem(navigation.storageKey, String(id));
+    setNavigationState(navigation.storageKey, id);
     emit('navigate-module', navigation.targetModule);
   }
 

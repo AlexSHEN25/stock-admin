@@ -252,11 +252,10 @@ watch(
   () => props.open,
   (open) => {
     if (open) {
-      if (isDelivery.value) {
-        activeTab.value = props.allowGroupOutbound ? 'group' : 'customer';
-      } else {
-        activeTab.value = props.allowGroupOutbound ? 'group' : 'customer';
-      }
+      const preferredMode = String(props.settings?.allocationMode || '');
+      activeTab.value = preferredMode === 'customer'
+        ? 'customer'
+        : (props.allowGroupOutbound ? 'group' : 'customer');
       syncAllocationMode(activeTab.value);
     }
   },
@@ -269,7 +268,9 @@ watch(
 
 function syncAllocationMode(tab) {
   emit('update-setting', 'allocationMode', tab);
-  emit('update-setting', 'outboundMode', tab === 'group' ? 'GROUP_ALLOCATE' : 'CUSTOMER');
+  emit('update-setting', 'outboundMode', tab === 'group'
+    ? 'GROUP_ALLOCATE'
+    : (props.settings?.customerOutboundMode || 'CUSTOMER'));
   if (tab === 'group') {
     emit('update-setting', 'customerAllocations', []);
   }

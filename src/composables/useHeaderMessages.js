@@ -1,6 +1,7 @@
 import { ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import { fetchPage } from '../api/module';
+import { setNavigationState } from '../utils/navigation-state';
 import { filterUnreadMessages, markAllMessagesRead, markMessageRead, removeMessageById } from '../utils/message';
 import TABLE_TEXT, { HEADER_UI, MODULE_LAYOUT_CONFIG } from '../utils/module-ui';
 
@@ -96,7 +97,7 @@ export function useHeaderMessages(options) {
     const navigation = HEADER_MESSAGE_SOURCE_NAVIGATIONS[String(Number(item?.type || 0))] || HEADER_MESSAGE_SOURCE_NAVIGATIONS.default;
     if (!navigation) return;
 
-    sessionStorage.setItem(navigation.storageKey, String(sourceId));
+    setNavigationState(navigation.storageKey, sourceId);
     navigateModule(navigation.targetModule);
   }
 

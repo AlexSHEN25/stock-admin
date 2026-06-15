@@ -171,8 +171,9 @@
               :can-edit="canEditRecord(record)"
               :can-delete="canDeleteRecord(record)"
               :editing="isEditing(record)"
-              :show-inbound="isGoodsManagement || isSplitStockManagement"
+              :show-inbound="isGoodsManagement && canUseGoodsInboundActions"
               :inbound-done="isGoodsInboundDone(record)"
+              :show-outbound="canUseGoodsOutboundActions && canGoodsOutbound(record)"
               :can-outbound="canGoodsOutbound(record)"
               :can-show-extra-action="canShowRowExtraAction"
               @inbound="openGoodsInboundModal"
@@ -344,6 +345,7 @@ import TABLE_TEXT, {
 } from '../utils/module-ui';
 import {
 } from '../utils/permission';
+import { clearNavigationState, getNavigationState, setNavigationState } from '../utils/navigation-state';
 import { hasActiveFilters } from '../utils/table';
 
 const STOCK_EDIT_PAYLOAD_FIELDS = ['id', 'goodsId', 'goodsName', 'skuId', 'skuCode', 'warehouseId', 'price', 'currency', 'stockTypeId', 'status', 'version'];
@@ -351,7 +353,6 @@ const GOODS_INBOUND_FIELDS = ['sourceType', 'warehouseId', 'stockTypeId', 'quant
 const GOODS_OUTBOUND_FIELDS = ['outboundMode', 'stockScope', 'customerId', 'deptId', 'warehouseId', 'stockTypeId', 'quantity', 'remark'];
 const GOODS_OUTBOUND_MODE_CUSTOMER = 'customer';
 const GOODS_OUTBOUND_MODE_DEPT = 'dept';
-const GOODS_FLOW_SESSION_KEY = 'goods_stock_flow_state';
 const STOCK_ORDER_DEFAULT_SOURCE_TYPE = 4;
 const STOCK_ORDER_DEFAULT_STATE = 0;
 const STOCK_ORDER_USER_SOURCE_TYPES = new Set([3, 4]);
@@ -389,10 +390,12 @@ const sheetOutboundDrafts = reactive({});
 const sheetOutboundSettings = reactive({
   allocationMode: 'group',
   outboundMode: 'CUSTOMER',
+  customerOutboundMode: 'CUSTOMER',
   warehouseId: null,
   stockTypeId: null,
   customerId: null,
   deptId: null,
+  groupCode: null,
   customerAllocations: [],
   saleDeadline: null,
   remark: '',
@@ -401,7 +404,6 @@ const goodsFlowByRowKey = reactive({});
 const goodsStockRows = ref([]);
 const customerGoodsMatrixColumns = ref([]);
 const activeGoodsRowKey = ref('');
-restoreGoodsFlowState();
 const isGoodsManagement = computed(() => props.moduleKey === 'goods');
 const isSplitStockManagement = computed(() => (
   props.moduleKey === 'stock'
@@ -491,6 +493,10 @@ const canGenerateRequestForm = computed(() => (
   props.moduleKey === 'requestItem'
   && Boolean(props.moduleActions?.create || props.moduleActions?.edit)
   && selectedRowKeys.value.length > 0
+));
+const canUseGoodsInboundActions = computed(() => Boolean(props.moduleActions?.create) && isGoodsManagement.value);
+const canUseGoodsOutboundActions = computed(() => (
+  isSplitStockManagement.value || Boolean(props.moduleActions?.create)
 ));
 const isAdminUser = computed(() => isAdminByPermissionCodes(props.permissionCodes || []));
 const {
@@ -762,12 +768,13 @@ const visibleGoodsOutboundFields = computed(() => GOODS_OUTBOUND_FIELDS.filter((
   return true;
 }));
 const canOpenSheetOutbound = computed(() => (
-  (isGoodsManagement.value || isSplitStockManagement.value)
-  && canWrite.value
-  && selectedGoodsRows().length > 0
+  isSplitStockManagement.value
+    ? selectedGoodsRows().some((record) => canGoodsOutbound(record))
+    : (isGoodsManagement.value && canWrite.value && selectedGoodsRows().length > 0)
 ));
 const canOpenSheetInbound = computed(() => (
   isGoodsManagement.value
+  && canUseGoodsInboundActions.value
   && canWrite.value
   && selectedGoodsRows().length > 0
 ));
@@ -1098,12 +1105,16 @@ async function openSheetOutboundModal(record = null) {
       };
   });
   sheetOutboundActiveRowKey.value = goodsRowKey(selected[0]);
-  sheetOutboundSettings.outboundMode = 'GROUP_ALLOCATE';
-  sheetOutboundSettings.allocationMode = 'group';
+  const isGroupStockModule = props.moduleKey === 'stockGroup'
+    || /^stockGroup[ABC]$/.test(props.moduleKey);
+  sheetOutboundSettings.customerOutboundMode = isGroupStockModule ? 'GROUP_CUSTOMER' : 'CUSTOMER';
+  sheetOutboundSettings.outboundMode = sheetOutboundSettings.customerOutboundMode;
+  sheetOutboundSettings.allocationMode = 'customer';
   sheetOutboundSettings.warehouseId = firstNonEmptyValue(selected, 'warehouseId');
   sheetOutboundSettings.stockTypeId = firstNonEmptyValue(selected, 'stockTypeId');
   sheetOutboundSettings.customerId = null;
-  sheetOutboundSettings.deptId = props.currentDeptId || null;
+  sheetOutboundSettings.deptId = firstNonEmptyValue(selected, 'deptId') || props.currentDeptId || null;
+  sheetOutboundSettings.groupCode = firstNonEmptyValue(selected, 'groupCode') || null;
   sheetOutboundSettings.customerAllocations = [];
   sheetOutboundSettings.saleDeadline = null;
   sheetOutboundSettings.remark = '';
@@ -1131,7 +1142,8 @@ async function openSheetInboundModal() {
   sheetOutboundSettings.warehouseId = firstNonEmptyValue(selected, 'warehouseId');
   sheetOutboundSettings.stockTypeId = firstNonEmptyValue(selected, 'stockTypeId');
   sheetOutboundSettings.customerId = null;
-  sheetOutboundSettings.deptId = props.currentDeptId || null;
+  sheetOutboundSettings.deptId = firstNonEmptyValue(selected, 'deptId') || props.currentDeptId || null;
+  sheetOutboundSettings.groupCode = firstNonEmptyValue(selected, 'groupCode') || null;
   sheetOutboundSettings.customerAllocations = [];
   sheetOutboundSettings.saleDeadline = null;
   sheetOutboundSettings.remark = '';
@@ -1399,21 +1411,8 @@ function customerQtyBreakdown(record) {
     .filter((item) => !Number.isNaN(item.qty) && item.qty !== 0);
 }
 
-function restoreGoodsFlowState() {
-  try {
-    const stored = sessionStorage.getItem(GOODS_FLOW_SESSION_KEY);
-    if (!stored) return;
-    const parsed = JSON.parse(stored);
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      Object.assign(goodsFlowByRowKey, parsed);
-    }
-  } catch (_error) {
-    sessionStorage.removeItem(GOODS_FLOW_SESSION_KEY);
-  }
-}
-
 function persistGoodsFlowState() {
-  sessionStorage.setItem(GOODS_FLOW_SESSION_KEY, JSON.stringify(goodsFlowByRowKey));
+  // Browser storage cache removed intentionally.
 }
 
 function openRequestItemCandidateModal() {
@@ -1861,7 +1860,7 @@ function resolveCurrentRequestId() {
   const first = rows.value?.[0];
   const fromRow = Number(first?.requestId);
   if (fromRow) return fromRow;
-  const raw = sessionStorage.getItem('jump_request_form_id');
+  const raw = getNavigationState('jump_request_form_id');
   const fromJump = Number(raw);
   if (fromJump) return fromJump;
   return null;
@@ -1903,10 +1902,10 @@ function isCompletedOutboundRecord(record) {
 function rememberRequestFormState(record) {
   const state = resolveRequestFormState(record);
   if (state === null) {
-    sessionStorage.removeItem('jump_request_form_state');
+    clearNavigationState('jump_request_form_state');
     return;
   }
-  sessionStorage.setItem('jump_request_form_state', String(state));
+  setNavigationState('jump_request_form_state', state);
 }
 
 function resolveRequestFormState(record) {
@@ -1929,7 +1928,7 @@ function isCurrentRequestCompleted() {
   if (props.moduleKey !== 'requestItem') return false;
   const rowCompleted = (rows.value || []).some((row) => isCompletedRequestRecord(row));
   if (rowCompleted) return true;
-  const raw = sessionStorage.getItem('jump_request_form_state');
+  const raw = getNavigationState('jump_request_form_state');
   const state = Number(raw);
   return !Number.isNaN(state) && state === REQUEST_FORM_COMPLETED_STATE;
 }

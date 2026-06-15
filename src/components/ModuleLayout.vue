@@ -113,12 +113,16 @@
           >
             {{ HEADER_UI.changePassword }}
           </a-button>
-          <a-button
-            type="link"
-            @click="$emit('logout')"
+          <a-popconfirm
+            :title="HEADER_UI.logoutConfirm || 'ログアウトしますか？'"
+            :ok-text="HEADER_UI.yes || 'はい'"
+            :cancel-text="HEADER_UI.cancel"
+            @confirm="$emit('logout')"
           >
-            {{ HEADER_UI.logout }}
-          </a-button>
+            <a-button type="link">
+              {{ HEADER_UI.logout }}
+            </a-button>
+          </a-popconfirm>
         </a-space>
       </a-layout-header>
       <a-layout-content class="content-wrap">
