@@ -99,6 +99,27 @@
         納品振分
       </a-button>
       <a-button
+        v-if="moduleKey === 'goods' && canWrite"
+        class="search-btn"
+        :disabled="goodsImportLoading"
+        @click="$emit('download-goods-template')"
+      >
+        商品テンプレート
+      </a-button>
+      <a-upload
+        v-if="moduleKey === 'goods' && canWrite"
+        accept=".xlsx,.xls"
+        :show-upload-list="false"
+        :before-upload="(file) => { $emit('goods-import', file); return false; }"
+      >
+        <a-button
+          class="search-btn"
+          :loading="goodsImportLoading"
+        >
+          商品一括導入
+        </a-button>
+      </a-upload>
+      <a-button
         v-if="moduleKey === 'message' && canWrite"
         class="search-btn"
         @click="$emit('read-all')"
@@ -131,6 +152,7 @@ const props = defineProps({
   canSheetInbound: { type: Boolean, default: false },
   canSheetOutbound: { type: Boolean, default: false },
   canGenerateRequestForm: { type: Boolean, default: false },
+  goodsImportLoading: { type: Boolean, default: false },
   selectedCount: { type: Number, default: 0 },
   queryInputType: { type: Function, required: true },
   queryOptions: { type: Function, required: true },
@@ -146,6 +168,8 @@ const emit = defineEmits([
   'create',
   'sheet-inbound',
   'sheet-outbound',
+  'download-goods-template',
+  'goods-import',
   'read-all',
   'generate-request-form',
   'update-field',

@@ -15,6 +15,7 @@
       :can-sheet-inbound="canOpenSheetInbound"
       :can-sheet-outbound="canOpenSheetOutbound"
       :can-generate-request-form="canGenerateRequestForm"
+      :goods-import-loading="goodsImportLoading"
       :selected-count="selectedRowKeys.length"
       :query-input-type="queryInputType"
       :query-options="queryOptions"
@@ -27,6 +28,8 @@
       @create="openCreate"
       @sheet-inbound="openSheetInboundModal"
       @sheet-outbound="openSheetOutboundModal"
+      @download-goods-template="downloadGoodsImportTemplate"
+      @goods-import="importGoodsBatchFromFile"
       @read-all="onReadAllMessages"
       @generate-request-form="generateRequestForm"
       @update-field="updateQueryField"
@@ -310,6 +313,7 @@ import {
   fetchCustomerStockGoodsTreePage,
   fetchMyGroupStockAvailable,
   fetchModuleOptions,
+  importGoodsByExcel,
   updateItem,
   removeItem,
   uploadFileByBizType,
@@ -333,6 +337,7 @@ import { useModuleTableSchema } from '../composables/useModuleTableSchema';
 import { useModuleTableState } from '../composables/useModuleTableState';
 import { approveStockOrder, fetchCurrentUserCustomerPage } from '../api/module';
 import { downloadRequestFormFile, downloadRequestFormPdf } from '../utils/download';
+import { downloadFileByUrl } from '../utils/download';
 import { markAllMessageListRead, markAllMessagesRead, markMessageListRead, markMessageRead } from '../utils/message';
 import { submitDeliveryAllocationFlow, submitGoodsStockOutboundFlow, submitSheetStockInboundFlow, submitSheetStockOutboundFlow, submitStockInboundFlow, submitStockOrderItemReturnFlow, submitStockQuantityAdjustment } from '../utils/stock';
 import { getModulePreset, guessFieldType, isRequiredFormField, mapNameFieldToIdField, normalizeTitle, relationLabel, relationModuleByField } from '../utils/module';
@@ -378,6 +383,7 @@ const props = defineProps({
 const emit = defineEmits(['navigate-module']);
 const goodsInboundModalOpen = ref(false);
 const goodsOutboundModalOpen = ref(false);
+const goodsImportLoading = ref(false);
 const goodsStockLoading = ref(false);
 const goodsInboundForm = reactive({});
 const goodsOutboundForm = reactive({});
@@ -1073,6 +1079,47 @@ async function submitGoodsOutbound() {
     persistGoodsFlowState();
     await loadGoodsStockRows();
   }
+}
+
+async function downloadGoodsImportTemplate() {
+  try {
+    await downloadFileByUrl('/api/goods/import/template', 'goods-import-template.xlsx');
+  } catch (error) {
+    message.error(error?.message || 'テンプレートのダウンロードに失敗しました');
+  }
+}
+
+async function importGoodsBatchFromFile(file) {
+  const rawFile = file?.originFileObj || file;
+  if (!rawFile) return false;
+  goodsImportLoading.value = true;
+  try {
+    const result = await importGoodsByExcel(rawFile);
+    const summary = formatGoodsImportSummary(result);
+    message.success(summary || '商品を一括導入しました');
+    await reload();
+  } catch (error) {
+    message.error(error?.message || '商品一括導入に失敗しました');
+  } finally {
+    goodsImportLoading.value = false;
+  }
+  return false;
+}
+
+function formatGoodsImportSummary(result) {
+  if (!result || typeof result !== 'object') return '';
+  const total = Number(result.totalCount ?? result.total ?? 0);
+  const success = Number(result.successCount ?? 0);
+  const created = Number(result.createdCount ?? 0);
+  const updated = Number(result.updatedCount ?? 0);
+  const failed = Number(result.failureCount ?? 0);
+  const parts = [];
+  if (total > 0) parts.push(`合計 ${total}`);
+  if (success > 0) parts.push(`成功 ${success}`);
+  if (created > 0) parts.push(`新規 ${created}`);
+  if (updated > 0) parts.push(`更新 ${updated}`);
+  if (failed > 0) parts.push(`失敗 ${failed}`);
+  return parts.length > 0 ? parts.join(' / ') : '';
 }
 
 async function openSheetOutboundModal(record = null) {

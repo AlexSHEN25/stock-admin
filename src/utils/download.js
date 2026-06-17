@@ -32,6 +32,40 @@ export async function downloadRequestFormPdf(recordId, fallbackMessage) {
   return downloadRequestFormFile(recordId, fallbackMessage, 'pdf');
 }
 
+export async function downloadFileByUrl(url, fallbackFileName) {
+  const token = getStoredToken();
+  if (!token) {
+    window.dispatchEvent(new CustomEvent('auth-expired'));
+    throw new Error('繝ｭ繧ｰ繧､繝ｳ縺ｮ譛牙柑譛滄剞縺悟・繧後∪縺励◆');
+  }
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Accept-Language': 'ja-JP',
+      'X-Lang': 'ja-JP',
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`download failed(${response.status})`);
+  }
+
+  const blob = await response.blob();
+  const fileName = resolveDownloadFileName(response, fallbackFileName);
+  const saved = await saveByFilePicker(blob, fileName);
+  if (saved) return;
+
+  const urlObject = window.URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = urlObject;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(urlObject);
+}
+
 async function requestDownload(url, token) {
   return fetch(url, {
     method: 'GET',
@@ -90,8 +124,8 @@ async function saveByFilePicker(blob, fileName) {
   }
 }
 
-function resolveDownloadFileName(response, recordId) {
-  const fallback = fallbackFileName(response, recordId);
+function resolveDownloadFileName(response, fallbackName) {
+  const fallback = fallbackFileName(response, fallbackName);
   const disposition = response.headers.get('content-disposition') || '';
   if (!disposition) return fallback;
 
@@ -115,8 +149,10 @@ function resolveDownloadFileName(response, recordId) {
   return fallback;
 }
 
-function fallbackFileName(response, recordId) {
+function fallbackFileName(response, fallbackName) {
   const contentType = String(response.headers.get('content-type') || '').toLowerCase();
-  if (contentType.includes('pdf')) return `request_${recordId}.pdf`;
-  return `request_${recordId}.xlsx`;
+  const raw = String(fallbackName || '').trim();
+  if (raw) return raw;
+  if (contentType.includes('pdf')) return 'download.pdf';
+  return 'download.xlsx';
 }

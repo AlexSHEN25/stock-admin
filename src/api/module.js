@@ -234,6 +234,20 @@ export async function fetchGoodsFormOptions() {
   return data && typeof data === 'object' ? data : {};
 }
 
+export async function importGoodsByExcel(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return http.post('/api/goods/import/upsert', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+}
+
+export async function upsertGoodsBatch(payload) {
+  return http.post('/api/goods/batch/upsert', payload || {});
+}
+
 export async function getCandidateItems(id) {
   if (id === undefined || id === null || String(id).trim() === '') return [];
   const data = await http.get(`/api/requestForm/${id}/candidateItems`);

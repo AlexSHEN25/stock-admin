@@ -408,6 +408,52 @@ html[data-theme-mode='dark'] .module-table .ant-table-content::-webkit-scrollbar
   background: linear-gradient(180deg, rgba(152, 152, 152, 0.66), rgba(112, 112, 112, 0.56));
 }
 
+html[data-theme-mode='dark'] .customer-matrix-surface.ant-card,
+html[data-theme-mode='dark'] .customer-matrix-surface.ant-card-bordered,
+html[data-theme-mode='dark'] .customer-matrix-surface .ant-card-body,
+html[data-theme-mode='dark'] .customer-matrix-stage,
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-table-wrapper,
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-table,
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-table-container,
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-table-content,
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-spin-nested-loading,
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-spin-container {
+  background: #101010 !important;
+}
+
+html[data-theme-mode='dark'] .customer-matrix-surface.ant-card,
+html[data-theme-mode='dark'] .customer-matrix-surface.ant-card-bordered,
+html[data-theme-mode='dark'] .customer-matrix-stage {
+  border-color: #2a2a2a !important;
+  box-shadow: none !important;
+}
+
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-table-thead > tr > th,
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-table-tbody > tr > td,
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-table-cell,
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-table-row,
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-table-expanded-row > td {
+  background: #101010 !important;
+  border: none !important;
+}
+
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-table-thead > tr > th::before,
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-table-thead > tr > th::after,
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-table-cell::before,
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-table-cell::after,
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-table-container::before,
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-table-container::after {
+  display: none !important;
+  content: none !important;
+}
+
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-table-pagination,
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-pagination,
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-pagination-options,
+html[data-theme-mode='dark'] .customer-matrix-stage .ant-select-selector {
+  background: #101010 !important;
+}
+
 html[data-theme-mode='dark'] .login-wrap {
   background: transparent;
 }
