@@ -328,6 +328,7 @@ export function useModuleTableState(options) {
     initQuery,
     applyPendingQuery,
     reload,
+    buildQueryParams,
     resetQuery,
     doSearch,
     onChange,

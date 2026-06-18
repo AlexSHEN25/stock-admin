@@ -25,13 +25,13 @@ export async function downloadRequestFormPdf(recordId, fallbackMessage) {
   return downloadRequestFormFile(recordId, fallbackMessage, 'pdf');
 }
 
-export async function downloadFileByUrl(url, fallbackFileName) {
+export async function downloadFileByUrl(url, fallbackFileName, params = null) {
   const token = getStoredToken();
   if (!token) {
     notifyAuthExpired();
   }
 
-  const response = await requestDownload(url, token);
+  const response = await requestDownload(buildDownloadUrl(url, params), token);
   if (!response.ok) {
     throw new Error(DOWNLOAD_MESSAGES.failed(response.status));
   }
@@ -42,6 +42,18 @@ export async function downloadFileByUrl(url, fallbackFileName) {
 function notifyAuthExpired() {
   window.dispatchEvent(new CustomEvent('auth-expired'));
   throw new Error(DOWNLOAD_MESSAGES.authExpired);
+}
+
+function buildDownloadUrl(url, params) {
+  if (!params || typeof params !== 'object') return url;
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || String(value).trim() === '') return;
+    query.append(key, value);
+  });
+  const queryString = query.toString();
+  if (!queryString) return url;
+  return `${url}${String(url).includes('?') ? '&' : '?'}${queryString}`;
 }
 
 async function saveResponseFile(response, fallbackFileName) {

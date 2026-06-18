@@ -14,6 +14,8 @@
       :can-create="canCreateInModule()"
       :can-sheet-inbound="canOpenSheetInbound"
       :can-sheet-outbound="canOpenSheetOutbound"
+      :can-export="canExportCurrentList"
+      :export-loading="exportLoading"
       :can-generate-request-form="canGenerateRequestForm"
       :goods-import-loading="goodsImportLoading"
       :selected-count="selectedRowKeys.length"
@@ -28,6 +30,7 @@
       @create="openCreate"
       @sheet-inbound="openSheetInboundModal"
       @sheet-outbound="openSheetOutboundModal"
+      @export-current="exportCurrentList"
       @download-goods-template="downloadGoodsImportTemplate"
       @goods-import="importGoodsBatchFromFile"
       @read-all="onReadAllMessages"
@@ -393,6 +396,7 @@ const emit = defineEmits(['navigate-module']);
 const goodsInboundModalOpen = ref(false);
 const goodsOutboundModalOpen = ref(false);
 const goodsImportLoading = ref(false);
+const exportLoading = ref(false);
 const goodsStockLoading = ref(false);
 const goodsInboundForm = reactive({});
 const goodsOutboundForm = reactive({});
@@ -556,6 +560,7 @@ const {
   initQuery,
   applyPendingQuery,
   reload,
+  buildQueryParams,
   resetQuery,
   doSearch,
   onChange,
@@ -796,6 +801,10 @@ const canOpenSheetInbound = computed(() => (
   && canUseGoodsInboundActions.value
   && canWrite.value
   && selectedGoodsRows().length > 0
+));
+const canExportCurrentList = computed(() => (
+  props.moduleKey === 'goods'
+  || props.moduleKey === 'stockSelf'
 ));
 
 watch(
@@ -1101,6 +1110,40 @@ async function downloadGoodsImportTemplate() {
   } catch (error) {
     message.error(error?.message || TABLE_TEXT.goodsTemplateDownloadFail);
   }
+}
+
+async function exportCurrentList() {
+  if (!canExportCurrentList.value || exportLoading.value) return;
+  const config = exportConfigByModule();
+  if (!config) return;
+  exportLoading.value = true;
+  try {
+    await downloadFileByUrl(config.url, config.fileName, {
+      sortBy: 'updateTime',
+      sortOrder: 'desc',
+      ...buildQueryParams(),
+    });
+  } catch (error) {
+    message.error(error?.message || TABLE_TEXT.exportFail);
+  } finally {
+    exportLoading.value = false;
+  }
+}
+
+function exportConfigByModule() {
+  if (props.moduleKey === 'goods') {
+    return {
+      url: '/api/goods/export',
+      fileName: 'goods-export.xlsx',
+    };
+  }
+  if (props.moduleKey === 'stockSelf') {
+    return {
+      url: '/api/stock/self/export',
+      fileName: 'stock-self-export.xlsx',
+    };
+  }
+  return null;
 }
 
 async function importGoodsBatchFromFile(file) {

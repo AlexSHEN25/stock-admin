@@ -83,6 +83,14 @@
         {{ tableText.create }}
       </a-button>
       <a-button
+        v-if="canExport"
+        class="search-btn"
+        :loading="exportLoading"
+        @click="$emit('export-current')"
+      >
+        {{ tableText.export }}
+      </a-button>
+      <a-button
         v-if="canWrite && canSheetInbound"
         type="primary"
         class="search-btn"
@@ -151,6 +159,8 @@ const props = defineProps({
   canCreate: { type: Boolean, default: false },
   canSheetInbound: { type: Boolean, default: false },
   canSheetOutbound: { type: Boolean, default: false },
+  canExport: { type: Boolean, default: false },
+  exportLoading: { type: Boolean, default: false },
   canGenerateRequestForm: { type: Boolean, default: false },
   goodsImportLoading: { type: Boolean, default: false },
   selectedCount: { type: Number, default: 0 },
@@ -168,6 +178,7 @@ const emit = defineEmits([
   'create',
   'sheet-inbound',
   'sheet-outbound',
+  'export-current',
   'download-goods-template',
   'goods-import',
   'read-all',
