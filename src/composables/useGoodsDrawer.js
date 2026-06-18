@@ -6,6 +6,8 @@ export function useGoodsDrawer(options) {
   const {
     normalizePayload,
     loadRelationOptions,
+    relationOptions,
+    fetchGoodsCascadeOptions,
     keys,
     pagination,
     rows,
@@ -22,6 +24,7 @@ export function useGoodsDrawer(options) {
   const goodsForm = reactive({});
   const highlightedPrimaryId = ref(null);
   let highlightTimer = null;
+  let cascadeRequestSeq = 0;
 
   const goodsDrawerTitle = computed(() => {
     if (goodsDrawerMode.value === 'create') return TABLE_TEXT.create;
@@ -33,7 +36,7 @@ export function useGoodsDrawer(options) {
     { label: '人気', value: 1 },
   ]);
 
-  function openGoodsDrawerCreate() {
+  async function openGoodsDrawerCreate() {
     goodsDrawerMode.value = 'create';
     goodsDrawerOpen.value = true;
     goodsDetailRecord.value = null;
@@ -41,7 +44,8 @@ export function useGoodsDrawer(options) {
       status: 1,
       currency: 'JPY',
     });
-    loadRelationOptions(['brandId', 'seriesId', 'categoryId', 'makerId'], keys.value);
+    await loadRelationOptions(['brandId', 'seriesId', 'categoryId', 'makerId'], keys.value);
+    await loadGoodsCascadeOptions();
   }
 
   async function openGoodsDrawerEdit(record) {
@@ -50,6 +54,7 @@ export function useGoodsDrawer(options) {
     goodsDetailRecord.value = record || null;
     resetGoodsForm(record || {});
     await hydrateGoodsDetail(record);
+    await loadGoodsCascadeOptions({ seriesId: goodsForm.seriesId, brandId: goodsForm.brandId });
   }
 
   async function hydrateGoodsDetail(record) {
@@ -61,6 +66,7 @@ export function useGoodsDrawer(options) {
       if (!detail || typeof detail !== 'object') return;
       goodsDetailRecord.value = { ...(record || {}), ...normalizeGoodsDetail(detail) };
       resetGoodsForm(goodsDetailRecord.value);
+      loadGoodsCascadeOptions({ seriesId: goodsForm.seriesId, brandId: goodsForm.brandId });
     } catch (_e) {
       // Keep row values when detail endpoint is temporarily unavailable.
     } finally {
@@ -88,6 +94,12 @@ export function useGoodsDrawer(options) {
 
   function updateGoodsFormField(field, value) {
     goodsForm[field] = value;
+    if (field === 'seriesId') {
+      loadGoodsCascadeOptions({ seriesId: value, brandId: goodsForm.brandId });
+    }
+    if (field === 'brandId') {
+      loadGoodsCascadeOptions({ seriesId: goodsForm.seriesId, brandId: value });
+    }
   }
 
   function resetGoodsForm(source) {
@@ -163,6 +175,71 @@ export function useGoodsDrawer(options) {
       if (!goodsForm.priceUpdateTime || String(goodsForm.priceUpdateTime).trim() === '') return '改定価格を入力した場合、価格更新日時は必須です';
     }
     return '';
+  }
+
+  async function loadGoodsCascadeOptions(params = {}) {
+    if (typeof fetchGoodsCascadeOptions !== 'function' || !relationOptions) return;
+    const requestSeq = ++cascadeRequestSeq;
+    try {
+      const data = await fetchGoodsCascadeOptions(buildCascadeQuery(params));
+      if (requestSeq !== cascadeRequestSeq) return;
+      applyCascadeOptions(data);
+    } catch (_error) {
+      // Keep existing options if the cascade endpoint is temporarily unavailable.
+    }
+  }
+
+  function buildCascadeQuery(params) {
+    const query = {};
+    const seriesId = params.seriesId ?? goodsForm.seriesId;
+    const brandId = params.brandId ?? goodsForm.brandId;
+    if (seriesId !== undefined && seriesId !== null && String(seriesId).trim() !== '') {
+      query.seriesId = seriesId;
+    }
+    if (brandId !== undefined && brandId !== null && String(brandId).trim() !== '') {
+      query.brandId = brandId;
+    }
+    return query;
+  }
+
+  function applyCascadeOptions(data) {
+    const brandOptions = normalizeCascadeOptions(data?.brandOptions);
+    const seriesOptions = normalizeCascadeOptions(data?.seriesOptions);
+    const makerOptions = normalizeCascadeOptions(data?.makerOptions);
+    if (brandOptions.length > 0) {
+      relationOptions.brandId = brandOptions;
+      clearIfMissing('brandId', brandOptions);
+    }
+    if (seriesOptions.length > 0) {
+      relationOptions.seriesId = seriesOptions;
+      clearIfMissing('seriesId', seriesOptions);
+    }
+    if (makerOptions.length > 0) {
+      relationOptions.makerId = makerOptions;
+      clearIfMissing('makerId', makerOptions);
+    }
+  }
+
+  function normalizeCascadeOptions(source) {
+    const seen = new Set();
+    return (Array.isArray(source) ? source : [])
+      .map((item) => {
+        const value = item?.value ?? item?.id ?? item?.code;
+        const label = item?.label ?? item?.name ?? item?.text;
+        if (value === undefined || value === null || label === undefined || label === null) return null;
+        const valueKey = String(value);
+        if (seen.has(valueKey)) return null;
+        seen.add(valueKey);
+        return { value, label: String(label), raw: item };
+      })
+      .filter(Boolean);
+  }
+
+  function clearIfMissing(field, options) {
+    const current = goodsForm[field];
+    if (current === undefined || current === null || String(current).trim() === '') return;
+    const exists = options.some((option) => String(option.value) === String(current));
+    if (!exists) goodsForm[field] = null;
   }
 
   async function saveGoodsDrawer() {

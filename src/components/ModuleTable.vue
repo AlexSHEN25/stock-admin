@@ -163,6 +163,9 @@
           <template v-else-if="hasEnumOptionsMerged(column.key)">
             {{ enumLabelMerged(column.key, record[column.key]) }}
           </template>
+          <template v-else-if="column.key !== '__actions'">
+            {{ normalizeDisplayLabel(record[column.key]) }}
+          </template>
 
           <template v-else-if="column.key === '__actions'">
             <module-row-actions
@@ -310,6 +313,8 @@ import {
   fetchItem,
   fetchOutboundStockOrderOptions,
   fetchGoodsFormOptions,
+  fetchModuleFormOptions,
+  fetchGoodsCascadeOptions,
   fetchCustomerStockGoodsTreePage,
   fetchMyGroupStockAvailable,
   fetchModuleOptions,
@@ -336,8 +341,7 @@ import { useRelationOptions } from '../composables/useRelationOptions';
 import { useModuleTableSchema } from '../composables/useModuleTableSchema';
 import { useModuleTableState } from '../composables/useModuleTableState';
 import { approveStockOrder, fetchCurrentUserCustomerPage } from '../api/module';
-import { downloadRequestFormFile, downloadRequestFormPdf } from '../utils/download';
-import { downloadFileByUrl } from '../utils/download';
+import { downloadFileByUrl, downloadRequestFormFile, downloadRequestFormPdf } from '../utils/download';
 import { markAllMessageListRead, markAllMessagesRead, markMessageListRead, markMessageRead } from '../utils/message';
 import { submitDeliveryAllocationFlow, submitGoodsStockOutboundFlow, submitSheetStockInboundFlow, submitSheetStockOutboundFlow, submitStockInboundFlow, submitStockOrderItemReturnFlow, submitStockQuantityAdjustment } from '../utils/stock';
 import { getModulePreset, guessFieldType, isRequiredFormField, mapNameFieldToIdField, normalizeTitle, relationLabel, relationModuleByField } from '../utils/module';
@@ -349,22 +353,27 @@ import TABLE_TEXT, {
   isAdminByPermissionCodes,
 } from '../utils/module-ui';
 import {
-} from '../utils/permission';
+  GOODS_OUTBOUND_MODE,
+  REQUEST_FORM_STATE,
+  STOCK_ORDER_SOURCE_TYPE,
+  STOCK_ORDER_STATE,
+  STOCK_ORDER_TYPE,
+  STOCK_SCOPE,
+  STOCK_SOURCE_TYPE,
+} from '../utils/constants';
 import { clearNavigationState, getNavigationState, setNavigationState } from '../utils/navigation-state';
 import { hasActiveFilters } from '../utils/table';
 
 const STOCK_EDIT_PAYLOAD_FIELDS = ['id', 'goodsId', 'goodsName', 'skuId', 'skuCode', 'warehouseId', 'price', 'currency', 'stockTypeId', 'status', 'version'];
 const GOODS_INBOUND_FIELDS = ['sourceType', 'warehouseId', 'stockTypeId', 'quantity', 'saleDeadline', 'remark'];
 const GOODS_OUTBOUND_FIELDS = ['outboundMode', 'stockScope', 'customerId', 'deptId', 'warehouseId', 'stockTypeId', 'quantity', 'remark'];
-const GOODS_OUTBOUND_MODE_CUSTOMER = 'customer';
-const GOODS_OUTBOUND_MODE_DEPT = 'dept';
-const STOCK_ORDER_DEFAULT_SOURCE_TYPE = 4;
-const STOCK_ORDER_DEFAULT_STATE = 0;
-const STOCK_ORDER_USER_SOURCE_TYPES = new Set([3, 4]);
-const STOCK_ORDER_USER_STATES = new Set([0, 1]);
-const REQUEST_FORM_DEFAULT_STATE = 0;
-const REQUEST_FORM_COMPLETED_STATE = 2;
-const REQUEST_FORM_USER_STATES = new Set([0, 1]);
+const STOCK_ORDER_DEFAULT_SOURCE_TYPE = STOCK_ORDER_SOURCE_TYPE.SYSTEM;
+const STOCK_ORDER_DEFAULT_STATE = STOCK_ORDER_STATE.PENDING;
+const STOCK_ORDER_USER_SOURCE_TYPES = new Set([STOCK_ORDER_SOURCE_TYPE.INBOUND_REQUEST, STOCK_ORDER_SOURCE_TYPE.SYSTEM]);
+const STOCK_ORDER_USER_STATES = new Set([STOCK_ORDER_STATE.PENDING, STOCK_ORDER_STATE.PROCESSING]);
+const REQUEST_FORM_DEFAULT_STATE = REQUEST_FORM_STATE.PENDING;
+const REQUEST_FORM_COMPLETED_STATE = REQUEST_FORM_STATE.COMPLETED;
+const REQUEST_FORM_USER_STATES = new Set([REQUEST_FORM_STATE.PENDING, REQUEST_FORM_STATE.APPLYING]);
 const NORMAL_STOCK_TYPE_KEYWORDS = ['通常', 'normal'];
 
 const props = defineProps({
@@ -487,7 +496,7 @@ const preset = computed(() => getModulePreset(props.moduleKey));
 const rowExtraActions = computed(() => {
   const base = getRowExtraActions(props.moduleKey) || [];
   if (props.moduleKey === 'requestItem') {
-    return [...base, { key: 'returnToSchedule', label: '納品予定へ追加' }];
+    return [...base, { key: 'returnToSchedule', label: TABLE_TEXT.returnToSchedule }];
   }
   return base;
 });
@@ -669,6 +678,7 @@ const {
   selectOptionsMerged,
   hasEnumOptionsMerged,
   loadGoodsFormOptions,
+  loadRelationFormOptions,
   loadSourceOrderOptions,
 } = useModuleOptions({
   moduleKey: computed(() => props.moduleKey),
@@ -680,6 +690,7 @@ const {
   queryRelationOptions,
   fetchEnumOptions,
   fetchGoodsFormOptions,
+  fetchModuleFormOptions,
   fetchOutboundStockOrderOptions,
   enumOptionsForField,
   selectOptionsForField,
@@ -723,6 +734,8 @@ const {
 } = useGoodsDrawer({
   normalizePayload,
   loadRelationOptions,
+  relationOptions,
+  fetchGoodsCascadeOptions,
   keys,
   pagination,
   rows,
@@ -768,9 +781,9 @@ const visibleFormKeys = computed(() => {
   return filterFinanceFormKeys(list, formState);
 });
 const visibleGoodsOutboundFields = computed(() => GOODS_OUTBOUND_FIELDS.filter((field) => {
-  if (field === 'customerId') return goodsOutboundForm.outboundMode === GOODS_OUTBOUND_MODE_CUSTOMER;
-  if (field === 'deptId') return goodsOutboundForm.outboundMode === GOODS_OUTBOUND_MODE_DEPT;
-  if (field === 'stockScope') return goodsOutboundForm.outboundMode === GOODS_OUTBOUND_MODE_CUSTOMER;
+  if (field === 'customerId') return goodsOutboundForm.outboundMode === GOODS_OUTBOUND_MODE.CUSTOMER;
+  if (field === 'deptId') return goodsOutboundForm.outboundMode === GOODS_OUTBOUND_MODE.DEPT;
+  if (field === 'stockScope') return goodsOutboundForm.outboundMode === GOODS_OUTBOUND_MODE.CUSTOMER;
   return true;
 }));
 const canOpenSheetOutbound = computed(() => (
@@ -799,6 +812,7 @@ watch(
     if (!isGoodsManagement.value) {
       await loadQueryRelationOptions(queryFields.value);
       await loadScopedRelationOptions(formKeys.value, keys.value);
+      await loadRelationFormOptions();
       await loadSourceOrderOptions();
     }
     await reload();
@@ -908,7 +922,7 @@ async function openGoodsInboundModal(record) {
   activeGoodsRowKey.value = rowKey;
   goodsInboundForm.goodsId = record?.goodsId ?? record?.id;
   goodsInboundForm.skuId = record?.skuId ?? null;
-  goodsInboundForm.sourceType = 2;
+  goodsInboundForm.sourceType = STOCK_SOURCE_TYPE.PURCHASE_INBOUND;
   goodsInboundForm.warehouseId = null;
   goodsInboundForm.stockTypeId = null;
   goodsInboundForm.quantity = null;
@@ -971,7 +985,7 @@ async function submitGoodsInbound() {
 
 async function openGoodsOutboundModal(record) {
   if (!canGoodsOutbound(record)) {
-    message.warning('先に入庫を完了してください');
+    message.warning(TABLE_TEXT.inboundFirst);
     return;
   }
   await openSheetOutboundModal(record);
@@ -989,7 +1003,7 @@ function updateGoodsOutboundField(field, value) {
 }
 
 async function refreshGroupAvailableQty() {
-  if (goodsOutboundForm.stockScope !== 'group') return;
+  if (goodsOutboundForm.stockScope !== STOCK_SCOPE.GROUP) return;
   const { goodsId, skuId, warehouseId, stockTypeId } = goodsOutboundForm;
   if (!goodsId || !skuId || !warehouseId || !stockTypeId) return;
   try {
@@ -1019,16 +1033,16 @@ function goodsOutboundInputType(field) {
 function goodsOutboundSelectOptions(field) {
   if (field === 'outboundMode') {
     return [
-      { label: '顧客出庫', value: GOODS_OUTBOUND_MODE_CUSTOMER },
-      { label: '組別分貨', value: GOODS_OUTBOUND_MODE_DEPT },
+      { label: '顧客出庫', value: GOODS_OUTBOUND_MODE.CUSTOMER },
+      { label: '組別分貨', value: GOODS_OUTBOUND_MODE.DEPT },
     ];
   }
   if (field === 'stockScope') {
-    const options = [{ label: '自社在庫から出庫申請', value: 'self' }];
+    const options = [{ label: '自社在庫から出庫申請', value: STOCK_SCOPE.SELF }];
     if (props.currentGroupCode) {
       options.push({
         label: `${props.currentGroupCode}組在庫から出庫`,
-        value: 'group',
+        value: STOCK_SCOPE.GROUP,
       });
     }
     return options;
@@ -1037,8 +1051,8 @@ function goodsOutboundSelectOptions(field) {
 }
 
 function isGoodsOutboundFieldRequired(field) {
-  if (field === 'customerId') return goodsOutboundForm.outboundMode === GOODS_OUTBOUND_MODE_CUSTOMER;
-  if (field === 'deptId') return goodsOutboundForm.outboundMode === GOODS_OUTBOUND_MODE_DEPT;
+  if (field === 'customerId') return goodsOutboundForm.outboundMode === GOODS_OUTBOUND_MODE.CUSTOMER;
+  if (field === 'deptId') return goodsOutboundForm.outboundMode === GOODS_OUTBOUND_MODE.DEPT;
   return ['outboundMode', 'stockScope', 'warehouseId', 'stockTypeId', 'quantity'].includes(field);
 }
 
@@ -1062,7 +1076,7 @@ async function submitGoodsOutbound() {
   const maxQty = availableGoodsOutboundQty(rowKey);
   const quantity = Number(goodsOutboundForm.quantity);
   if (!maxQty || quantity > maxQty) {
-    message.warning(`出庫数量は${maxQty}以下で入力してください`);
+    message.warning(TABLE_TEXT.maxOutboundQuantity(maxQty));
     return;
   }
   const success = await submitGoodsStockOutboundFlow({
@@ -1085,7 +1099,7 @@ async function downloadGoodsImportTemplate() {
   try {
     await downloadFileByUrl('/api/goods/import/template', 'goods-import-template.xlsx');
   } catch (error) {
-    message.error(error?.message || 'テンプレートのダウンロードに失敗しました');
+    message.error(error?.message || TABLE_TEXT.goodsTemplateDownloadFail);
   }
 }
 
@@ -1096,10 +1110,10 @@ async function importGoodsBatchFromFile(file) {
   try {
     const result = await importGoodsByExcel(rawFile);
     const summary = formatGoodsImportSummary(result);
-    message.success(summary || '商品を一括導入しました');
+    message.success(summary || TABLE_TEXT.goodsImportSuccess);
     await reload();
   } catch (error) {
-    message.error(error?.message || '商品一括導入に失敗しました');
+    message.error(error?.message || TABLE_TEXT.goodsImportFail);
   } finally {
     goodsImportLoading.value = false;
   }
@@ -1114,18 +1128,18 @@ function formatGoodsImportSummary(result) {
   const updated = Number(result.updatedCount ?? 0);
   const failed = Number(result.failureCount ?? 0);
   const parts = [];
-  if (total > 0) parts.push(`合計 ${total}`);
-  if (success > 0) parts.push(`成功 ${success}`);
-  if (created > 0) parts.push(`新規 ${created}`);
-  if (updated > 0) parts.push(`更新 ${updated}`);
-  if (failed > 0) parts.push(`失敗 ${failed}`);
+  if (total > 0) parts.push(`${TABLE_TEXT.goodsImportSummary.total} ${total}`);
+  if (success > 0) parts.push(`${TABLE_TEXT.goodsImportSummary.success} ${success}`);
+  if (created > 0) parts.push(`${TABLE_TEXT.goodsImportSummary.created} ${created}`);
+  if (updated > 0) parts.push(`${TABLE_TEXT.goodsImportSummary.updated} ${updated}`);
+  if (failed > 0) parts.push(`${TABLE_TEXT.goodsImportSummary.failed} ${failed}`);
   return parts.length > 0 ? parts.join(' / ') : '';
 }
 
 async function openSheetOutboundModal(record = null) {
   const selected = record ? [record] : selectedGoodsRows();
   if (selected.length === 0) {
-    message.warning('納品振分する商品を選択してください');
+    message.warning(TABLE_TEXT.selectDeliveryGoods);
     return;
   }
   sheetFlowMode.value = isSplitStockManagement.value ? 'outbound' : 'delivery';
@@ -1170,7 +1184,7 @@ async function openSheetOutboundModal(record = null) {
 async function openSheetInboundModal() {
   const selected = selectedGoodsRows();
   if (selected.length === 0) {
-    message.warning('入庫する商品を選択してください');
+    message.warning(TABLE_TEXT.selectInboundGoods);
     return;
   }
   sheetFlowMode.value = 'inbound';
@@ -1257,7 +1271,7 @@ async function submitSheetFlow() {
       return total > availableGoodsOutboundQty(goodsRowKey(record));
     });
     if (invalid) {
-      message.warning('出庫数量は現在庫以下で入力してください');
+      message.warning(TABLE_TEXT.outboundBelowCurrentQty);
       return;
     }
   }
@@ -1268,7 +1282,7 @@ async function submitSheetFlow() {
       return groupTotal > availableGoodsOutboundQty(goodsRowKey(record));
     });
     if (invalid) {
-      message.warning('A/B/C組振分合計は現在数量以下で入力してください');
+      message.warning(TABLE_TEXT.abcTotalBelowCurrentQty);
       return;
     }
   }
@@ -1461,7 +1475,7 @@ function persistGoodsFlowState() {
 
 function openRequestItemCandidateModal() {
   if (props.moduleKey === 'requestItem' && isCurrentRequestCompleted()) {
-    message.warning('完了済みの請求書は明細を変更できません');
+    message.warning(TABLE_TEXT.completedRequestReadonly);
     return;
   }
   openCandidateModal();
@@ -1486,6 +1500,7 @@ function openCreate() {
     applyRequestFormCreateDefaults();
     loadScopedRelationOptions(formKeys.value, keys.value).then(() => {
       applyStockOrderRelationDefaults();
+      loadRelationFormOptions();
     });
     loadSourceOrderOptions();
   }
@@ -1497,12 +1512,29 @@ async function openEdit(record) {
     openGoodsDrawerEdit(record);
     return;
   }
-  const editRecord = await loadStockDetail(record);
+  const editRecord = await loadEditDetail(record);
   const opened = openEditState(editRecord, getRecordId);
   if (opened) {
     loadScopedRelationOptions(activeFormKeys(), keys.value);
+    loadRelationFormOptions();
     loadSourceOrderOptions();
   }
+}
+
+async function loadEditDetail(record) {
+  if (isSplitStockManagement.value) return loadStockDetail(record);
+  if (!hasRelationFormOptions()) return record;
+  try {
+    const detail = await fetchItem(props.moduleKey, getRecordId(record));
+    return detail && typeof detail === 'object' ? { ...record, ...detail } : record;
+  } catch (error) {
+    message.error(error?.message || TABLE_TEXT.fetchFail);
+    return record;
+  }
+}
+
+function hasRelationFormOptions() {
+  return ['brand', 'series', 'maker'].includes(props.moduleKey);
 }
 
 async function loadStockDetail(record) {
@@ -1758,6 +1790,9 @@ function scopedSelectOptions(field) {
 
 function normalizeModulePayload(payload) {
   const output = normalizePayload(payload);
+  if (props.moduleKey === 'series' && Array.isArray(output.brandIds) && output.brandIds.length > 0) {
+    output.brandId = output.brandId || output.brandIds[0];
+  }
   if (props.moduleKey === 'requestForm' && !isAdminUser.value) {
     if (Object.prototype.hasOwnProperty.call(output, 'state') && !REQUEST_FORM_USER_STATES.has(Number(output.state))) {
       output.state = REQUEST_FORM_DEFAULT_STATE;
@@ -1877,11 +1912,11 @@ async function generateRequestForm() {
   const requestId = resolveCurrentRequestId();
   const items = selectedRequestItemRows();
   if (!requestId) {
-    message.warning('請求書を選択してください');
+    message.warning(TABLE_TEXT.selectRequestForm);
     return;
   }
   if (items.length === 0) {
-    message.warning('生成する請求書明細を選択してください');
+    message.warning(TABLE_TEXT.selectRequestItems);
     return;
   }
 
@@ -1889,9 +1924,9 @@ async function generateRequestForm() {
     await updateItem('requestForm', {
       id: requestId,
       state: 2,
-      approveRemark: '生成済み',
+      approveRemark: TABLE_TEXT.requestFormCompleted,
     });
-    message.success('請求書を生成しました');
+    message.success(TABLE_TEXT.requestFormGenerated);
     await reload();
   } catch (error) {
     message.error(error?.message || TABLE_TEXT.saveFail);
@@ -1939,8 +1974,8 @@ function isCompletedOutboundRecord(record) {
   const orderType = Number(record?.orderType ?? record?.stockOrderType);
   const state = Number(record?.state ?? record?.orderState);
   const changeQty = Number(record?.changeQty ?? 0);
-  const isOutbound = orderType === 2 || changeQty < 0;
-  return isOutbound && state === 2;
+  const isOutbound = orderType === STOCK_ORDER_TYPE.OUTBOUND || changeQty < 0;
+  return isOutbound && state === STOCK_ORDER_STATE.COMPLETED;
 }
 
 function rememberRequestFormState(record) {
@@ -1992,7 +2027,7 @@ function canDeleteRecord(_record) {
 function canEditRecord(record) {
   if (props.moduleKey === 'requestForm' && isCompletedRequestRecord(record)) return false;
   if (props.moduleKey === 'requestItem' && (isCompletedRequestRecord(record) || isCurrentRequestCompleted())) return false;
-  if (props.moduleKey === 'stockOrder' && Number(record?.state ?? record?.orderState) === 2) return false;
+  if (props.moduleKey === 'stockOrder' && Number(record?.state ?? record?.orderState) === STOCK_ORDER_STATE.COMPLETED) return false;
   return Boolean(props.moduleActions?.edit);
 }
 
@@ -2000,7 +2035,7 @@ function canInlineEditRecord(record) {
   if (props.moduleKey === 'requestForm' && isCompletedRequestRecord(record)) return false;
   if (props.moduleKey === 'requestItem' && (isCompletedRequestRecord(record) || isCurrentRequestCompleted())) return false;
   if (props.moduleKey === 'requestItem') return false;
-  if (props.moduleKey === 'stockOrder' && Number(record?.state ?? record?.orderState) === 2) return false;
+  if (props.moduleKey === 'stockOrder' && Number(record?.state ?? record?.orderState) === STOCK_ORDER_STATE.COMPLETED) return false;
   return Boolean(props.moduleActions?.inlineEdit);
 }
 
@@ -2009,7 +2044,7 @@ async function submitStockOrderApproval(record, approved) {
   if (!orderId) return;
   try {
     await approveStockOrder(orderId, approved);
-    message.success(approved ? '承認しました' : '拒否しました');
+    message.success(approved ? TABLE_TEXT.approveSuccess : TABLE_TEXT.rejectSuccess);
     await reload();
   } catch (error) {
     message.error(error?.message || TABLE_TEXT.saveFail);
@@ -2017,7 +2052,11 @@ async function submitStockOrderApproval(record, approved) {
 }
 
 function isMultiRelationField(field) {
-  return props.moduleKey === 'role' && String(field || '').toLowerCase() === 'permissionids';
+  const key = String(field || '').toLowerCase();
+  return key === 'permissionids'
+    || key === 'seriesids'
+    || key === 'makerids'
+    || key === 'brandids';
 }
 
 function isFormFieldRequired(field) {
@@ -2030,7 +2069,7 @@ function isFormFieldRequired(field) {
 function formPlaceholder(field) {
   const low = String(field || '').toLowerCase();
   if (props.moduleKey === 'user' && editing.value && low === 'password') {
-    return '空欄の場合、パスワードは更新されません';
+    return TABLE_TEXT.passwordEmptyNoChange;
   }
   return '';
 }

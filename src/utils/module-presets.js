@@ -275,24 +275,28 @@ export const MODULE_PRESETS = {
     fieldTypes: { parentId: 'relation', sort: 'number', status: 'select' },
   },
   maker: {
-    queryFields: NAME_STATUS_QUERY_FIELDS,
-    formFields: NAME_STATUS_FORM_FIELDS,
-    fieldTypes: { status: 'select' },
+    tableFields: ['id', 'name', 'brandNames', 'status', 'updateTime'],
+    queryFields: ['id', 'name', 'brandNames', 'status'],
+    formFields: ['name', 'brandIds', 'status'],
+    fieldTypes: { brandIds: 'relation', status: 'select' },
   },
   brand: {
-    queryFields: ['id', 'name', 'englishName', 'image', 'content', 'status'],
-    formFields: ['name', 'englishName', 'image', 'content', 'status'],
-    fieldTypes: { status: 'select' },
+    tableFields: ['id', 'name', 'englishName', 'seriesNames', 'makerNames', 'image', 'content', 'status', 'updateTime'],
+    queryFields: ['id', 'name', 'englishName', 'seriesNames', 'makerNames', 'image', 'content', 'status'],
+    formFields: ['name', 'englishName', 'image', 'content', 'seriesIds', 'makerIds', 'status'],
+    fieldTypes: { image: 'image', content: 'textarea', seriesIds: 'relation', makerIds: 'relation', status: 'select' },
   },
   category: {
+    tableFields: ['id', 'name', 'status', 'updateTime'],
     queryFields: NAME_STATUS_QUERY_FIELDS,
     formFields: NAME_STATUS_FORM_FIELDS,
     fieldTypes: { status: 'select' },
   },
   series: {
-    queryFields: ['id', 'name', 'englishName', 'brandId', 'content', 'status'],
-    formFields: ['name', 'englishName', 'brandId', 'content', 'status'],
-    fieldTypes: { brandId: 'relation', status: 'select' },
+    tableFields: ['id', 'name', 'englishName', 'brandNames', 'content', 'status', 'updateTime'],
+    queryFields: ['id', 'name', 'englishName', 'brandNames', 'content', 'status'],
+    formFields: ['name', 'englishName', 'brandIds', 'content', 'status'],
+    fieldTypes: { brandIds: 'relation', content: 'textarea', status: 'select' },
   },
   config: {
     queryFields: ['id', 'name', 'group', 'title', 'tip', 'type', 'value', 'content'],
@@ -346,7 +350,7 @@ export const REQUIRED_FORM_FIELDS = {
   maker: ['name', 'status'],
   brand: ['name', 'status'],
   category: ['name', 'status'],
-  series: ['name', 'brandId', 'status'],
+  series: ['name', 'brandIds', 'status'],
 };
 
 export function getModulePreset(moduleKey) {

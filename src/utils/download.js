@@ -1,20 +1,52 @@
 import { getStoredToken } from '../api/http';
 
+const DOWNLOAD_MESSAGES = {
+  authExpired: 'ログインの有効期限が切れました',
+  failed: (status) => `ダウンロードに失敗しました（${status}）`,
+};
+
 export async function downloadRequestFormFile(recordId, fallbackMessage, format = 'excel') {
   if (!recordId) return;
 
   const token = getStoredToken();
   if (!token) {
-    window.dispatchEvent(new CustomEvent('auth-expired'));
-    throw new Error('ログインの有効期限が切れました');
-  }
-  let response = await requestWithFallback(recordId, token, format);
-  if (!response.ok) {
-    throw new Error(`${fallbackMessage}(${response.status})`);
+    notifyAuthExpired();
   }
 
+  const response = await requestWithFallback(recordId, token, format);
+  if (!response.ok) {
+    throw new Error(`${fallbackMessage}（${response.status}）`);
+  }
+
+  await saveResponseFile(response, recordId);
+}
+
+export async function downloadRequestFormPdf(recordId, fallbackMessage) {
+  return downloadRequestFormFile(recordId, fallbackMessage, 'pdf');
+}
+
+export async function downloadFileByUrl(url, fallbackFileName) {
+  const token = getStoredToken();
+  if (!token) {
+    notifyAuthExpired();
+  }
+
+  const response = await requestDownload(url, token);
+  if (!response.ok) {
+    throw new Error(DOWNLOAD_MESSAGES.failed(response.status));
+  }
+
+  await saveResponseFile(response, fallbackFileName);
+}
+
+function notifyAuthExpired() {
+  window.dispatchEvent(new CustomEvent('auth-expired'));
+  throw new Error(DOWNLOAD_MESSAGES.authExpired);
+}
+
+async function saveResponseFile(response, fallbackFileName) {
   const blob = await response.blob();
-  const fileName = resolveDownloadFileName(response, recordId);
+  const fileName = resolveDownloadFileName(response, fallbackFileName);
   const saved = await saveByFilePicker(blob, fileName);
   if (saved) return;
 
@@ -26,44 +58,6 @@ export async function downloadRequestFormFile(recordId, fallbackMessage, format 
   anchor.click();
   anchor.remove();
   window.URL.revokeObjectURL(url);
-}
-
-export async function downloadRequestFormPdf(recordId, fallbackMessage) {
-  return downloadRequestFormFile(recordId, fallbackMessage, 'pdf');
-}
-
-export async function downloadFileByUrl(url, fallbackFileName) {
-  const token = getStoredToken();
-  if (!token) {
-    window.dispatchEvent(new CustomEvent('auth-expired'));
-    throw new Error('繝ｭ繧ｰ繧､繝ｳ縺ｮ譛牙柑譛滄剞縺悟・繧後∪縺励◆');
-  }
-
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Accept-Language': 'ja-JP',
-      'X-Lang': 'ja-JP',
-    },
-  });
-  if (!response.ok) {
-    throw new Error(`download failed(${response.status})`);
-  }
-
-  const blob = await response.blob();
-  const fileName = resolveDownloadFileName(response, fallbackFileName);
-  const saved = await saveByFilePicker(blob, fileName);
-  if (saved) return;
-
-  const urlObject = window.URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = urlObject;
-  anchor.download = fileName;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.URL.revokeObjectURL(urlObject);
 }
 
 async function requestDownload(url, token) {
@@ -153,6 +147,6 @@ function fallbackFileName(response, fallbackName) {
   const contentType = String(response.headers.get('content-type') || '').toLowerCase();
   const raw = String(fallbackName || '').trim();
   if (raw) return raw;
-  if (contentType.includes('pdf')) return 'download.pdf';
-  return 'download.xlsx';
+  if (contentType.includes('pdf')) return 'ダウンロード.pdf';
+  return 'ダウンロード.xlsx';
 }

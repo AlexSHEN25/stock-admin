@@ -83,6 +83,12 @@ export function useModuleTablePresentation(options) {
   }
 
   function normalizeDisplayLabel(value) {
+    if (Array.isArray(value)) {
+      const list = value
+        .map((item) => String(item ?? '').trim())
+        .filter(Boolean);
+      return list.length > 0 ? list.join('、') : '-';
+    }
     const text = String(value ?? '');
     if (text.toLowerCase() === 'normal') return '有効';
     return text || '-';

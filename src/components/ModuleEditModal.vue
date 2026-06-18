@@ -31,7 +31,7 @@
             class="goods-thumb"
           >
           <div v-else>
-            + Upload
+            + {{ tableText.upload }}
           </div>
         </a-upload>
         <a-input

@@ -234,6 +234,17 @@ export async function fetchGoodsFormOptions() {
   return data && typeof data === 'object' ? data : {};
 }
 
+export async function fetchModuleFormOptions(modulePath) {
+  const path = resolveModulePath(modulePath);
+  const data = await http.get(`/api/${path}/form/options`);
+  return data && typeof data === 'object' ? data : {};
+}
+
+export async function fetchGoodsCascadeOptions(params = {}) {
+  const data = await http.get('/api/goods/options/cascade', { params });
+  return data && typeof data === 'object' ? data : {};
+}
+
 export async function importGoodsByExcel(file) {
   const formData = new FormData();
   formData.append('file', file);

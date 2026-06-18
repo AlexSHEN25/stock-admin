@@ -120,16 +120,21 @@ export function useModuleTableState(options) {
         formState[key] = Boolean(record[key]);
         return;
       }
-      if (moduleKey.value === 'role' && key === 'permissionIds') {
-        formState[key] = normalizePermissionIds(record);
+      if (isMultiIdField(key)) {
+        formState[key] = normalizeIds(record, key);
         return;
       }
       formState[key] = record[key] ?? null;
     });
   }
 
-  function normalizePermissionIds(record) {
-    const raw = record?.permissionIds ?? record?.permissionId;
+  function isMultiIdField(field) {
+    return String(field || '').endsWith('Ids');
+  }
+
+  function normalizeIds(record, field) {
+    const singular = String(field || '').replace(/Ids$/, 'Id');
+    const raw = record?.[field] ?? record?.[singular];
     if (Array.isArray(raw)) return raw.map((x) => Number(x)).filter((x) => !Number.isNaN(x));
     if (raw === undefined || raw === null || String(raw).trim() === '') return [];
     return String(raw)
@@ -278,8 +283,8 @@ export function useModuleTableState(options) {
     getFormKeys().forEach((key) => {
       if (isReadonlyField(key)) return;
       const targetKey = inlineField(key);
-      if (moduleKey.value === 'role' && targetKey === 'permissionIds') {
-        editState[targetKey] = normalizePermissionIds(record);
+      if (isMultiIdField(targetKey)) {
+        editState[targetKey] = normalizeIds(record, targetKey);
         return;
       }
       if (inputType(targetKey) === 'switch') {

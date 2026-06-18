@@ -13,7 +13,7 @@
       alt="avatar"
     >
     <div v-else>
-      + Upload
+      + {{ TABLE_TEXT.upload }}
     </div>
   </a-upload>
   <a-select
@@ -58,6 +58,7 @@
 
 <script setup>
 import { computed } from 'vue';
+import TABLE_TEXT from '../utils/module-ui';
 
 const props = defineProps({
   field: { type: String, required: true },

@@ -11,6 +11,7 @@ export function useModuleOptions(options) {
     queryRelationOptions,
     fetchEnumOptions,
     fetchGoodsFormOptions,
+    fetchModuleFormOptions,
     fetchOutboundStockOrderOptions,
     enumOptionsForField,
     selectOptionsForField,
@@ -69,6 +70,28 @@ export function useModuleOptions(options) {
     applyGoodsOptionList('currency', data?.currencyOptions);
   }
 
+  async function loadRelationFormOptions() {
+    const optionFields = relationFormOptionFields(moduleKey.value);
+    if (optionFields.length === 0 || typeof fetchModuleFormOptions !== 'function') return;
+    const data = await fetchModuleFormOptions(moduleKey.value);
+    optionFields.forEach(({ field, sourceKey }) => {
+      applyGoodsOptionList(field, data?.[sourceKey]);
+    });
+  }
+
+  function relationFormOptionFields(key) {
+    if (key === 'brand') {
+      return [
+        { field: 'seriesIds', sourceKey: 'seriesOptions' },
+        { field: 'makerIds', sourceKey: 'makerOptions' },
+      ];
+    }
+    if (key === 'series' || key === 'maker') {
+      return [{ field: 'brandIds', sourceKey: 'brandOptions' }];
+    }
+    return [];
+  }
+
   function applyGoodsOptionList(field, source) {
     const mapped = (Array.isArray(source) ? source : [])
       .map((item) => {
@@ -79,7 +102,7 @@ export function useModuleOptions(options) {
       })
       .filter(Boolean);
     if (mapped.length === 0) return;
-    if (['brandId', 'seriesId', 'categoryId', 'makerId'].includes(field)) {
+    if (['brandId', 'brandIds', 'seriesId', 'seriesIds', 'categoryId', 'makerId', 'makerIds'].includes(field)) {
       relationOptions[field] = mapped;
       queryRelationOptions[field] = mapped;
       return;
@@ -111,6 +134,7 @@ export function useModuleOptions(options) {
     selectOptionsMerged,
     hasEnumOptionsMerged,
     loadGoodsFormOptions,
+    loadRelationFormOptions,
     loadSourceOrderOptions,
   };
 }
