@@ -136,16 +136,15 @@ export async function submitStockOutboundFlow({ formState, closeModal, reload, n
 }
 
 export async function submitGoodsStockOutboundFlow({ formState, maxQuantity, closeModal, reload, notify }) {
-  const mode = String(formState.outboundMode || '');
-  const requiredTargetMissing = mode === 'customer'
-    ? !formState.customerId
-    : !formState.deptId;
-  const missing = STOCK_OUTBOUND_REQUIRED_FIELDS.some((field) => {
+  const stockScope = String(formState.stockScope || 'self').toLowerCase();
+  const outboundMode = stockScope === 'group' ? 'GROUP_CUSTOMER' : 'CUSTOMER';
+  const requiredFields = ['warehouseId', 'stockTypeId', 'quantity', 'customerId'];
+  const missing = requiredFields.some((field) => {
     const value = formState[field];
     return value === undefined || value === null || String(value).trim() === '';
   });
 
-  if (!mode || missing || requiredTargetMissing) {
+  if (missing) {
     notify.warning(TABLE_TEXT.requiredField);
     return false;
   }
@@ -156,28 +155,24 @@ export async function submitGoodsStockOutboundFlow({ formState, maxQuantity, clo
     return false;
   }
   if (Number(maxQuantity) > 0 && quantity > Number(maxQuantity)) {
-    notify.warning(`出庫数量は${maxQuantity}以下で入力してください`);
+    notify.warning('\u51fa\u5eab\u6570\u91cf\u306f\u5728\u5eab\u6570\u91cf\u4ee5\u4e0b\u3067\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044');
     return false;
   }
 
   const goodsId = Number(formState.goodsId);
   const skuId = await resolveSkuId(formState.skuId, goodsId);
-  const payload = {
-    goodsId,
+  const payload = removeEmptyPayloadFields({
+    stockId: Number(formState.stockId) || null,
+    goodsId: goodsId || null,
     skuId,
-    sourceType: Number(formState.sourceType),
     warehouseId: Number(formState.warehouseId),
     stockTypeId: Number(formState.stockTypeId),
     quantity,
-    outboundMode: mode === 'customer' && formState.stockScope === 'group' ? 'group_customer' : mode,
-    customerId: mode === 'customer' ? Number(formState.customerId) : null,
-    deptId: mode === 'dept'
-      ? Number(formState.deptId)
-      : (formState.stockScope === 'group' ? Number(formState.currentDeptId) || null : null),
-    stockScope: formState.stockScope || 'self',
-    groupCode: formState.stockScope === 'group' ? String(formState.groupCode || '') : null,
+    customerId: Number(formState.customerId),
+    outboundMode,
+    groupCode: outboundMode === 'GROUP_CUSTOMER' ? String(formState.groupCode || '').trim().toUpperCase() : null,
     remark: buildGoodsOutboundRemark(formState),
-  };
+  });
 
   try {
     await createItem('stock/outbound', payload);
@@ -200,38 +195,24 @@ export async function submitSheetStockOutboundFlow({ items, settings, notify }) 
 
   for (const payload of payloads) {
     // eslint-disable-next-line no-await-in-loop
-    await createItemByUrl(resolveCustomerOutboundPath(payload.outboundMode), payload);
+    await createItem('stock/outbound', payload);
   }
   notify.success(TABLE_TEXT.stockOutboundSuccess);
   return true;
 }
 
 export async function submitSheetStockInboundFlow({ items, settings, notify }) {
-  const payloads = (items || []).map(({ record, draft }) => ({
-    goodsId: Number(record?.goodsId ?? record?.id),
-    skuId: record?.skuId ? Number(record.skuId) : null,
-    sourceType: 2,
-    warehouseId: Number(settings?.warehouseId ?? record?.warehouseId),
-    stockTypeId: Number(settings?.stockTypeId ?? record?.stockTypeId),
-    quantity: Number(draft?.quantity || 0),
-    saleDeadline: draft?.saleDeadline || settings?.saleDeadline || null,
-    remark: [settings?.remark, draft?.remark].filter(Boolean).join(' / ') || null,
-  })).filter((payload) => (
-    payload.goodsId
-    && payload.warehouseId
-    && payload.stockTypeId
-    && payload.quantity > 0
-  ));
-
+  const payloads = buildSheetInboundPayloads(items, settings);
   if (payloads.length === 0) {
     notify.warning(TABLE_TEXT.requiredField);
     return false;
   }
 
-  for (const payload of payloads) {
-    // eslint-disable-next-line no-await-in-loop
-    await createItem('stock/inbound', payload);
-  }
+  await createItemByUrl('/api/stock/inbound/batch', {
+    sourceType: Number(settings?.sourceType || 2),
+    remark: settings?.remark || '\u4e00\u62ec\u5165\u5eab',
+    items: payloads,
+  });
   notify.success(TABLE_TEXT.stockFlowSuccess);
   return true;
 }
@@ -247,10 +228,9 @@ export async function submitDeliveryAllocationFlow({ items, settings, notify }) 
     // eslint-disable-next-line no-await-in-loop
     await createItemByUrl('/api/stock/group/allocate', payload);
   }
-  notify.success('納品振分を登録しました');
+  notify.success('\u7d0d\u54c1\u632f\u5206\u3092\u767b\u9332\u3057\u307e\u3057\u305f');
   return true;
 }
-
 function buildDeliveryAllocationPayloads(items, settings) {
   const groupFields = [
     ['aQty', 'A'],
@@ -267,7 +247,7 @@ function buildDeliveryAllocationPayloads(items, settings) {
     payloads.push({
       stockId: Number(record?.stockId ?? record?.id ?? 0) || null,
       allocations,
-      remark: [settings?.remark, draft?.remark].filter(Boolean).join(' / ') || '納品振分',
+      remark: [settings?.remark, draft?.remark].filter(Boolean).join(' / ') || '\u7d0d\u54c1\u632f\u5206',
     });
   });
   return payloads.filter((payload) => payload.stockId && payload.allocations.length > 0);
@@ -277,85 +257,66 @@ function buildSheetOutboundPayloads(items, settings) {
   const payloads = [];
   (items || []).forEach(({ record, draft }) => {
     const customerAllocations = Array.isArray(settings?.customerAllocations) ? settings.customerAllocations : [];
-    const apiOutboundMode = String(
-      settings?.outboundMode
-      || settings?.customerOutboundMode
-      || 'CUSTOMER',
-    );
-    const targetDeptId = settings?.deptId ? Number(settings.deptId) : null;
-    const targetGroupCode = settings?.groupCode ? String(settings.groupCode) : null;
-    if (customerAllocations.length > 0) {
-      customerAllocations.forEach((allocation) => {
-        const quantity = Number(allocation?.quantity || 0);
-        const customerId = Number(allocation?.customerId);
-        if (!quantity || quantity <= 0 || !customerId) return;
-        payloads.push({
-          goodsId: Number(record?.goodsId ?? record?.id),
-          skuId: record?.skuId ? Number(record.skuId) : null,
-          sourceType: 2,
-          warehouseId: Number(record?.warehouseId ?? settings?.warehouseId),
-          stockTypeId: Number(record?.stockTypeId ?? settings?.stockTypeId),
-          quantity,
-          outboundMode: apiOutboundMode,
-          stockScope: 'self',
-          deptId: apiOutboundMode === 'GROUP_CUSTOMER' ? targetDeptId : null,
-          groupCode: apiOutboundMode === 'GROUP_CUSTOMER' ? targetGroupCode : null,
-          customerId,
-          remark: [settings?.remark, draft?.remark].filter(Boolean).join(' / ') || null,
-        });
-      });
-      return;
-    }
+    const outboundMode = String(settings?.outboundMode || settings?.customerOutboundMode || 'CUSTOMER').toUpperCase();
+    const groupCode = outboundMode === 'GROUP_CUSTOMER'
+      ? String(settings?.groupCode || record?.groupCode || '').trim().toUpperCase()
+      : null;
 
-    [['aQty', 'A'], ['bQty', 'B'], ['cQty', 'C']].forEach(([field, groupCode]) => {
-      const quantity = Number(draft?.[field] || 0);
-      if (!quantity || quantity <= 0) return;
-      payloads.push({
-        goodsId: Number(record?.goodsId ?? record?.id),
+    customerAllocations.forEach((allocation) => {
+      const quantity = Number(allocation?.quantity || 0);
+      const customerId = Number(allocation?.customerId);
+      if (!quantity || quantity <= 0 || !customerId) return;
+      payloads.push(removeEmptyPayloadFields({
+        stockId: Number(record?.stockId ?? record?.id ?? 0) || null,
+        goodsId: Number(record?.goodsId ?? record?.id) || null,
         skuId: record?.skuId ? Number(record.skuId) : null,
-        sourceType: 2,
         warehouseId: Number(record?.warehouseId ?? settings?.warehouseId),
         stockTypeId: Number(record?.stockTypeId ?? settings?.stockTypeId),
         quantity,
-        outboundMode: apiOutboundMode,
-        stockScope: 'self',
+        customerId,
+        outboundMode,
         groupCode,
-        deptId: apiOutboundMode === 'GROUP_CUSTOMER' ? targetDeptId : null,
-        customerId: apiOutboundMode === 'GROUP_CUSTOMER' && settings?.customerId
-          ? Number(settings.customerId)
-          : null,
-        remark: [settings?.remark, draft?.remark].filter(Boolean).join(' / ') || null,
-      });
+        remark: [settings?.remark, draft?.remark, allocation?.remark].filter(Boolean).join(' / ') || null,
+      }));
     });
   });
   return payloads.filter((payload) => (
-    payload.goodsId
-    && payload.warehouseId
-    && payload.stockTypeId
+    payload.stockId
     && payload.quantity > 0
+    && payload.customerId
+    && (payload.outboundMode !== 'GROUP_CUSTOMER' || payload.groupCode)
   ));
 }
 
-function resolveCustomerOutboundPath(outboundMode) {
-  if (outboundMode === 'GROUP_CUSTOMER') return '/api/stock/group/customer/outbound';
-  if (outboundMode === 'CUSTOMER') return '/api/stock/customer/outbound';
-  return '/api/stock/outbound';
+function buildSheetInboundPayloads(items, settings) {
+  return (items || []).map(({ record, draft }) => removeEmptyPayloadFields({
+    stockId: Number(record?.stockId ?? 0) || null,
+    goodsId: Number(record?.goodsId ?? record?.id ?? 0) || null,
+    skuId: record?.skuId ? Number(record.skuId) : null,
+    warehouseId: Number(record?.warehouseId ?? settings?.warehouseId ?? 0) || null,
+    stockTypeId: Number(record?.stockTypeId ?? settings?.stockTypeId ?? 0) || null,
+    quantity: Number(draft?.quantity || 0),
+    remark: [settings?.remark, draft?.remark].filter(Boolean).join(' / ') || null,
+  })).filter((payload) => (
+    payload.quantity > 0
+    && (payload.stockId || (payload.goodsId && payload.skuId && payload.warehouseId && payload.stockTypeId))
+  ));
+}
+
+function removeEmptyPayloadFields(payload) {
+  return Object.fromEntries(Object.entries(payload || {}).filter(([, value]) => (
+    value !== undefined && value !== null && String(value).trim() !== ''
+  )));
 }
 
 function buildGoodsOutboundRemark(formState) {
   const parts = [];
-  const mode = String(formState.outboundMode || '');
-  if (mode === 'customer') {
-    parts.push('出庫区分:顧客出庫');
-    parts.push(`顧客ID:${formState.customerId}`);
-  } else if (mode === 'dept') {
-    parts.push('出庫区分:組別分貨');
-    parts.push(`部署ID:${formState.deptId}`);
-  }
-  if (formState.remark) {
-    parts.push(formState.remark);
-  }
-  return parts.length ? parts.join(' / ') : null;
+  const stockScope = String(formState.stockScope || 'self').toLowerCase();
+  parts.push(stockScope === 'group' ? '\u7d44\u5728\u5eab\u304b\u3089\u9867\u5ba2\u51fa\u5eab' : '\u81ea\u793e\u5728\u5eab\u304b\u3089\u9867\u5ba2\u51fa\u5eab');
+  if (formState.customerId) parts.push(`\u9867\u5ba2ID:${formState.customerId}`);
+  if (formState.groupCode) parts.push(`\u7d44\u30b3\u30fc\u30c9:${formState.groupCode}`);
+  if (formState.remark) parts.push(formState.remark);
+  return parts.filter(Boolean).join(' / ');
 }
 
 

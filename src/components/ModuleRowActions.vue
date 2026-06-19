@@ -4,17 +4,17 @@
       v-if="showInbound"
       type="primary"
       size="small"
-      :disabled="inboundDone"
       @click="$emit('inbound', record)"
     >
-      {{ inboundDone ? tableText.inboundDone : tableText.inbound }}
+      {{ tableText.inbound }}
     </a-button>
 
     <a-button
-      v-if="showOutbound && canOutbound"
+      v-if="showOutbound"
       type="primary"
       size="small"
       danger
+      :disabled="!canOutbound"
       @click="$emit('outbound', record)"
     >
       {{ tableText.outbound }}

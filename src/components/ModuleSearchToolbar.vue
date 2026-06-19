@@ -37,6 +37,7 @@
         />
       </template>
     </div>
+
     <div class="search-actions">
       <a-button
         type="primary"
@@ -96,13 +97,23 @@
         class="search-btn"
         @click="$emit('sheet-inbound')"
       >
-        表格式入庫
+        一括入庫
       </a-button>
       <a-button
-        v-if="canWrite && canSheetOutbound"
+        v-if="canWrite && showSheetOutboundButton"
+        type="primary"
+        danger
+        class="search-btn"
+        :disabled="!canSheetOutbound"
+        @click="$emit('sheet-outbound')"
+      >
+        一括出庫
+      </a-button>
+      <a-button
+        v-if="canWrite && canDeliveryAllocation"
         type="primary"
         class="search-btn"
-        @click="$emit('sheet-outbound')"
+        @click="$emit('delivery-allocation')"
       >
         納品振分
       </a-button>
@@ -140,7 +151,7 @@
         class="search-btn"
         @click="$emit('generate-request-form')"
       >
-        生成請求書
+        請求書生成
       </a-button>
     </div>
   </div>
@@ -159,6 +170,7 @@ const props = defineProps({
   canCreate: { type: Boolean, default: false },
   canSheetInbound: { type: Boolean, default: false },
   canSheetOutbound: { type: Boolean, default: false },
+  canDeliveryAllocation: { type: Boolean, default: false },
   canExport: { type: Boolean, default: false },
   exportLoading: { type: Boolean, default: false },
   canGenerateRequestForm: { type: Boolean, default: false },
@@ -178,6 +190,7 @@ const emit = defineEmits([
   'create',
   'sheet-inbound',
   'sheet-outbound',
+  'delivery-allocation',
   'export-current',
   'download-goods-template',
   'goods-import',
@@ -185,11 +198,20 @@ const emit = defineEmits([
   'generate-request-form',
   'update-field',
 ]);
+
 const showCreateButton = computed(() => (
   props.canWrite
   && props.canCreate
   && String(props.moduleKey || '') !== 'requestItem'
 ));
+
+const showSheetOutboundButton = computed(() => (
+  props.moduleKey === 'stock'
+  || props.moduleKey === 'stockSelf'
+  || props.moduleKey === 'stockGroup'
+  || /^stockGroup[ABC]$/.test(String(props.moduleKey || ''))
+));
+
 const query = computed(() => new Proxy(props.queryState, {
   set(_target, field, value) {
     emit('update-field', field, value);

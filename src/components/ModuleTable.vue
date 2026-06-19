@@ -28,7 +28,7 @@
       @reset="resetQuery"
       @batch-delete="onBatchDelete"
       @create="openCreate"
-      @sheet-inbound="openSheetInboundModal"
+      @sheet-inbound="openBatchStockDrawer('inbound')"
       @sheet-outbound="openSheetOutboundModal"
       @export-current="exportCurrentList"
       @download-goods-template="downloadGoodsImportTemplate"
@@ -67,7 +67,7 @@
         :row-class-name="rowClassName"
         :columns="columns"
         :data-source="tableRows"
-        :row-selection="isCustomerGoodsSummary ? undefined : { selectedRowKeys, onChange: onSelectChange }"
+        :row-selection="tableRowSelection"
         :loading="loading || goodsStockLoading"
         :pagination="tablePagination"
         :scroll="tableScroll"
@@ -180,9 +180,9 @@
               :can-edit="canEditRecord(record)"
               :can-delete="canDeleteRecord(record)"
               :editing="isEditing(record)"
-              :show-inbound="isGoodsManagement && canUseGoodsInboundActions"
+              :show-inbound="canUseGoodsInboundActions"
               :inbound-done="isGoodsInboundDone(record)"
-              :show-outbound="canUseGoodsOutboundActions && canGoodsOutbound(record)"
+              :show-outbound="canUseGoodsOutboundActions"
               :can-outbound="canGoodsOutbound(record)"
               :can-show-extra-action="canShowRowExtraAction"
               @inbound="openGoodsInboundModal"
@@ -271,7 +271,7 @@
       v-if="sheetOutboundModalOpen"
       :open="sheetOutboundModalOpen"
       :mode="sheetFlowMode"
-      :allow-group-outbound="isAdminUser"
+      :allow-group-outbound="canUseGroupAllocation"
       :rows="sheetOutboundRows"
       :drafts="sheetOutboundDrafts"
       :settings="sheetOutboundSettings"
@@ -286,6 +286,27 @@
       @add-customer-allocation="addCustomerAllocation"
       @update-customer-allocation="updateCustomerAllocation"
       @remove-customer-allocation="removeCustomerAllocation"
+    />
+    <goods-batch-stock-drawer
+      v-if="batchStockDrawerOpen"
+      :open="batchStockDrawerOpen"
+      :mode="batchStockMode"
+      :rows="batchStockRows"
+      :loading="batchStockLoading"
+      :pagination="batchStockPaginationConfig"
+      :selected-keys="batchStockSelectedKeys"
+      :drafts="batchStockDrafts"
+      :settings="batchStockSettings"
+      :row-key="goodsRowKey"
+      :source-type-options="stockSourceTypeOptions"
+      :limit-quantity-to-current="isGroupBatchInbound"
+      :submitting="batchStockSubmitting"
+      @cancel="batchStockDrawerOpen = false"
+      @submit="submitBatchStockFlow"
+      @page-change="loadBatchStockGoodsPage"
+      @update-draft="updateBatchStockDraft"
+      @update-setting="updateBatchStockSetting"
+      @update-selected-keys="updateBatchStockSelectedKeys"
     />
     <goods-drawer
       :open="goodsDrawerOpen"
@@ -322,11 +343,13 @@ import {
   fetchMyGroupStockAvailable,
   fetchModuleOptions,
   importGoodsByExcel,
+  createItemByUrl,
   updateItem,
   removeItem,
   uploadFileByBizType,
 } from '../api/module';
 import GoodsDrawer from './GoodsDrawer.vue';
+import GoodsBatchStockDrawer from './GoodsBatchStockDrawer.vue';
 import ModuleEditModal from './ModuleEditModal.vue';
 import ModuleInlineEditor from './ModuleInlineEditor.vue';
 import ModuleRowActions from './ModuleRowActions.vue';
@@ -419,6 +442,24 @@ const sheetOutboundSettings = reactive({
   saleDeadline: null,
   remark: '',
 });
+const batchStockDrawerOpen = ref(false);
+const batchStockSubmitting = ref(false);
+const batchStockLoading = ref(false);
+const batchStockMode = ref('inbound');
+const batchStockRows = ref([]);
+const batchStockSelectedKeys = ref([]);
+const batchStockDrafts = reactive({});
+const batchStockSettings = reactive({
+  sourceType: STOCK_SOURCE_TYPE.PURCHASE_INBOUND,
+  warehouseId: null,
+  stockTypeId: null,
+  remark: '',
+});
+const batchStockPagination = reactive({
+  current: 1,
+  pageSize: 10,
+  total: 0,
+});
 const goodsFlowByRowKey = reactive({});
 const goodsStockRows = ref([]);
 const customerGoodsMatrixColumns = ref([]);
@@ -431,6 +472,16 @@ const isSplitStockManagement = computed(() => (
   || props.moduleKey === 'stockGroup'
   || /^stockGroup[ABC]$/.test(props.moduleKey)
 ));
+const isSelfStockModule = computed(() => (
+  props.moduleKey === 'stock'
+  || props.moduleKey === 'stockSelf'
+  || props.moduleKey === 'stockSummary'
+));
+const isGroupStockModule = computed(() => (
+  props.moduleKey === 'stockGroup'
+  || /^stockGroup[ABC]$/.test(props.moduleKey)
+));
+const canUseGroupAllocation = computed(() => isAdminUser.value && isSelfStockModule.value);
 const isCustomerGoodsSummary = computed(() => props.moduleKey === 'stockCustomerGoods');
 const customerGoodsMatrixTableColumns = computed(() => {
   if (!isCustomerGoodsSummary.value) return [];
@@ -492,6 +543,16 @@ const tableSticky = computed(() => (
     ? { offsetScroll: 0 }
     : false
 ));
+const tableRowSelection = computed(() => {
+  if (isCustomerGoodsSummary.value) return undefined;
+  return {
+    selectedRowKeys: selectedRowKeys.value,
+    onChange: onSelectChange,
+    getCheckboxProps: (record) => ({
+      disabled: isSplitStockManagement.value && stockCurrentQty(record) <= 0,
+    }),
+  };
+});
 const modulePath = computed(() => {
   if (isSplitStockManagement.value) return 'stock';
   return props.moduleKey;
@@ -513,9 +574,12 @@ const canGenerateRequestForm = computed(() => (
   && Boolean(props.moduleActions?.create || props.moduleActions?.edit)
   && selectedRowKeys.value.length > 0
 ));
-const canUseGoodsInboundActions = computed(() => Boolean(props.moduleActions?.create) && isGoodsManagement.value);
+const canUseGoodsInboundActions = computed(() => (
+  isSelfStockModule.value
+  || isGroupStockModule.value
+));
 const canUseGoodsOutboundActions = computed(() => (
-  isSplitStockManagement.value || Boolean(props.moduleActions?.create)
+  isSplitStockManagement.value
 ));
 const isAdminUser = computed(() => isAdminByPermissionCodes(props.permissionCodes || []));
 const {
@@ -792,20 +856,29 @@ const visibleGoodsOutboundFields = computed(() => GOODS_OUTBOUND_FIELDS.filter((
   return true;
 }));
 const canOpenSheetOutbound = computed(() => (
-  isSplitStockManagement.value
-    ? selectedGoodsRows().some((record) => canGoodsOutbound(record))
-    : (isGoodsManagement.value && canWrite.value && selectedGoodsRows().length > 0)
+  (isSelfStockModule.value || isGroupStockModule.value)
+  && canWrite.value
+  && selectedGoodsRows().some((record) => stockCurrentQty(record) > 0)
 ));
 const canOpenSheetInbound = computed(() => (
-  isGoodsManagement.value
-  && canUseGoodsInboundActions.value
+  (isSelfStockModule.value || isGroupStockModule.value)
   && canWrite.value
-  && selectedGoodsRows().length > 0
 ));
 const canExportCurrentList = computed(() => (
   props.moduleKey === 'goods'
   || props.moduleKey === 'stockSelf'
 ));
+const stockSourceTypeOptions = computed(() => getModuleEnumOptions('stock', 'sourceType'));
+const batchStockPaginationConfig = computed(() => {
+  if (batchStockMode.value !== 'inbound') return false;
+  return {
+    current: batchStockPagination.current,
+    pageSize: batchStockPagination.pageSize,
+    total: batchStockPagination.total,
+    showSizeChanger: true,
+  };
+});
+const isGroupBatchInbound = computed(() => isGroupStockModule.value && batchStockMode.value === 'inbound');
 
 watch(
   () => props.moduleKey,
@@ -926,6 +999,10 @@ function updateInlineField(field, value) {
 }
 
 async function openGoodsInboundModal(record) {
+  if (isGroupStockModule.value) {
+    await openBatchStockDrawer('inbound');
+    return;
+  }
   const rowKey = goodsRowKey(record);
   Object.keys(goodsInboundForm).forEach((key) => delete goodsInboundForm[key]);
   activeGoodsRowKey.value = rowKey;
@@ -1180,11 +1257,16 @@ function formatGoodsImportSummary(result) {
 }
 
 async function openSheetOutboundModal(record = null) {
-  const selected = record ? [record] : selectedGoodsRows();
+  const selected = (record ? [record] : selectedGoodsRows())
+    .filter((item) => !isSplitStockManagement.value || stockCurrentQty(item) > 0);
   if (selected.length === 0) {
     message.warning(TABLE_TEXT.selectDeliveryGoods);
     return;
   }
+  await prepareSheetOutboundModal(selected);
+}
+
+async function prepareSheetOutboundModal(selected) {
   sheetFlowMode.value = isSplitStockManagement.value ? 'outbound' : 'delivery';
   sheetOutboundRows.value = selected;
   Object.keys(sheetOutboundDrafts).forEach((key) => delete sheetOutboundDrafts[key]);
@@ -1206,16 +1288,14 @@ async function openSheetOutboundModal(record = null) {
       };
   });
   sheetOutboundActiveRowKey.value = goodsRowKey(selected[0]);
-  const isGroupStockModule = props.moduleKey === 'stockGroup'
-    || /^stockGroup[ABC]$/.test(props.moduleKey);
-  sheetOutboundSettings.customerOutboundMode = isGroupStockModule ? 'GROUP_CUSTOMER' : 'CUSTOMER';
+  sheetOutboundSettings.customerOutboundMode = isGroupStockModule.value ? 'GROUP_CUSTOMER' : 'CUSTOMER';
   sheetOutboundSettings.outboundMode = sheetOutboundSettings.customerOutboundMode;
-  sheetOutboundSettings.allocationMode = 'customer';
+  sheetOutboundSettings.allocationMode = canUseGroupAllocation.value ? 'group' : 'customer';
   sheetOutboundSettings.warehouseId = firstNonEmptyValue(selected, 'warehouseId');
   sheetOutboundSettings.stockTypeId = firstNonEmptyValue(selected, 'stockTypeId');
   sheetOutboundSettings.customerId = null;
   sheetOutboundSettings.deptId = firstNonEmptyValue(selected, 'deptId') || props.currentDeptId || null;
-  sheetOutboundSettings.groupCode = firstNonEmptyValue(selected, 'groupCode') || null;
+  sheetOutboundSettings.groupCode = resolveCurrentStockGroupCode(selected);
   sheetOutboundSettings.customerAllocations = [];
   sheetOutboundSettings.saleDeadline = null;
   sheetOutboundSettings.remark = '';
@@ -1224,32 +1304,208 @@ async function openSheetOutboundModal(record = null) {
   sheetOutboundModalOpen.value = true;
 }
 
-async function openSheetInboundModal() {
-  const selected = selectedGoodsRows();
-  if (selected.length === 0) {
-    message.warning(TABLE_TEXT.selectInboundGoods);
+async function openBatchStockDrawer(mode) {
+  const normalizedMode = mode === 'outbound' ? 'outbound' : 'inbound';
+  batchStockMode.value = normalizedMode;
+  batchStockSelectedKeys.value = [];
+  Object.keys(batchStockDrafts).forEach((key) => delete batchStockDrafts[key]);
+  batchStockSettings.sourceType = STOCK_SOURCE_TYPE.PURCHASE_INBOUND;
+  batchStockSettings.warehouseId = null;
+  batchStockSettings.stockTypeId = null;
+  batchStockSettings.remark = normalizedMode === 'inbound' ? '一括入庫' : '一括出庫';
+  batchStockDrawerOpen.value = true;
+
+  if (normalizedMode === 'inbound') {
+    await loadRelationOptions(['warehouseId', 'stockTypeId'], []);
+    batchStockSettings.warehouseId = relationOptions.warehouseId?.[0]?.value ?? null;
+    batchStockSettings.stockTypeId = findOptionByKeywords(
+      relationOptions.stockTypeId || [],
+      NORMAL_STOCK_TYPE_KEYWORDS,
+    )?.value ?? relationOptions.stockTypeId?.[0]?.value ?? null;
+    await loadBatchStockGoodsPage({ pageNum: 1, pageSize: batchStockPagination.pageSize });
     return;
   }
-  sheetFlowMode.value = 'inbound';
-  sheetOutboundRows.value = selected;
-  Object.keys(sheetOutboundDrafts).forEach((key) => delete sheetOutboundDrafts[key]);
-  selected.forEach((record) => {
-    sheetOutboundDrafts[goodsRowKey(record)] = {
-      quantity: 0,
-      saleDeadline: null,
+
+  const rowsForDrawer = (tableRows.value || []).filter((record) => canGoodsOutbound(record));
+  if (rowsForDrawer.length === 0) {
+    batchStockDrawerOpen.value = false;
+    message.warning(TABLE_TEXT.selectDeliveryGoods);
+    return;
+  }
+
+  batchStockRows.value = rowsForDrawer;
+  seedBatchStockDrafts(rowsForDrawer);
+}
+
+async function loadBatchStockGoodsPage({ pageNum = 1, pageSize = 10 } = {}) {
+  batchStockLoading.value = true;
+  batchStockSelectedKeys.value = [];
+  try {
+    if (isGroupBatchInbound.value) {
+      const page = await fetchPage('stock', {
+        pageNum,
+        pageSize,
+        sortBy: 'updateTime',
+        sortOrder: 'desc',
+        stockScope: 'self',
+      });
+      const rowsForDrawer = Array.isArray(page.records) ? page.records : [];
+      batchStockRows.value = rowsForDrawer;
+      batchStockPagination.current = Number(page.pageNum || pageNum);
+      batchStockPagination.pageSize = Number(page.pageSize || pageSize);
+      batchStockPagination.total = Number(page.total || rowsForDrawer.length);
+      Object.keys(batchStockDrafts).forEach((key) => delete batchStockDrafts[key]);
+      seedBatchStockDrafts(rowsForDrawer);
+      return;
+    }
+    const page = await fetchPage('goods', {
+      pageNum,
+      pageSize,
+      sortBy: 'updateTime',
+      sortOrder: 'desc',
+    });
+    await loadGoodsStockRows();
+    const goodsRows = Array.isArray(page.records) ? page.records : [];
+    const rowsForDrawer = mergeGoodsWithStock(goodsRows, goodsStockRows.value);
+    batchStockRows.value = rowsForDrawer;
+    batchStockPagination.current = Number(page.pageNum || pageNum);
+    batchStockPagination.pageSize = Number(page.pageSize || pageSize);
+    batchStockPagination.total = Number(page.total || rowsForDrawer.length);
+    Object.keys(batchStockDrafts).forEach((key) => delete batchStockDrafts[key]);
+    seedBatchStockDrafts(rowsForDrawer);
+  } catch (error) {
+    batchStockRows.value = [];
+    message.error(error?.message || TABLE_TEXT.fetchFail);
+  } finally {
+    batchStockLoading.value = false;
+  }
+}
+
+function seedBatchStockDrafts(records) {
+  (records || []).forEach((record) => {
+    batchStockDrafts[goodsRowKey(record)] = {
+      quantity: 1,
       remark: '',
     };
   });
-  sheetOutboundSettings.warehouseId = firstNonEmptyValue(selected, 'warehouseId');
-  sheetOutboundSettings.stockTypeId = firstNonEmptyValue(selected, 'stockTypeId');
-  sheetOutboundSettings.customerId = null;
-  sheetOutboundSettings.deptId = firstNonEmptyValue(selected, 'deptId') || props.currentDeptId || null;
-  sheetOutboundSettings.groupCode = firstNonEmptyValue(selected, 'groupCode') || null;
-  sheetOutboundSettings.customerAllocations = [];
-  sheetOutboundSettings.saleDeadline = null;
-  sheetOutboundSettings.remark = '';
-  await loadRelationOptions(['warehouseId', 'stockTypeId'], keys.value);
-  sheetOutboundModalOpen.value = true;
+}
+
+function updateBatchStockDraft(rowKey, field, value) {
+  if (!batchStockDrafts[rowKey]) {
+    batchStockDrafts[rowKey] = {};
+  }
+  batchStockDrafts[rowKey][field] = value;
+}
+
+function updateBatchStockSetting(field, value) {
+  batchStockSettings[field] = value;
+}
+
+function updateBatchStockSelectedKeys(keys) {
+  batchStockSelectedKeys.value = (Array.isArray(keys) ? keys : []).map((key) => String(key));
+}
+
+async function submitBatchStockFlow() {
+  const selected = new Set(batchStockSelectedKeys.value.map((key) => String(key)));
+  const items = (batchStockRows.value || [])
+    .filter((record) => selected.has(goodsRowKey(record)))
+    .map((record) => {
+      const draft = batchStockDrafts[goodsRowKey(record)] || {};
+      return {
+        record,
+        stockId: Number(record?.stockId ?? 0) || null,
+        goodsId: Number(record?.goodsId ?? record?.id ?? 0) || null,
+        skuId: record?.skuId ? Number(record.skuId) : null,
+        warehouseId: Number(record?.warehouseId ?? batchStockSettings.warehouseId ?? 0) || null,
+        stockTypeId: Number(record?.stockTypeId ?? batchStockSettings.stockTypeId ?? 0) || null,
+        quantity: Number(draft.quantity || 0),
+        remark: String(draft.remark || '').trim() || null,
+      };
+    });
+
+  const invalid = items.some((item) => (
+    item.quantity <= 0
+    || (batchStockMode.value === 'outbound' && (!item.stockId || item.quantity > availableGoodsOutboundQty(goodsRowKey(item.record))))
+    || (isGroupBatchInbound.value && (!item.stockId || item.quantity > stockCurrentQty(item.record)))
+    || (batchStockMode.value === 'inbound'
+      && !item.stockId
+      && !(item.goodsId && item.skuId && item.warehouseId && item.stockTypeId))
+  ));
+  if (items.length === 0 || invalid) {
+    message.warning(TABLE_TEXT.requiredField);
+    return;
+  }
+
+  batchStockSubmitting.value = true;
+  try {
+    if (isGroupBatchInbound.value) {
+      const groupCode = resolveCurrentStockGroupCode();
+      if (!groupCode) {
+        message.warning(TABLE_TEXT.requiredField);
+        return;
+      }
+      await submitGroupBatchInboundFromSelfStock(items, groupCode);
+      message.success(TABLE_TEXT.stockFlowSuccess);
+      batchStockDrawerOpen.value = false;
+      batchStockSelectedKeys.value = [];
+      selectedRowKeys.value = [];
+      await reload();
+      await loadGoodsStockRows();
+      return;
+    }
+    const payload = {
+      remark: batchStockSettings.remark || (batchStockMode.value === 'inbound' ? '一括入庫' : '一括出庫'),
+      items: items.map((item) => removeEmptyBatchStockItem({
+        stockId: item.stockId,
+        goodsId: item.goodsId,
+        skuId: item.skuId,
+        warehouseId: item.warehouseId,
+        stockTypeId: item.stockTypeId,
+        quantity: item.quantity,
+        remark: item.remark,
+      })),
+    };
+    if (batchStockMode.value === 'inbound') {
+      payload.sourceType = Number(batchStockSettings.sourceType || STOCK_SOURCE_TYPE.PURCHASE_INBOUND);
+    }
+    await createItemByUrl(
+      batchStockMode.value === 'inbound' ? '/api/stock/inbound/batch' : '/api/stock/outbound/batch',
+      payload,
+    );
+    message.success(batchStockMode.value === 'inbound' ? TABLE_TEXT.stockFlowSuccess : TABLE_TEXT.stockOutboundSuccess);
+    batchStockDrawerOpen.value = false;
+    batchStockSelectedKeys.value = [];
+    selectedRowKeys.value = [];
+    await reload();
+    await loadGoodsStockRows();
+  } catch (error) {
+    message.error(error?.message || TABLE_TEXT.saveFail);
+  } finally {
+    batchStockSubmitting.value = false;
+  }
+}
+
+async function submitGroupBatchInboundFromSelfStock(items, groupCode) {
+  const remark = batchStockSettings.remark || '一括入庫';
+  for (const item of items) {
+    // eslint-disable-next-line no-await-in-loop
+    await createItemByUrl('/api/stock/group/allocate', {
+      stockId: item.stockId,
+      allocations: [
+        {
+          groupCode,
+          quantity: item.quantity,
+        },
+      ],
+      remark: [remark, item.remark].filter(Boolean).join(' / ') || null,
+    });
+  }
+}
+
+function removeEmptyBatchStockItem(item) {
+  return Object.fromEntries(Object.entries(item || {}).filter(([, value]) => (
+    value !== undefined && value !== null && String(value).trim() !== ''
+  )));
 }
 
 function selectedGoodsRows() {
@@ -1261,6 +1517,14 @@ function selectedGoodsRows() {
 function firstNonEmptyValue(records, field) {
   const hit = (records || []).find((record) => record?.[field] !== undefined && record?.[field] !== null && String(record[field]).trim() !== '');
   return hit?.[field] ?? null;
+}
+
+function resolveCurrentStockGroupCode(records = []) {
+  const direct = firstNonEmptyValue(records, 'groupCode');
+  if (direct) return String(direct).trim().toUpperCase();
+  const match = String(props.moduleKey || '').match(/^stockGroup([ABC])$/);
+  if (match) return match[1];
+  return props.currentGroupCode ? String(props.currentGroupCode).trim().toUpperCase() : null;
 }
 
 function updateSheetOutboundDraft(rowKey, field, value) {
@@ -1335,7 +1599,7 @@ async function submitSheetFlow() {
     const customerAllocation = sheetOutboundSettings.allocationMode === 'customer';
     const submitFlow = sheetFlowMode.value === 'inbound'
       ? submitSheetStockInboundFlow
-      : (sheetFlowMode.value === 'delivery' && !customerAllocation
+      : (!customerAllocation
         ? submitDeliveryAllocationFlow
         : submitSheetStockOutboundFlow);
     const success = await submitFlow({
