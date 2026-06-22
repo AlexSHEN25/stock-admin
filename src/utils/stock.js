@@ -1,5 +1,6 @@
 import { createItem, createItemByUrl, fetchItem, fetchModuleOptions } from '../api/module';
 import TABLE_TEXT from './module-ui';
+import { STOCK_SOURCE_TYPE } from './constants';
 
 const STOCK_REQUIRED_FIELDS = ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity'];
 const RETURN_INBOUND_SOURCE_TYPE = 1;
@@ -48,7 +49,7 @@ export async function submitStockInboundFlow({ formState, closeModal, reload, no
 export async function triggerStockOutboundFromRecord({ record, quantity, remark, reload, notify }) {
   const goodsId = Number(record?.goodsId);
   const skuId = await resolveSkuId(record?.skuId, goodsId);
-  const sourceType = Number(record?.sourceType || 2);
+  const sourceType = Number(record?.sourceType || STOCK_SOURCE_TYPE.SELF_INBOUND);
   const warehouseId = Number(record?.warehouseId);
   const stockTypeId = Number(record?.stockTypeId);
   const outboundQty = Number(quantity);
@@ -209,7 +210,7 @@ export async function submitSheetStockInboundFlow({ items, settings, notify }) {
   }
 
   await createItemByUrl('/api/stock/inbound/batch', {
-    sourceType: Number(settings?.sourceType || 2),
+    sourceType: Number(settings?.sourceType || STOCK_SOURCE_TYPE.SELF_INBOUND),
     remark: settings?.remark || '\u4e00\u62ec\u5165\u5eab',
     items: payloads,
   });
@@ -333,7 +334,7 @@ export async function submitStockQuantityAdjustment({ beforeQty, afterQty, recor
   const skuId = await resolveSkuId(record?.skuId, goodsId);
   const warehouseId = Number(record?.warehouseId);
   const stockTypeId = Number(record?.stockTypeId);
-  const sourceType = Number(record?.sourceType || 2);
+  const sourceType = Number(record?.sourceType || STOCK_SOURCE_TYPE.SELF_INBOUND);
 
   if (!goodsId || !warehouseId || !stockTypeId) {
     throw new Error('数量変更に必要な商品・倉庫・在庫分類が不足しています');

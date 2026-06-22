@@ -191,7 +191,6 @@ export const GOODS_TABLE_CONFIG = {
 export const ENUM_OPTIONS = {
   stockSourceType: [
     { label: '自社入庫', value: STOCK_SOURCE_TYPE.SELF_INBOUND },
-    { label: '仕入入庫', value: STOCK_SOURCE_TYPE.PURCHASE_INBOUND },
   ],
   stockOrderType: [
     { label: '入庫', value: STOCK_ORDER_TYPE.INBOUND },

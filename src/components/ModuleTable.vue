@@ -450,7 +450,7 @@ const batchStockRows = ref([]);
 const batchStockSelectedKeys = ref([]);
 const batchStockDrafts = reactive({});
 const batchStockSettings = reactive({
-  sourceType: STOCK_SOURCE_TYPE.PURCHASE_INBOUND,
+  sourceType: STOCK_SOURCE_TYPE.SELF_INBOUND,
   warehouseId: null,
   stockTypeId: null,
   remark: '',
@@ -868,7 +868,10 @@ const canExportCurrentList = computed(() => (
   props.moduleKey === 'goods'
   || props.moduleKey === 'stockSelf'
 ));
-const stockSourceTypeOptions = computed(() => getModuleEnumOptions('stock', 'sourceType'));
+const stockSourceTypeOptions = computed(() => (
+  getModuleEnumOptions('stock', 'sourceType')
+    .filter((option) => Number(option?.value) !== STOCK_SOURCE_TYPE.PURCHASE_INBOUND)
+));
 const batchStockPaginationConfig = computed(() => {
   if (batchStockMode.value !== 'inbound') return false;
   return {
@@ -1008,7 +1011,7 @@ async function openGoodsInboundModal(record) {
   activeGoodsRowKey.value = rowKey;
   goodsInboundForm.goodsId = record?.goodsId ?? record?.id;
   goodsInboundForm.skuId = record?.skuId ?? null;
-  goodsInboundForm.sourceType = STOCK_SOURCE_TYPE.PURCHASE_INBOUND;
+  goodsInboundForm.sourceType = STOCK_SOURCE_TYPE.SELF_INBOUND;
   goodsInboundForm.warehouseId = null;
   goodsInboundForm.stockTypeId = null;
   goodsInboundForm.quantity = null;
@@ -1309,7 +1312,7 @@ async function openBatchStockDrawer(mode) {
   batchStockMode.value = normalizedMode;
   batchStockSelectedKeys.value = [];
   Object.keys(batchStockDrafts).forEach((key) => delete batchStockDrafts[key]);
-  batchStockSettings.sourceType = STOCK_SOURCE_TYPE.PURCHASE_INBOUND;
+  batchStockSettings.sourceType = STOCK_SOURCE_TYPE.SELF_INBOUND;
   batchStockSettings.warehouseId = null;
   batchStockSettings.stockTypeId = null;
   batchStockSettings.remark = normalizedMode === 'inbound' ? '一括入庫' : '一括出庫';
@@ -1466,7 +1469,7 @@ async function submitBatchStockFlow() {
       })),
     };
     if (batchStockMode.value === 'inbound') {
-      payload.sourceType = Number(batchStockSettings.sourceType || STOCK_SOURCE_TYPE.PURCHASE_INBOUND);
+      payload.sourceType = Number(batchStockSettings.sourceType || STOCK_SOURCE_TYPE.SELF_INBOUND);
     }
     await createItemByUrl(
       batchStockMode.value === 'inbound' ? '/api/stock/inbound/batch' : '/api/stock/outbound/batch',

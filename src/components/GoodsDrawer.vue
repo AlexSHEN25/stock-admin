@@ -43,6 +43,7 @@
               <a-select
                 v-model:value="form.seriesId"
                 :options="relationOptions.seriesId || []"
+                :disabled="!form.brandId"
                 show-search
                 allow-clear
                 option-filter-prop="label"
@@ -68,6 +69,7 @@
               <a-select
                 v-model:value="form.makerId"
                 :options="relationOptions.makerId || []"
+                :disabled="!form.seriesId"
                 show-search
                 allow-clear
                 option-filter-prop="label"

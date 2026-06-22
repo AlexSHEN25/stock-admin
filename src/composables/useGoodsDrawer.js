@@ -94,11 +94,15 @@ export function useGoodsDrawer(options) {
 
   function updateGoodsFormField(field, value) {
     goodsForm[field] = value;
-    if (field === 'seriesId') {
-      loadGoodsCascadeOptions({ seriesId: value, brandId: goodsForm.brandId });
-    }
     if (field === 'brandId') {
-      loadGoodsCascadeOptions({ seriesId: goodsForm.seriesId, brandId: value });
+      goodsForm.seriesId = null;
+      goodsForm.makerId = null;
+      loadGoodsCascadeOptions({ brandId: value, seriesId: null });
+      return;
+    }
+    if (field === 'seriesId') {
+      goodsForm.makerId = null;
+      loadGoodsCascadeOptions({ seriesId: value, brandId: goodsForm.brandId });
     }
   }
 
