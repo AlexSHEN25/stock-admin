@@ -180,6 +180,9 @@ export function useModuleFieldBehavior(options) {
     });
 
     if (moduleKey.value === 'goods') {
+      delete output.brandName;
+      delete output.seriesName;
+      delete output.makerName;
       const skuName = output.skuName;
       const goodsName = output.name || output.goodsName;
       if ((skuName === null || skuName === undefined || String(skuName).trim() === '') && goodsName) {

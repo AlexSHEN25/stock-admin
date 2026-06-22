@@ -229,20 +229,26 @@ export async function fetchGoodsDetail(id) {
   );
 }
 
-export async function fetchGoodsFormOptions() {
-  const data = await http.get('/api/goods/form/options');
-  return data && typeof data === 'object' ? data : {};
-}
-
-export async function fetchModuleFormOptions(modulePath) {
-  const path = resolveModulePath(modulePath);
-  const data = await http.get(`/api/${path}/form/options`);
-  return data && typeof data === 'object' ? data : {};
-}
-
 export async function fetchGoodsCascadeOptions(params = {}) {
   const data = await http.get('/api/goods/options/cascade', { params });
-  return data && typeof data === 'object' ? data : {};
+  return normalizeGoodsOptionPayload(data);
+}
+
+export async function fetchBrandTreeDetail(id) {
+  if (id === undefined || id === null || String(id).trim() === '') return null;
+  return http.get(`/api/brand/tree/${id}`);
+}
+
+export async function saveBrandTree(payload) {
+  const data = payload && typeof payload === 'object' ? { ...payload } : {};
+  const hasId = data.id !== undefined && data.id !== null && String(data.id).trim() !== '';
+  const headers = {
+    'Idempotency-Key': `brand-tree-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  };
+  if (hasId) {
+    return http.put('/api/brand/tree', data, { headers });
+  }
+  return http.post('/api/brand/tree', data, { headers });
 }
 
 export async function importGoodsByExcel(file) {
@@ -389,4 +395,21 @@ function resolveModulePath(modulePath) {
     stockCustomerOrder: 'stockOrder/customer',
   };
   return customMap[modulePath] || modulePath;
+}
+
+function normalizeGoodsOptionPayload(payload) {
+  const source = payload && typeof payload === 'object' ? payload : {};
+  if (!source || typeof source !== 'object') return {};
+  return {
+    brandOptions: normalizeOptionArray(source.brandOptions),
+    seriesOptions: normalizeOptionArray(source.seriesOptions),
+    makerOptions: normalizeOptionArray(source.makerOptions),
+    categoryOptions: normalizeOptionArray(source.categoryOptions),
+    statusOptions: normalizeOptionArray(source.statusOptions),
+    currencyOptions: normalizeOptionArray(source.currencyOptions),
+  };
+}
+
+function normalizeOptionArray(source) {
+  return Array.isArray(source) ? source : [];
 }

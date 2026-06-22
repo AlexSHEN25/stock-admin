@@ -37,10 +37,8 @@ export const MODULE_GROUPS = [
     label: '商品管理',
     children: [
       { key: 'goods', label: '商品管理' },
-      { key: 'maker', label: 'メーカー管理' },
-      { key: 'brand', label: 'ブランド管理' },
+      { key: 'brand', label: 'ブランド・シリーズ・メーカー管理' },
       { key: 'category', label: 'カテゴリ管理' },
-      { key: 'series', label: 'シリーズ管理' },
     ],
   },
   {
@@ -275,16 +273,16 @@ export const MODULE_PRESETS = {
     fieldTypes: { parentId: 'relation', sort: 'number', status: 'select' },
   },
   maker: {
-    tableFields: ['id', 'name', 'brandNames', 'status', 'updateTime'],
-    queryFields: ['id', 'name', 'brandNames', 'status'],
-    formFields: ['name', 'brandIds', 'status'],
-    fieldTypes: { brandIds: 'relation', status: 'select' },
+    tableFields: ['id', 'name', 'seriesName', 'brandName', 'status', 'updateTime'],
+    queryFields: ['id', 'name', 'status'],
+    formFields: ['name', 'englishName', 'seriesId', 'status'],
+    fieldTypes: { seriesId: 'relation', status: 'select' },
   },
   brand: {
-    tableFields: ['id', 'name', 'englishName', 'seriesNames', 'makerNames', 'image', 'content', 'status', 'updateTime'],
-    queryFields: ['id', 'name', 'englishName', 'seriesNames', 'makerNames', 'image', 'content', 'status'],
-    formFields: ['name', 'englishName', 'image', 'content', 'seriesIds', 'makerIds', 'status'],
-    fieldTypes: { image: 'image', content: 'textarea', seriesIds: 'relation', makerIds: 'relation', status: 'select' },
+    tableFields: ['id', 'name', 'englishName', 'seriesNames', 'image', 'content', 'status', 'updateTime'],
+    queryFields: ['id', 'name', 'englishName', 'image', 'content', 'status'],
+    formFields: ['name', 'englishName', 'image', 'content', 'status'],
+    fieldTypes: { image: 'image', content: 'textarea', status: 'select' },
   },
   category: {
     tableFields: ['id', 'name', 'status', 'updateTime'],
@@ -293,10 +291,10 @@ export const MODULE_PRESETS = {
     fieldTypes: { status: 'select' },
   },
   series: {
-    tableFields: ['id', 'name', 'englishName', 'brandNames', 'content', 'status', 'updateTime'],
-    queryFields: ['id', 'name', 'englishName', 'brandNames', 'content', 'status'],
-    formFields: ['name', 'englishName', 'brandIds', 'content', 'status'],
-    fieldTypes: { brandIds: 'relation', content: 'textarea', status: 'select' },
+    tableFields: ['id', 'name', 'englishName', 'brandName', 'makerNames', 'content', 'status', 'updateTime'],
+    queryFields: ['id', 'name', 'englishName', 'content', 'status'],
+    formFields: ['name', 'englishName', 'brandId', 'content', 'status'],
+    fieldTypes: { brandId: 'relation', content: 'textarea', status: 'select' },
   },
   config: {
     queryFields: ['id', 'name', 'group', 'title', 'tip', 'type', 'value', 'content'],
@@ -347,10 +345,10 @@ export const REQUIRED_FORM_FIELDS = {
   requestItem: [],
   warehouse: ['name', 'code', 'status'],
   role: ['name', 'code', 'status'],
-  maker: ['name', 'status'],
+  maker: ['name', 'seriesId', 'status'],
   brand: ['name', 'status'],
   category: ['name', 'status'],
-  series: ['name', 'brandIds', 'status'],
+  series: ['name', 'brandId', 'status'],
 };
 
 export function getModulePreset(moduleKey) {

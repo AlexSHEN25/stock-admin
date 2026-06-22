@@ -213,6 +213,7 @@
       :before-avatar-upload="beforeAvatarUpload"
       :input-type="inputType"
       :form-placeholder="formPlaceholder"
+      :is-field-disabled="isFormFieldDisabled"
       :is-multi-relation-field="isMultiRelationField"
       :number-min-by-field="numberMinByField"
       :number-precision-by-field="numberPrecisionByField"
@@ -336,8 +337,6 @@ import {
   fetchPage,
   fetchItem,
   fetchOutboundStockOrderOptions,
-  fetchGoodsFormOptions,
-  fetchModuleFormOptions,
   fetchGoodsCascadeOptions,
   fetchCustomerStockGoodsTreePage,
   fetchMyGroupStockAvailable,
@@ -746,20 +745,14 @@ const {
   mergedEnumOptions,
   selectOptionsMerged,
   hasEnumOptionsMerged,
-  loadGoodsFormOptions,
-  loadRelationFormOptions,
   loadSourceOrderOptions,
 } = useModuleOptions({
   moduleKey: computed(() => props.moduleKey),
-  isGoodsManagement,
   queryFields,
   formKeys,
   keys,
   relationOptions,
-  queryRelationOptions,
   fetchEnumOptions,
-  fetchGoodsFormOptions,
-  fetchModuleFormOptions,
   fetchOutboundStockOrderOptions,
   enumOptionsForField,
   selectOptionsForField,
@@ -890,16 +883,10 @@ watch(
     pagination.current = 1;
     initQuery();
     applyPendingQuery(MODULE_QUERY_JUMPS[props.moduleKey]);
-    if (isGoodsManagement.value) {
-      await loadGoodsFormOptions();
-    }
     await loadDynamicEnumOptions();
-    if (!isGoodsManagement.value) {
-      await loadQueryRelationOptions(queryFields.value);
-      await loadScopedRelationOptions(formKeys.value, keys.value);
-      await loadRelationFormOptions();
-      await loadSourceOrderOptions();
-    }
+    await loadQueryRelationOptions(queryFields.value);
+    await loadScopedRelationOptions(formKeys.value, keys.value);
+    await loadSourceOrderOptions();
     await reload();
     if (isGoodsManagement.value) {
       await loadGoodsStockRows();
@@ -1801,6 +1788,7 @@ function openCreate() {
     openGoodsDrawerCreate();
     return;
   }
+  if (!canOpenHierarchyCreate()) return;
   const opened = openCreateState();
   if (opened) {
     if (Object.prototype.hasOwnProperty.call(formState, 'status')) {
@@ -1810,7 +1798,6 @@ function openCreate() {
     applyRequestFormCreateDefaults();
     loadScopedRelationOptions(formKeys.value, keys.value).then(() => {
       applyStockOrderRelationDefaults();
-      loadRelationFormOptions();
     });
     loadSourceOrderOptions();
   }
@@ -1826,7 +1813,6 @@ async function openEdit(record) {
   const opened = openEditState(editRecord, getRecordId);
   if (opened) {
     loadScopedRelationOptions(activeFormKeys(), keys.value);
-    loadRelationFormOptions();
     loadSourceOrderOptions();
   }
 }
@@ -2100,9 +2086,6 @@ function scopedSelectOptions(field) {
 
 function normalizeModulePayload(payload) {
   const output = normalizePayload(payload);
-  if (props.moduleKey === 'series' && Array.isArray(output.brandIds) && output.brandIds.length > 0) {
-    output.brandId = output.brandId || output.brandIds[0];
-  }
   if (props.moduleKey === 'requestForm' && !isAdminUser.value) {
     if (Object.prototype.hasOwnProperty.call(output, 'state') && !REQUEST_FORM_USER_STATES.has(Number(output.state))) {
       output.state = REQUEST_FORM_DEFAULT_STATE;
@@ -2363,10 +2346,25 @@ async function submitStockOrderApproval(record, approved) {
 
 function isMultiRelationField(field) {
   const key = String(field || '').toLowerCase();
-  return key === 'permissionids'
-    || key === 'seriesids'
-    || key === 'makerids'
-    || key === 'brandids';
+  return key === 'permissionids';
+}
+
+function canOpenHierarchyCreate() {
+  if (props.moduleKey === 'series') {
+    const options = relationOptions.brandId || [];
+    if (options.length === 0) {
+      message.warning('先にブランドを登録してください');
+      return false;
+    }
+  }
+  if (props.moduleKey === 'maker') {
+    const options = relationOptions.seriesId || [];
+    if (options.length === 0) {
+      message.warning('先にシリーズを登録してください');
+      return false;
+    }
+  }
+  return true;
 }
 
 function isFormFieldRequired(field) {
@@ -2381,7 +2379,24 @@ function formPlaceholder(field) {
   if (props.moduleKey === 'user' && editing.value && low === 'password') {
     return TABLE_TEXT.passwordEmptyNoChange;
   }
+  if (props.moduleKey === 'series' && field === 'brandId' && (relationOptions.brandId || []).length === 0) {
+    return '先にブランドを登録してください';
+  }
+  if (props.moduleKey === 'maker' && field === 'seriesId' && (relationOptions.seriesId || []).length === 0) {
+    return '先にシリーズを登録してください';
+  }
   return '';
+}
+
+function isFormFieldDisabled(field) {
+  if (editing.value) return false;
+  if (props.moduleKey === 'series' && field === 'brandId') {
+    return (relationOptions.brandId || []).length === 0;
+  }
+  if (props.moduleKey === 'maker' && field === 'seriesId') {
+    return (relationOptions.seriesId || []).length === 0;
+  }
+  return false;
 }
 
 </script>

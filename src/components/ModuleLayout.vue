@@ -126,8 +126,12 @@
         </a-space>
       </a-layout-header>
       <a-layout-content class="content-wrap">
+        <brand-tree-manager
+          v-if="hasMenus && activeModule === 'brand'"
+          :module-actions="activeModuleActions"
+        />
         <module-table
-          v-if="hasMenus && activeModule"
+          v-else-if="hasMenus && activeModule"
           :module-key="activeModule"
           :permission-codes="permissionCodes"
           :module-actions="activeModuleActions"
@@ -186,6 +190,7 @@ import { useHeaderMessages } from '../composables/useHeaderMessages';
 import { useModuleMenu } from '../composables/useModuleMenu';
 import { usePasswordChange } from '../composables/usePasswordChange';
 import { HEADER_UI } from '../utils/module-ui';
+import BrandTreeManager from './BrandTreeManager.vue';
 import ModuleTable from './ModuleTable.vue';
 
 const props = defineProps({

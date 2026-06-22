@@ -37,20 +37,24 @@
         <a-input
           v-else-if="inputType(field) === 'text'"
           v-model:value="form[field]"
+          :disabled="isFieldDisabled(field)"
           :placeholder="formPlaceholder(field)"
         />
         <a-select
           v-else-if="inputType(field) === 'relation'"
           v-model:value="form[field]"
           :options="relationOptions[field] || []"
+          :disabled="isFieldDisabled(field)"
           :mode="isMultiRelationField(field) ? 'multiple' : undefined"
           show-search
           allow-clear
           option-filter-prop="label"
+          :placeholder="formPlaceholder(field)"
         />
         <a-input-number
           v-else-if="inputType(field) === 'number' || inputType(field) === 'decimal'"
           v-model:value="form[field]"
+          :disabled="isFieldDisabled(field)"
           :min="numberMinByField(field)"
           :max="numberMaxByField(field)"
           :precision="numberPrecisionByField(field)"
@@ -60,15 +64,18 @@
           v-else-if="inputType(field) === 'select'"
           v-model:value="form[field]"
           :options="selectOptions(field)"
+          :disabled="isFieldDisabled(field)"
           allow-clear
         />
         <a-switch
           v-else-if="inputType(field) === 'switch'"
           v-model:checked="form[field]"
+          :disabled="isFieldDisabled(field)"
         />
         <a-date-picker
           v-else-if="inputType(field) === 'datetime'"
           v-model:value="form[field]"
+          :disabled="isFieldDisabled(field)"
           value-format="YYYY-MM-DD HH:mm:ss"
           show-time
           style="width: 100%"
@@ -76,6 +83,7 @@
         <a-textarea
           v-else
           v-model:value="form[field]"
+          :disabled="isFieldDisabled(field)"
           :rows="3"
         />
       </a-form-item>
@@ -99,6 +107,7 @@ const props = defineProps({
   beforeAvatarUpload: { type: Function, required: true },
   inputType: { type: Function, required: true },
   formPlaceholder: { type: Function, required: true },
+  isFieldDisabled: { type: Function, default: () => false },
   isMultiRelationField: { type: Function, required: true },
   numberMinByField: { type: Function, required: true },
   numberMaxByField: { type: Function, default: () => undefined },

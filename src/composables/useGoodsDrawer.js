@@ -78,6 +78,10 @@ export function useGoodsDrawer(options) {
     return {
       id: pickValue(detail, 'id'),
       goodsId: pickValue(detail, 'goodsId'),
+      brandId: pickValue(detail, 'brandId'),
+      seriesId: pickValue(detail, 'seriesId'),
+      makerId: pickValue(detail, 'makerId'),
+      categoryId: pickValue(detail, 'categoryId'),
       costPrice: pickValue(detail, 'costPrice', 'cost_price'),
       updatePrice: pickValue(detail, 'updatePrice', 'update_price'),
       priceUpdateTime: pickValue(detail, 'priceUpdateTime', 'price_update_time'),
@@ -116,6 +120,10 @@ export function useGoodsDrawer(options) {
       'costPrice', 'updatePrice', 'priceUpdateTime', 'barcode', 'weight', 'volume', 'imageUrl',
     ];
     fields.forEach((field) => { goodsForm[field] = base[field] ?? null; });
+    goodsForm.brandId = pickValue(base, 'brandId');
+    goodsForm.seriesId = pickValue(base, 'seriesId');
+    goodsForm.makerId = pickValue(base, 'makerId');
+    goodsForm.categoryId = pickValue(base, 'categoryId');
     goodsForm.imageUrl = resolveGoodsImageUrl(base);
     goodsForm.isHot = Number(base.isHot ?? 0) === 1 ? 1 : 0;
     if (!goodsForm.currency) goodsForm.currency = 'JPY';
