@@ -47,7 +47,6 @@ export const MODULE_GROUPS = [
     children: [
       { key: 'stockSelf', label: '自社在庫管理' },
       { key: 'stockGroup', label: '組在庫管理' },
-      { key: 'stockCustomerGoods', label: '顧客出庫明細' },
       { key: 'stockOrder', label: '入出庫伝票' },
       { key: 'stockType', label: '在庫分類' },
       { key: 'stockRecord', label: '在庫履歴' },
@@ -58,7 +57,8 @@ export const MODULE_GROUPS = [
     key: 'request',
     label: '請求書管理',
     children: [
-      { key: 'requestItem', label: '請求書明細' },
+      { key: 'deliverySchedule', label: '発送予定表' },
+      { key: 'requestForm', label: '請求書' },
     ],
   },
   {
@@ -226,6 +226,18 @@ export const MODULE_PRESETS = {
       state: 'select',
       approveTime: 'datetime',
       approveRemark: 'textarea',
+    },
+  },
+  deliverySchedule: {
+    tableFields: ['recordId', 'bizNo', 'customerName', 'groupCode', 'goodsName', 'skuCode', 'stockTypeName', 'scheduledShipDate', 'shippingQty', 'operatorName'],
+    queryFields: ['customerId', 'customerName', 'categoryId', 'categoryName', 'goodsId', 'goodsName', 'skuId', 'skuCode', 'stockTypeId', 'groupCode', 'startDate', 'endDate'],
+    fieldTypes: {
+      customerId: 'relation',
+      categoryId: 'relation',
+      goodsId: 'relation',
+      stockTypeId: 'relation',
+      startDate: 'datetime',
+      endDate: 'datetime',
     },
   },
   requestItem: {

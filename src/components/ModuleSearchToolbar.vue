@@ -115,8 +115,29 @@
         class="search-btn"
         @click="$emit('delivery-allocation')"
       >
-        納品振分
+        発送予定表振分
       </a-button>
+      <a-button
+        v-if="moduleKey === 'customer' && canWrite"
+        class="search-btn"
+        :disabled="goodsImportLoading"
+        @click="$emit('download-goods-template')"
+      >
+        顧客テンプレート
+      </a-button>
+      <a-upload
+        v-if="moduleKey === 'customer' && canWrite"
+        accept=".xlsx,.xls"
+        :show-upload-list="false"
+        :before-upload="(file) => { $emit('goods-import', file); return false; }"
+      >
+        <a-button
+          class="search-btn"
+          :loading="goodsImportLoading"
+        >
+          顧客一括導入
+        </a-button>
+      </a-upload>
       <a-button
         v-if="moduleKey === 'goods' && canWrite"
         class="search-btn"

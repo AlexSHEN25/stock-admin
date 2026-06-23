@@ -2,6 +2,7 @@ import { STATUS_OPTIONS } from '../utils/module';
 import TABLE_TEXT from '../utils/module-ui';
 
 const GOODS_TEXT_QUERY_FIELDS = new Set(['keyword', 'englishName', 'skuCode', 'skuName']);
+const DELIVERY_SCHEDULE_TEXT_QUERY_FIELDS = new Set(['customerName', 'categoryName', 'goodsName', 'skuCode', 'groupCode']);
 const READONLY_FIELDS = new Set(['id', 'createtime', 'updatetime', 'statusdesc', 'beforeqty', 'afterqty', 'sourceid', 'lockqty']);
 const STOCK_ORDER_BACKEND_FIELDS = new Set([
   'orderno',
@@ -50,6 +51,9 @@ export function useModuleFieldBehavior(options) {
   const statusOptions = STATUS_OPTIONS;
 
   function queryInputType(field) {
+    if (moduleKey.value === 'deliverySchedule' && DELIVERY_SCHEDULE_TEXT_QUERY_FIELDS.has(String(field || ''))) {
+      return 'text';
+    }
     if (isGoodsManagement.value && GOODS_TEXT_QUERY_FIELDS.has(String(field || ''))) {
       return 'text';
     }

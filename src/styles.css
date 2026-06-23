@@ -541,3 +541,81 @@ html[data-theme-mode='dark'] .login-card .ant-input-password .ant-input::placeho
   cursor: move;
   user-select: none;
 }
+
+.brand-tree-modal-wrap .series-card,
+.brand-tree-modal-wrap .maker-card {
+  background: #141414 !important;
+  border-color: #303030 !important;
+  color: #f5f5f5 !important;
+}
+
+.brand-tree-modal-wrap .maker-card {
+  background: #101010 !important;
+}
+
+.brand-tree-modal-wrap .series-card .ant-form-item-label > label,
+.brand-tree-modal-wrap .maker-card .ant-form-item-label > label,
+.brand-tree-modal-wrap .series-card-title,
+.brand-tree-modal-wrap .makers-section-title,
+.brand-tree-modal-wrap .maker-card-title {
+  color: #f5f5f5 !important;
+}
+
+.brand-tree-modal-wrap .series-card .ant-empty,
+.brand-tree-modal-wrap .series-card .ant-empty-normal,
+.brand-tree-modal-wrap .series-card .ant-empty-description,
+.brand-tree-modal-wrap .maker-card .ant-empty,
+.brand-tree-modal-wrap .maker-card .ant-empty-normal,
+.brand-tree-modal-wrap .maker-card .ant-empty-description {
+  color: rgba(255, 255, 255, 0.62) !important;
+  background: transparent !important;
+}
+
+.brand-tree-modal-wrap .series-card .ant-empty-image svg,
+.brand-tree-modal-wrap .maker-card .ant-empty-image svg {
+  opacity: 0.45;
+  filter: brightness(0.65);
+}
+
+.brand-tree-modal-wrap .series-card .ant-input,
+.brand-tree-modal-wrap .series-card .ant-input-affix-wrapper,
+.brand-tree-modal-wrap .series-card .ant-select-selector,
+.brand-tree-modal-wrap .series-card textarea.ant-input,
+.brand-tree-modal-wrap .maker-card .ant-input,
+.brand-tree-modal-wrap .maker-card .ant-input-affix-wrapper,
+.brand-tree-modal-wrap .maker-card .ant-select-selector,
+.brand-tree-modal-wrap .maker-card textarea.ant-input {
+  background: #101010 !important;
+  border-color: #3a3a3a !important;
+  color: #f3f3f3 !important;
+}
+
+.brand-tree-modal-wrap .series-card .ant-input::placeholder,
+.brand-tree-modal-wrap .series-card textarea.ant-input::placeholder,
+.brand-tree-modal-wrap .maker-card .ant-input::placeholder,
+.brand-tree-modal-wrap .maker-card textarea.ant-input::placeholder {
+  color: rgba(255, 255, 255, 0.38) !important;
+}
+
+.brand-tree-modal-wrap .series-card .ant-select-arrow,
+.brand-tree-modal-wrap .maker-card .ant-select-arrow {
+  color: #bfbfbf !important;
+}
+
+.brand-tree-modal-wrap .series-card .ant-btn-default,
+.brand-tree-modal-wrap .series-card .ant-btn-dashed,
+.brand-tree-modal-wrap .maker-card .ant-btn-default,
+.brand-tree-modal-wrap .maker-card .ant-btn-dashed {
+  background: #101010 !important;
+  border-color: #3a3a3a !important;
+  color: #ededed !important;
+}
+
+.brand-tree-modal-wrap .series-card .ant-btn-default:hover,
+.brand-tree-modal-wrap .series-card .ant-btn-dashed:hover,
+.brand-tree-modal-wrap .maker-card .ant-btn-default:hover,
+.brand-tree-modal-wrap .maker-card .ant-btn-dashed:hover {
+  background: #1f1f1f !important;
+  border-color: #4a4a4a !important;
+  color: #ffffff !important;
+}

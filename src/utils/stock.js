@@ -417,7 +417,7 @@ export async function submitDeliveryScheduleInboundFlow({
       saleDeadline: record?.saleDeadline ?? record?.deliveryDate ?? record?.bizDate ?? null,
       remark: buildDeliveryScheduleInboundRemark(record),
     });
-    notify.success('納品予定から入庫申請を作成しました');
+    notify.success('発送予定表から入庫申請を作成しました');
     if (typeof reload === 'function') {
       await reload();
     }
@@ -465,7 +465,7 @@ function buildReturnRemark(record) {
 function buildDeliveryScheduleInboundRemark(record) {
   const orderNo = record?.orderNo || record?.bizNo || record?.orderId || '';
   const itemId = record?.stockOrderItemId || record?.orderItemId || record?.id || '';
-  const parts = ['納品予定からの入庫申請'];
+  const parts = ['発送予定表からの入庫申請'];
   if (orderNo) parts.push(`伝票:${orderNo}`);
   if (itemId) parts.push(`明細ID:${itemId}`);
   return parts.join(' / ');

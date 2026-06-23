@@ -26,6 +26,8 @@ const MENU_KEY_ALIASES = {
   MENU_REQUEST: 'requestForm',
   MENU_REQUEST_FORM: 'requestForm',
   MENU_REQUEST_ITEM: 'requestItem',
+  MENU_DELIVERY_SCHEDULE: 'deliverySchedule',
+  MENU_STOCK_CUSTOMER_DELIVERY_SCHEDULE: 'deliverySchedule',
   MENU_CUSTOMER: 'customer',
   MENU_CUSTOMER_INFO: 'customer',
   MENU_CUSTOMER_LEVEL: 'customerLevel',
@@ -48,12 +50,16 @@ const PATH_KEY_ALIASES = {
   request: 'requestForm',
   requestForm: 'requestForm',
   requestItem: 'requestItem',
+  deliverySchedule: 'deliverySchedule',
+  'delivery-schedule': 'deliverySchedule',
 };
 
 const DIRECT_KEY_ALIASES = {
   stockCustomer: 'stockCustomerGoods',
   customerGoods: 'stockCustomerGoods',
   stock_customer_goods: 'stockCustomerGoods',
+  deliverySchedule: 'deliverySchedule',
+  'delivery-schedule': 'deliverySchedule',
 };
 
 export function normalizePermissionMenuKey(rawKey, rawPath = '') {
@@ -93,6 +99,9 @@ export function normalizePermissionPathKey(rawPath) {
   }
   if (parts[0] === 'stock' && parts[1] === 'customer' && parts[2] === 'goods') {
     return 'stockCustomerGoods';
+  }
+  if (parts[0] === 'stock' && parts[1] === 'customer' && parts[2] === 'delivery-schedule') {
+    return 'deliverySchedule';
   }
 
   const last = parts[parts.length - 1];

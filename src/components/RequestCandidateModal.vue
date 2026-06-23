@@ -1,13 +1,13 @@
 ﻿<template>
   <a-card
     v-if="open"
-    title="納品予定"
+    title="発送予定表"
     class="request-candidate-card"
   >
     <a-spin :spinning="loading">
       <div class="request-candidate-toolbar">
         <div class="request-candidate-summary">
-          出庫商品を納品予定へ追加できます。追加済み: {{ addedCount }}件
+          出庫商品を発送予定表へ追加できます。追加済み: {{ addedCount }}件
         </div>
         <a-space>
           <a-button
@@ -65,7 +65,7 @@
           <template v-else-if="column.key === 'actions'">
             <a-space>
               <a-popconfirm
-                title="この納品予定から入庫申請を作成しますか"
+                title="この発送予定表から入庫申請を作成しますか"
                 ok-text="はい"
                 cancel-text="いいえ"
                 :disabled="isInboundApplied(record)"
@@ -127,7 +127,7 @@ const columns = [
   { title: 'カテゴリ', dataIndex: 'categoryName', key: 'categoryName', width: 120 },
   { title: '出庫数量', dataIndex: 'changeQty', key: 'changeQty', width: 90 },
   { title: '請求数量', dataIndex: 'requestQty', key: 'requestQty', width: 120 },
-  { title: '納品予定', dataIndex: 'selected', key: 'cartStatus', width: 100 },
+  { title: '発送予定表', dataIndex: 'selected', key: 'cartStatus', width: 100 },
   { title: '価格', dataIndex: 'price', key: 'price', width: 100 },
   { title: '通貨', dataIndex: 'currency', key: 'currency', width: 80 },
   { title: '操作人', dataIndex: 'operatorName', key: 'operatorName', width: 110 },

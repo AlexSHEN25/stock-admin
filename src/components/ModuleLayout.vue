@@ -142,6 +142,7 @@
           :current-dept-id="currentDeptId"
           :current-dept-name="currentDeptName"
           :current-group-code="currentGroupCode"
+          :fixed-query-params="activeModuleContext.fixedQueryParams || {}"
           @navigate-module="onNavigateModule"
         />
         <a-empty
@@ -213,6 +214,7 @@ const {
   menuItems,
   hasMenus,
   activeModule,
+  activeModuleContext,
   activeLabel,
   selectedKeys,
   openKeys,

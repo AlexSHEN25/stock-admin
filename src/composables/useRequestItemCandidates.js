@@ -379,7 +379,7 @@ export function useRequestItemCandidates(options) {
       ];
       record.inboundApplied = true;
       record.inboundOrderId = inboundOrderId || record.inboundOrderId;
-      notify.success('納品予定から入庫申請を作成しました');
+      notify.success('発送予定表から入庫申請を作成しました');
       await refreshRequestItemContext();
     } catch (error) {
       notify.error(error?.message || TABLE_TEXT.saveFail);
@@ -415,7 +415,7 @@ export function useRequestItemCandidates(options) {
         orderItemIds: stockOrderItemId ? [stockOrderItemId] : undefined,
         requestItemIds: requestItemId ? [requestItemId] : undefined,
       });
-      notify.success('請求書明細を納品予定へ戻しました');
+      notify.success('請求書明細を発送予定表へ戻しました');
       await refreshRequestItemContext();
     } catch (error) {
       notify.error(error?.message || TABLE_TEXT.deleteFail);
@@ -437,7 +437,7 @@ export function useRequestItemCandidates(options) {
         orderItemIds: stockOrderItemId ? [stockOrderItemId] : undefined,
         requestItemIds: requestItemId ? [requestItemId] : undefined,
       });
-      notify.success('納品予定から商品を削除しました');
+      notify.success('発送予定表から商品を削除しました');
       await refreshRequestItemContext();
     } catch (error) {
       notify.error(error?.message || TABLE_TEXT.deleteFail);

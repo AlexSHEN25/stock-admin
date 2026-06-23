@@ -59,6 +59,43 @@
       @remove="removeCandidate"
     />
 
+    <a-modal
+      :open="deliveryScheduleAddOpen"
+      title="請求書明細へ追加"
+      :ok-text="TABLE_TEXT.save"
+      :cancel-text="TABLE_TEXT.cancel"
+      :confirm-loading="deliveryScheduleAddSubmitting"
+      @ok="submitDeliveryScheduleAdd"
+      @cancel="closeDeliveryScheduleAdd"
+    >
+      <a-spin :spinning="deliveryScheduleAddLoading">
+        <a-form layout="vertical">
+          <a-form-item
+            label="請求書"
+            required
+          >
+            <a-select
+              v-model:value="deliveryScheduleAddForm.requestId"
+              :options="deliveryScheduleRequestOptions"
+              show-search
+              option-filter-prop="label"
+            />
+          </a-form-item>
+          <a-form-item
+            label="請求数量"
+            required
+          >
+            <a-input-number
+              v-model:value="deliveryScheduleAddForm.requestQty"
+              :min="1"
+              :max="deliveryScheduleAddMaxQty"
+              style="width:100%"
+            />
+          </a-form-item>
+        </a-form>
+      </a-spin>
+    </a-modal>
+
     <div :class="['table-stage', { 'customer-matrix-stage': isCustomerGoodsSummary }]">
       <a-table
         :key="props.moduleKey"
@@ -330,18 +367,21 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, toRef, watch } from 'vue';
-import { message } from 'ant-design-vue';
+import { computed, h, reactive, ref, toRef, watch } from 'vue';
+import { message, Modal } from 'ant-design-vue';
 import {
   fetchEnumOptions,
   fetchPage,
   fetchItem,
   fetchOutboundStockOrderOptions,
   fetchGoodsCascadeOptions,
+  fetchDeliverySchedulePage,
   fetchCustomerStockGoodsTreePage,
   fetchMyGroupStockAvailable,
   fetchModuleOptions,
   importGoodsByExcel,
+  importCustomerByExcel,
+  addRequestItemsFromStockOrder,
   createItemByUrl,
   updateItem,
   removeItem,
@@ -412,6 +452,7 @@ const props = defineProps({
   currentDeptId: { type: Number, default: null },
   currentDeptName: { type: String, default: '' },
   currentGroupCode: { type: String, default: '' },
+  fixedQueryParams: { type: Object, default: () => ({}) },
 });
 
 const emit = defineEmits(['navigate-module']);
@@ -422,6 +463,15 @@ const exportLoading = ref(false);
 const goodsStockLoading = ref(false);
 const goodsInboundForm = reactive({});
 const goodsOutboundForm = reactive({});
+const deliveryScheduleAddOpen = ref(false);
+const deliveryScheduleAddLoading = ref(false);
+const deliveryScheduleAddSubmitting = ref(false);
+const deliveryScheduleAddRecord = ref(null);
+const deliveryScheduleRequestOptions = ref([]);
+const deliveryScheduleAddForm = reactive({
+  requestId: null,
+  requestQty: 1,
+});
 const sheetOutboundModalOpen = ref(false);
 const sheetOutboundSubmitting = ref(false);
 const sheetFlowMode = ref('outbound');
@@ -565,6 +615,7 @@ const rowExtraActions = computed(() => {
   return base;
 });
 const canWrite = computed(() => {
+  if (props.moduleKey === 'deliverySchedule') return true;
   const actions = props.moduleActions || {};
   return Boolean(actions.create || actions.edit || actions.delete || actions.batchDelete || actions.inlineEdit);
 });
@@ -581,6 +632,10 @@ const canUseGoodsOutboundActions = computed(() => (
   isSplitStockManagement.value
 ));
 const isAdminUser = computed(() => isAdminByPermissionCodes(props.permissionCodes || []));
+const deliveryScheduleAddMaxQty = computed(() => {
+  const qty = Number(deliveryScheduleAddRecord.value?.quantity ?? deliveryScheduleAddRecord.value?.shippingQty ?? 1);
+  return !Number.isNaN(qty) && qty > 0 ? Math.floor(qty) : undefined;
+});
 const {
   statusOptions,
   queryInputType,
@@ -652,19 +707,15 @@ const {
   inlineField,
   isReadonlyField,
   requiredForForm,
-  mapNameFieldToIdField,
+  mapNameFieldToIdField: queryNameFieldToIdField,
   moduleSubmitHandlers: MODULE_SUBMIT_HANDLERS,
   buildQueryFieldAlias: (field) => field,
   buildExtraQueryParams: () => (
     props.moduleKey === 'message' && isAdminUser.value
       ? { all: true, scope: 'all' }
-      : stockViewQueryParams()
+      : { ...stockViewQueryParams(), ...(props.fixedQueryParams || {}) }
   ),
-  fetchPageData: (path, params) => (
-    props.moduleKey === 'stockCustomerGoods'
-      ? fetchCustomerStockGoodsTreePage(params).then(normalizeCustomerGoodsTreePage)
-      : fetchPage(path, params)
-  ),
+  fetchPageData: (path, params) => fetchPageDataByModule(path, params),
 });
 
 const {
@@ -806,7 +857,9 @@ const {
 });
 
 const visibleQueryFields = computed(() => {
-  const list = queryFields.value || [];
+  const fixed = props.fixedQueryParams || {};
+  const list = (queryFields.value || [])
+    .filter((field) => !Object.prototype.hasOwnProperty.call(fixed, field));
   if (props.moduleKey === 'requestItem') {
     return list.filter((field) => String(field || '').toLowerCase() !== 'requestid');
   }
@@ -838,6 +891,28 @@ function stockViewQueryParams() {
     groupCode: match[1],
   };
 }
+
+function fetchPageDataByModule(path, params) {
+  if (props.moduleKey === 'deliverySchedule') {
+    return fetchDeliverySchedulePage(params).then(normalizeDeliverySchedulePage);
+  }
+  if (props.moduleKey === 'stockCustomerGoods') {
+    return fetchCustomerStockGoodsTreePage(params).then(normalizeCustomerGoodsTreePage);
+  }
+  return fetchPage(path, params);
+}
+
+function normalizeDeliverySchedulePage(page) {
+  const records = Array.isArray(page?.records) ? page.records : [];
+  return {
+    ...page,
+    records: records.map((record) => ({
+      ...record,
+      scheduledShipDate: record?.outboundDate ?? record?.scheduledShipDate,
+      shippingQty: record?.quantity ?? record?.shippingQty,
+    })),
+  };
+}
 const visibleFormKeys = computed(() => {
   const list = editing.value ? activeFormKeys() : formKeys.value.filter((field) => String(field || '').toLowerCase() !== 'status');
   return filterFinanceFormKeys(list, formState);
@@ -860,6 +935,7 @@ const canOpenSheetInbound = computed(() => (
 const canExportCurrentList = computed(() => (
   props.moduleKey === 'goods'
   || props.moduleKey === 'stockSelf'
+  || props.moduleKey === 'customer'
 ));
 const stockSourceTypeOptions = computed(() => (
   getModuleEnumOptions('stock', 'sourceType')
@@ -877,7 +953,7 @@ const batchStockPaginationConfig = computed(() => {
 const isGroupBatchInbound = computed(() => isGroupStockModule.value && batchStockMode.value === 'inbound');
 
 watch(
-  () => props.moduleKey,
+  () => [props.moduleKey, JSON.stringify(props.fixedQueryParams || {})],
   async () => {
     if (!props.moduleKey) return;
     pagination.current = 1;
@@ -1172,10 +1248,12 @@ async function submitGoodsOutbound() {
 }
 
 async function downloadGoodsImportTemplate() {
+  const config = importTemplateConfigByModule();
+  if (!config) return;
   try {
-    await downloadFileByUrl('/api/goods/import/template', 'goods-import-template.xlsx');
+    await downloadFileByUrl(config.url, config.fileName);
   } catch (error) {
-    message.error(error?.message || TABLE_TEXT.goodsTemplateDownloadFail);
+    message.error(error?.message || config.failMessage);
   }
 }
 
@@ -1204,10 +1282,34 @@ function exportConfigByModule() {
       fileName: 'goods-export.xlsx',
     };
   }
+  if (props.moduleKey === 'customer') {
+    return {
+      url: '/api/customer/export',
+      fileName: 'customers-export.xlsx',
+    };
+  }
   if (props.moduleKey === 'stockSelf') {
     return {
       url: '/api/stock/self/export',
       fileName: 'stock-self-export.xlsx',
+    };
+  }
+  return null;
+}
+
+function importTemplateConfigByModule() {
+  if (props.moduleKey === 'goods') {
+    return {
+      url: '/api/goods/import/template',
+      fileName: 'goods-import-template.xlsx',
+      failMessage: TABLE_TEXT.goodsTemplateDownloadFail,
+    };
+  }
+  if (props.moduleKey === 'customer') {
+    return {
+      url: '/api/customer/import/template',
+      fileName: 'customers-import-template.xlsx',
+      failMessage: '顧客テンプレートのダウンロードに失敗しました',
     };
   }
   return null;
@@ -1218,21 +1320,26 @@ async function importGoodsBatchFromFile(file) {
   if (!rawFile) return false;
   goodsImportLoading.value = true;
   try {
-    const result = await importGoodsByExcel(rawFile);
-    const summary = formatGoodsImportSummary(result);
-    message.success(summary || TABLE_TEXT.goodsImportSuccess);
+    const result = props.moduleKey === 'customer'
+      ? await importCustomerByExcel(rawFile)
+      : await importGoodsByExcel(rawFile);
+    const summary = formatImportSummary(result);
+    message.success(summary || importSuccessMessage());
+    if (props.moduleKey === 'customer') {
+      showCustomerImportResult(result);
+    }
     await reload();
   } catch (error) {
-    message.error(error?.message || TABLE_TEXT.goodsImportFail);
+    message.error(error?.message || importFailMessage());
   } finally {
     goodsImportLoading.value = false;
   }
   return false;
 }
 
-function formatGoodsImportSummary(result) {
+function formatImportSummary(result) {
   if (!result || typeof result !== 'object') return '';
-  const total = Number(result.totalCount ?? result.total ?? 0);
+  const total = Number(result.totalCount ?? result.total ?? result.rows?.length ?? 0);
   const success = Number(result.successCount ?? 0);
   const created = Number(result.createdCount ?? 0);
   const updated = Number(result.updatedCount ?? 0);
@@ -1246,6 +1353,42 @@ function formatGoodsImportSummary(result) {
   return parts.length > 0 ? parts.join(' / ') : '';
 }
 
+function importSuccessMessage() {
+  return props.moduleKey === 'customer'
+    ? '顧客を一括導入しました'
+    : TABLE_TEXT.goodsImportSuccess;
+}
+
+function importFailMessage() {
+  return props.moduleKey === 'customer'
+    ? '顧客一括導入に失敗しました'
+    : TABLE_TEXT.goodsImportFail;
+}
+
+function showCustomerImportResult(result) {
+  const rows = Array.isArray(result?.rows) ? result.rows : [];
+  if (rows.length === 0) return;
+  const summary = formatImportSummary(result);
+  const lines = rows.map((row) => [
+    `row ${row?.rowNo ?? '-'}`,
+    row?.action || '-',
+    row?.success ? 'OK' : 'FAILED',
+    row?.customerCode ? `code=${row.customerCode}` : '',
+    row?.customerId ? `id=${row.customerId}` : '',
+    row?.message || '',
+  ].filter(Boolean).join(' | '));
+  Modal.info({
+    title: '顧客導入結果',
+    width: 760,
+    content: h('div', [
+      h('div', { style: 'margin-bottom: 12px;' }, summary),
+      h('pre', {
+        style: 'max-height: 420px; overflow: auto; white-space: pre-wrap; margin: 0;',
+      }, lines.join('\n')),
+    ]),
+  });
+}
+
 async function openSheetOutboundModal(record = null) {
   const selected = (record ? [record] : selectedGoodsRows())
     .filter((item) => !isSplitStockManagement.value || stockCurrentQty(item) > 0);
@@ -1254,6 +1397,13 @@ async function openSheetOutboundModal(record = null) {
     return;
   }
   await prepareSheetOutboundModal(selected);
+}
+
+function queryNameFieldToIdField(field) {
+  if (props.moduleKey === 'deliverySchedule' && ['customerName', 'categoryName', 'goodsName'].includes(String(field || ''))) {
+    return '';
+  }
+  return mapNameFieldToIdField(field);
 }
 
 async function prepareSheetOutboundModal(selected) {
@@ -2182,6 +2332,10 @@ async function handleRowExtraAction(actionKey, record) {
     await removeRequestItem(record, getRecordId);
     return;
   }
+  if (props.moduleKey === 'deliverySchedule' && actionKey === 'addToRequestItem') {
+    await openDeliveryScheduleAdd(record);
+    return;
+  }
   if (actionKey === 'inbound') {
     await openGoodsInboundModal(record);
     return;
@@ -2244,7 +2398,93 @@ function selectedRequestItemRows() {
   return (tableRows.value || []).filter((record) => selected.has(String(getRowKey(record))));
 }
 
+async function openDeliveryScheduleAdd(record) {
+  deliveryScheduleAddRecord.value = record || null;
+  deliveryScheduleAddForm.requestId = null;
+  deliveryScheduleAddForm.requestQty = Math.max(1, Number(record?.quantity ?? record?.shippingQty ?? 1) || 1);
+  deliveryScheduleAddOpen.value = true;
+  await loadDeliveryScheduleRequestOptions(record);
+}
+
+function closeDeliveryScheduleAdd() {
+  deliveryScheduleAddOpen.value = false;
+  deliveryScheduleAddRecord.value = null;
+}
+
+async function loadDeliveryScheduleRequestOptions(record) {
+  const customerId = record?.customerId ?? props.fixedQueryParams?.customerId;
+  deliveryScheduleAddLoading.value = true;
+  try {
+    const page = await fetchPage('requestForm', {
+      pageNum: 1,
+      pageSize: 50,
+      customerId,
+      sortBy: 'updateTime',
+      sortOrder: 'desc',
+    });
+    const options = (Array.isArray(page?.records) ? page.records : [])
+      .filter((item) => !isCompletedRequestRecord(item))
+      .map((item) => ({
+        value: item?.id,
+        label: String(item?.bizNo || item?.requestNo || item?.sourceOrderNo || `ID:${item?.id}`),
+        raw: item,
+      }))
+      .filter((item) => item.value !== undefined && item.value !== null);
+    deliveryScheduleRequestOptions.value = options;
+    if (options.length === 1) {
+      deliveryScheduleAddForm.requestId = options[0].value;
+    }
+  } catch (error) {
+    deliveryScheduleRequestOptions.value = [];
+    message.error(error?.message || TABLE_TEXT.fetchFail);
+  } finally {
+    deliveryScheduleAddLoading.value = false;
+  }
+}
+
+async function submitDeliveryScheduleAdd() {
+  const record = deliveryScheduleAddRecord.value || {};
+  const requestId = Number(deliveryScheduleAddForm.requestId);
+  const requestQty = Number(deliveryScheduleAddForm.requestQty);
+  const stockRecordId = Number(record.recordId ?? record.stockRecordId ?? 0);
+  const stockOrderItemId = Number(record.orderItemId ?? record.stockOrderItemId ?? 0);
+  if (!requestId) {
+    message.warning(TABLE_TEXT.selectRequestForm);
+    return;
+  }
+  if (!requestQty || requestQty <= 0) {
+    message.warning('請求数量を入力してください');
+    return;
+  }
+  if (!stockRecordId && !stockOrderItemId) {
+    message.warning('発送予定表データに明細IDがありません');
+    return;
+  }
+
+  deliveryScheduleAddSubmitting.value = true;
+  try {
+    await addRequestItemsFromStockOrder({
+      requestId,
+      items: [{
+        stockRecordId: stockRecordId || undefined,
+        stockOrderItemId: stockOrderItemId || undefined,
+        requestQty,
+      }],
+    });
+    message.success('請求書明細へ追加しました');
+    closeDeliveryScheduleAdd();
+    await reload();
+  } catch (error) {
+    message.error(error?.message || TABLE_TEXT.saveFail);
+  } finally {
+    deliveryScheduleAddSubmitting.value = false;
+  }
+}
+
 function canShowRowExtraAction(actionKey, record) {
+  if (props.moduleKey === 'deliverySchedule' && actionKey === 'addToRequestItem') {
+    return Boolean(record);
+  }
   if (props.moduleKey === 'stockOrder' && (actionKey === 'approve' || actionKey === 'reject')) {
     return Boolean(props.moduleActions?.edit) && Number(record?.state ?? record?.orderState) !== 2;
   }
@@ -2259,6 +2499,7 @@ function canShowRowExtraAction(actionKey, record) {
 
 function canCreateInModule() {
   if (isSplitStockManagement.value) return false;
+  if (props.moduleKey === 'deliverySchedule') return false;
   if (props.moduleKey === 'requestItem' && isCurrentRequestCompleted()) return false;
   return Boolean(props.moduleActions?.create) && (isGoodsManagement.value || formKeys.value.length > 0);
 }
@@ -2307,17 +2548,20 @@ function isCurrentRequestCompleted() {
 
 function canBatchDeleteInModule() {
   if (isSplitStockManagement.value) return false;
+  if (props.moduleKey === 'deliverySchedule') return false;
   if (props.moduleKey === 'requestItem') return false;
   return Boolean(props.moduleActions?.batchDelete);
 }
 
 function canDeleteRecord(_record) {
+  if (props.moduleKey === 'deliverySchedule') return false;
   if (props.moduleKey === 'requestForm' && isCompletedRequestRecord(_record)) return false;
   if (props.moduleKey === 'requestItem' && (isCompletedRequestRecord(_record) || isCurrentRequestCompleted())) return false;
   return Boolean(props.moduleActions?.delete);
 }
 
 function canEditRecord(record) {
+  if (props.moduleKey === 'deliverySchedule') return false;
   if (props.moduleKey === 'requestForm' && isCompletedRequestRecord(record)) return false;
   if (props.moduleKey === 'requestItem' && (isCompletedRequestRecord(record) || isCurrentRequestCompleted())) return false;
   if (props.moduleKey === 'stockOrder' && Number(record?.state ?? record?.orderState) === STOCK_ORDER_STATE.COMPLETED) return false;
@@ -2325,6 +2569,7 @@ function canEditRecord(record) {
 }
 
 function canInlineEditRecord(record) {
+  if (props.moduleKey === 'deliverySchedule') return false;
   if (props.moduleKey === 'requestForm' && isCompletedRequestRecord(record)) return false;
   if (props.moduleKey === 'requestItem' && (isCompletedRequestRecord(record) || isCurrentRequestCompleted())) return false;
   if (props.moduleKey === 'requestItem') return false;
@@ -2336,9 +2581,17 @@ async function submitStockOrderApproval(record, approved) {
   const orderId = getRecordId(record);
   if (!orderId) return;
   try {
-    await approveStockOrder(orderId, approved);
+    await approveStockOrder(orderId, approved, approved ? 'approve' : 'reject');
     message.success(approved ? TABLE_TEXT.approveSuccess : TABLE_TEXT.rejectSuccess);
     await reload();
+    if (approved && record?.customerId) {
+      emit('navigate-module', {
+        moduleKey: 'deliverySchedule',
+        fixedQueryParams: { customerId: record.customerId },
+        customerId: record.customerId,
+        customerName: record.customerName || '',
+      });
+    }
   } catch (error) {
     message.error(error?.message || TABLE_TEXT.saveFail);
   }

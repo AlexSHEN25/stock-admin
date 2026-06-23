@@ -114,6 +114,10 @@ export async function fetchCustomerStockGoodsDetailPage(params) {
   return fetchPageByUrl('/api/stock/customer/goods/detail/page', params);
 }
 
+export async function fetchDeliverySchedulePage(params) {
+  return fetchPageByUrl('/stock/customer/delivery-schedule/page', params);
+}
+
 export async function fetchCustomerStockOrderPage(params) {
   return fetchPageByUrl('/api/stockOrder/customer/page', params);
 }
@@ -147,10 +151,13 @@ export async function fetchOutboundStockOrderOptions() {
   return page.records || [];
 }
 
-export async function approveStockOrder(orderId, approved) {
+export async function approveStockOrder(orderId, approved, remark = '') {
   if (orderId === undefined || orderId === null || String(orderId).trim() === '') return null;
-  return http.post(`/api/stock/approve/${orderId}`, null, {
-    params: { approved: Boolean(approved) },
+  return http.post(`/stock/approve/${orderId}`, null, {
+    params: {
+      approved: Boolean(approved),
+      remark,
+    },
   });
 }
 
@@ -255,6 +262,16 @@ export async function importGoodsByExcel(file) {
   const formData = new FormData();
   formData.append('file', file);
   return http.post('/api/goods/import/upsert', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+}
+
+export async function importCustomerByExcel(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return http.post('/api/customer/import/upsert', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },

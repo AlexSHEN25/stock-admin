@@ -276,7 +276,7 @@ function syncAllocationMode(tab) {
   }
 }
 
-const title = computed(() => '納品振分処理');
+const title = computed(() => '発送予定表振分処理');
 const isInbound = computed(() => props.mode === 'inbound');
 const isDelivery = computed(() => props.mode === 'delivery');
 const isCustomerMode = computed(() => String(activeTab.value) === 'customer');
@@ -342,7 +342,7 @@ const customerColumns = computed(() => {
 });
 
 const totalQuantity = computed(() => props.rows.reduce((total, record) => total + rowTotal(record), 0));
-const submitText = computed(() => '納品振分登録');
+const submitText = computed(() => '発送予定表振分登録');
 
 function draft(record) {
   return props.drafts[props.rowKey(record)] || {};
