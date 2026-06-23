@@ -479,7 +479,7 @@ const sheetOutboundRows = ref([]);
 const sheetOutboundActiveRowKey = ref('');
 const sheetOutboundDrafts = reactive({});
 const sheetOutboundSettings = reactive({
-  allocationMode: 'group',
+  allocationMode: 'customer',
   outboundMode: 'CUSTOMER',
   customerOutboundMode: 'CUSTOMER',
   warehouseId: null,
@@ -616,6 +616,7 @@ const rowExtraActions = computed(() => {
 });
 const canWrite = computed(() => {
   if (props.moduleKey === 'deliverySchedule') return true;
+  if (isAdminUser.value) return true;
   const actions = props.moduleActions || {};
   return Boolean(actions.create || actions.edit || actions.delete || actions.batchDelete || actions.inlineEdit);
 });
@@ -1687,7 +1688,7 @@ async function addCustomerAllocation() {
   list.push({
     key: `customer-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     customerId: null,
-    quantity: 0,
+    quantity: 1,
   });
   sheetOutboundSettings.customerAllocations = list;
 }
@@ -1710,6 +1711,20 @@ function removeCustomerAllocation(key) {
 
 async function submitSheetFlow() {
   if (sheetFlowMode.value === 'outbound') {
+    if (sheetOutboundSettings.allocationMode === 'customer') {
+      const validCustomerAllocation = (Array.isArray(sheetOutboundSettings.customerAllocations)
+        ? sheetOutboundSettings.customerAllocations
+        : []).some((item) => (
+        item?.customerId !== undefined
+          && item?.customerId !== null
+          && String(item.customerId).trim() !== ''
+          && Number(item?.quantity || 0) > 0
+      ));
+      if (!validCustomerAllocation) {
+        message.warning('顧客と1以上の出庫数量を入力してください');
+        return;
+      }
+    }
     const invalid = sheetOutboundRows.value.some((record) => {
       const draft = sheetOutboundDrafts[goodsRowKey(record)] || {};
       const total = Array.isArray(sheetOutboundSettings.customerAllocations) && sheetOutboundSettings.customerAllocations.length > 0

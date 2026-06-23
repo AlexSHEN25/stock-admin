@@ -153,7 +153,7 @@ export async function fetchOutboundStockOrderOptions() {
 
 export async function approveStockOrder(orderId, approved, remark = '') {
   if (orderId === undefined || orderId === null || String(orderId).trim() === '') return null;
-  return http.post(`/stock/approve/${orderId}`, null, {
+  return http.post(`/api/stock/approve/${orderId}`, null, {
     params: {
       approved: Boolean(approved),
       remark,
@@ -239,6 +239,10 @@ export async function fetchGoodsDetail(id) {
 export async function fetchGoodsCascadeOptions(params = {}) {
   const data = await http.get('/api/goods/options/cascade', { params });
   return normalizeGoodsOptionPayload(data);
+}
+
+export async function fetchBrandHierarchyPage(params) {
+  return fetchPageByUrl('/api/brand/hierarchy/page', params);
 }
 
 export async function fetchBrandTreeDetail(id) {

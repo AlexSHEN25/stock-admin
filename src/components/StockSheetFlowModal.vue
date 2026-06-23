@@ -50,7 +50,7 @@
               <template v-if="column.key === 'aQty' || column.key === 'bQty' || column.key === 'cQty'">
                 <a-input-number
                   :value="draftValue(record, column.key)"
-                  :min="0"
+                  :min="1"
                   :precision="0"
                   class="sheet-flow-number"
                   @update:value="(value) => $emit('update-draft', rowKey(record), column.key, value)"
@@ -246,7 +246,7 @@ const emit = defineEmits([
   'remove-customer-allocation',
 ]);
 
-const activeTab = ref('group');
+const activeTab = ref('customer');
 
 watch(
   () => props.open,

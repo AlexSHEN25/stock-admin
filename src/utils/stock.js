@@ -262,10 +262,11 @@ function buildSheetOutboundPayloads(items, settings) {
     const groupCode = outboundMode === 'GROUP_CUSTOMER'
       ? String(settings?.groupCode || record?.groupCode || '').trim().toUpperCase()
       : null;
+    const deptId = Number(settings?.deptId ?? record?.deptId) || null;
 
     customerAllocations.forEach((allocation) => {
       const quantity = Number(allocation?.quantity || 0);
-      const customerId = Number(allocation?.customerId);
+      const customerId = normalizeRelationId(allocation?.customerId);
       if (!quantity || quantity <= 0 || !customerId) return;
       payloads.push(removeEmptyPayloadFields({
         stockId: Number(record?.stockId ?? record?.id ?? 0) || null,
@@ -275,8 +276,11 @@ function buildSheetOutboundPayloads(items, settings) {
         stockTypeId: Number(record?.stockTypeId ?? settings?.stockTypeId),
         quantity,
         customerId,
+        deptId,
+        sourceDeptId: outboundMode === 'GROUP_CUSTOMER' ? deptId : null,
         outboundMode,
         groupCode,
+        sourceGroupCode: outboundMode === 'GROUP_CUSTOMER' ? groupCode : null,
         remark: [settings?.remark, draft?.remark, allocation?.remark].filter(Boolean).join(' / ') || null,
       }));
     });
@@ -285,8 +289,13 @@ function buildSheetOutboundPayloads(items, settings) {
     payload.stockId
     && payload.quantity > 0
     && payload.customerId
-    && (payload.outboundMode !== 'GROUP_CUSTOMER' || payload.groupCode)
   ));
+}
+
+function normalizeRelationId(value) {
+  if (value === undefined || value === null || String(value).trim() === '') return null;
+  const numeric = Number(value);
+  return Number.isNaN(numeric) ? String(value).trim() : numeric;
 }
 
 function buildSheetInboundPayloads(items, settings) {

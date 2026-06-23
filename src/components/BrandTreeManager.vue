@@ -1,21 +1,59 @@
 <template>
-  <a-card class="brand-tree-surface" :bordered="false">
+  <a-card
+    class="brand-tree-surface"
+    :bordered="false"
+  >
     <div class="brand-tree-toolbar">
-      <a-space :size="12" wrap>
+      <a-space
+        :size="12"
+        wrap
+      >
         <a-input
-          :value="query.name"
+          :value="query.brandName"
           placeholder="ブランド名"
           allow-clear
           style="width: 220px;"
-          @update:value="(value) => { query.name = value; }"
+          @update:value="(value) => { query.brandName = value; }"
           @press-enter="loadRows"
         />
         <a-input
-          :value="query.englishName"
+          :value="query.brandEnglishName"
           placeholder="英語名"
           allow-clear
           style="width: 220px;"
-          @update:value="(value) => { query.englishName = value; }"
+          @update:value="(value) => { query.brandEnglishName = value; }"
+          @press-enter="loadRows"
+        />
+        <a-input
+          :value="query.seriesName"
+          placeholder="シリーズ名"
+          allow-clear
+          style="width: 220px;"
+          @update:value="(value) => { query.seriesName = value; }"
+          @press-enter="loadRows"
+        />
+        <a-input
+          :value="query.seriesEnglishName"
+          placeholder="シリーズ英語名"
+          allow-clear
+          style="width: 220px;"
+          @update:value="(value) => { query.seriesEnglishName = value; }"
+          @press-enter="loadRows"
+        />
+        <a-input
+          :value="query.makerName"
+          placeholder="メーカー名"
+          allow-clear
+          style="width: 220px;"
+          @update:value="(value) => { query.makerName = value; }"
+          @press-enter="loadRows"
+        />
+        <a-input
+          :value="query.makerEnglishName"
+          placeholder="メーカー英語名"
+          allow-clear
+          style="width: 220px;"
+          @update:value="(value) => { query.makerEnglishName = value; }"
           @press-enter="loadRows"
         />
         <a-select
@@ -26,16 +64,27 @@
           :options="statusOptions"
           @update:value="(value) => { query.status = value; }"
         />
-        <a-button type="primary" @click="loadRows">検索</a-button>
-        <a-button @click="resetQuery">リセット</a-button>
+        <a-button
+          type="primary"
+          @click="loadRows"
+        >
+          検索
+        </a-button>
+        <a-button @click="resetQuery">
+          リセット
+        </a-button>
       </a-space>
-      <a-button type="primary" :disabled="!moduleActions?.create" @click="openCreate">
+      <a-button
+        type="primary"
+        :disabled="!moduleActions?.create"
+        @click="openCreate"
+      >
         新規追加
       </a-button>
     </div>
 
     <a-table
-      row-key="id"
+      :row-key="rowKey"
       :loading="loading"
       :columns="columns"
       :data-source="rows"
@@ -48,25 +97,16 @@
             {{ Number(record.status) === 1 ? '有効' : '無効' }}
           </a-tag>
         </template>
-        <template v-else-if="column.key === 'seriesCount'">
-          {{ record.seriesCount ?? 0 }}
-        </template>
-        <template v-else-if="column.key === 'image'">
-          <a-image
-            v-if="record.image"
-            :src="record.image"
-            :width="48"
-            :height="48"
-            style="object-fit: cover; border-radius: 8px;"
-          />
-          <span v-else>-</span>
-        </template>
         <template v-else-if="column.key === 'updateTime'">
           {{ formatTime(record.updateTime) }}
         </template>
         <template v-else-if="column.key === 'actions'">
           <a-space :size="8">
-            <a-button type="link" :disabled="!moduleActions?.edit" @click="openEdit(record)">
+            <a-button
+              type="link"
+              :disabled="!moduleActions?.edit"
+              @click="openEdit(record)"
+            >
               編集
             </a-button>
             <a-popconfirm
@@ -75,7 +115,11 @@
               cancel-text="キャンセル"
               @confirm="removeBrand(record)"
             >
-              <a-button type="link" danger :disabled="!moduleActions?.delete">
+              <a-button
+                type="link"
+                danger
+                :disabled="!moduleActions?.delete"
+              >
                 削除
               </a-button>
             </a-popconfirm>
@@ -98,23 +142,45 @@
   >
     <div class="tree-editor">
       <div class="tree-editor-head">
-        <div class="tree-editor-title">ブランド情報</div>
-        <div class="tree-editor-tip">ブランド -> シリーズ -> メーカーをまとめて保存します</div>
+        <div class="tree-editor-title">
+          ブランド情報
+        </div>
+        <div class="tree-editor-tip">
+          ブランド -> シリーズ -> メーカーをまとめて保存します
+        </div>
       </div>
 
       <div class="brand-form-grid">
-        <a-form-item label="ブランド名" required>
-          <a-input v-model:value="form.name" placeholder="ブランド名を入力" />
+        <a-form-item
+          label="ブランド名"
+          required
+        >
+          <a-input
+            v-model:value="form.name"
+            placeholder="ブランド名を入力"
+          />
         </a-form-item>
         <a-form-item label="英語名">
-          <a-input v-model:value="form.englishName" placeholder="英語名を入力" />
+          <a-input
+            v-model:value="form.englishName"
+            placeholder="英語名を入力"
+          />
         </a-form-item>
-        <a-form-item label="状態" required>
-          <a-select v-model:value="form.status" :options="statusOptions" />
+        <a-form-item
+          label="状態"
+          required
+        >
+          <a-select
+            v-model:value="form.status"
+            :options="statusOptions"
+          />
         </a-form-item>
         <a-form-item label="画像">
           <div class="brand-image-field">
-            <a-upload :show-upload-list="false" :before-upload="beforeBrandImageUpload">
+            <a-upload
+              :show-upload-list="false"
+              :before-upload="beforeBrandImageUpload"
+            >
               <a-button>画像アップロード</a-button>
             </a-upload>
             <a-image
@@ -129,63 +195,151 @@
       </div>
 
       <a-form-item label="説明">
-        <a-textarea v-model:value="form.content" :rows="3" placeholder="ブランド説明を入力" />
+        <a-textarea
+          v-model:value="form.content"
+          :rows="3"
+          placeholder="ブランド説明を入力"
+        />
       </a-form-item>
 
       <div class="series-section-head">
-        <div class="tree-editor-title">シリーズ一覧</div>
-        <a-button type="dashed" @click="addSeries">シリーズ追加</a-button>
+        <div class="tree-editor-title">
+          シリーズ一覧
+        </div>
+        <a-button
+          type="dashed"
+          @click="addSeries"
+        >
+          シリーズ追加
+        </a-button>
       </div>
 
-      <a-empty v-if="form.series.length === 0" description="シリーズを追加してください" />
+      <a-empty
+        v-if="form.series.length === 0"
+        description="シリーズを追加してください"
+      />
 
-      <div v-else class="series-list">
-        <div v-for="(series, seriesIndex) in form.series" :key="series.__key" class="series-card">
+      <div
+        v-else
+        class="series-list"
+      >
+        <div
+          v-for="(series, seriesIndex) in form.series"
+          :key="series.__key"
+          class="series-card"
+        >
           <div class="series-card-head">
-            <div class="series-card-title">シリーズ {{ seriesIndex + 1 }}</div>
-            <a-button danger type="link" @click="removeSeries(seriesIndex)">シリーズ削除</a-button>
+            <div class="series-card-title">
+              シリーズ {{ seriesIndex + 1 }}
+            </div>
+            <a-button
+              danger
+              type="link"
+              @click="removeSeries(seriesIndex)"
+            >
+              シリーズ削除
+            </a-button>
           </div>
 
           <div class="brand-form-grid">
-            <a-form-item label="シリーズ名" required>
-              <a-input v-model:value="series.name" placeholder="シリーズ名を入力" />
+            <a-form-item
+              label="シリーズ名"
+              required
+            >
+              <a-input
+                v-model:value="series.name"
+                placeholder="シリーズ名を入力"
+              />
             </a-form-item>
             <a-form-item label="英語名">
-              <a-input v-model:value="series.englishName" placeholder="英語名を入力" />
+              <a-input
+                v-model:value="series.englishName"
+                placeholder="英語名を入力"
+              />
             </a-form-item>
-            <a-form-item label="状態" required>
-              <a-select v-model:value="series.status" :options="statusOptions" />
+            <a-form-item
+              label="状態"
+              required
+            >
+              <a-select
+                v-model:value="series.status"
+                :options="statusOptions"
+              />
             </a-form-item>
           </div>
 
           <a-form-item label="説明">
-            <a-textarea v-model:value="series.content" :rows="2" placeholder="シリーズ説明を入力" />
+            <a-textarea
+              v-model:value="series.content"
+              :rows="2"
+              placeholder="シリーズ説明を入力"
+            />
           </a-form-item>
 
           <div class="makers-section-head">
-            <div class="makers-section-title">メーカー一覧</div>
-            <a-button type="dashed" size="small" @click="addMaker(series)">メーカー追加</a-button>
+            <div class="makers-section-title">
+              メーカー一覧
+            </div>
+            <a-button
+              type="dashed"
+              size="small"
+              @click="addMaker(series)"
+            >
+              メーカー追加
+            </a-button>
           </div>
 
-          <a-empty v-if="series.makers.length === 0" description="メーカーを追加してください" />
+          <a-empty
+            v-if="series.makers.length === 0"
+            description="メーカーを追加してください"
+          />
 
-          <div v-else class="maker-list">
-            <div v-for="(maker, makerIndex) in series.makers" :key="maker.__key" class="maker-card">
+          <div
+            v-else
+            class="maker-list"
+          >
+            <div
+              v-for="(maker, makerIndex) in series.makers"
+              :key="maker.__key"
+              class="maker-card"
+            >
               <div class="maker-card-head">
-                <div class="maker-card-title">メーカー {{ makerIndex + 1 }}</div>
-                <a-button danger type="link" size="small" @click="removeMaker(series, makerIndex)">
+                <div class="maker-card-title">
+                  メーカー {{ makerIndex + 1 }}
+                </div>
+                <a-button
+                  danger
+                  type="link"
+                  size="small"
+                  @click="removeMaker(series, makerIndex)"
+                >
                   メーカー削除
                 </a-button>
               </div>
               <div class="maker-grid">
-                <a-form-item label="メーカー名" required>
-                  <a-input v-model:value="maker.name" placeholder="メーカー名を入力" />
+                <a-form-item
+                  label="メーカー名"
+                  required
+                >
+                  <a-input
+                    v-model:value="maker.name"
+                    placeholder="メーカー名を入力"
+                  />
                 </a-form-item>
                 <a-form-item label="英語名">
-                  <a-input v-model:value="maker.englishName" placeholder="英語名を入力" />
+                  <a-input
+                    v-model:value="maker.englishName"
+                    placeholder="英語名を入力"
+                  />
                 </a-form-item>
-                <a-form-item label="状態" required>
-                  <a-select v-model:value="maker.status" :options="statusOptions" />
+                <a-form-item
+                  label="状態"
+                  required
+                >
+                  <a-select
+                    v-model:value="maker.status"
+                    :options="statusOptions"
+                  />
                 </a-form-item>
               </div>
             </div>
@@ -199,7 +353,13 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
-import { fetchBrandTreeDetail, fetchPage, removeItem, saveBrandTree, uploadFileByBizType } from '../api/module';
+import {
+  fetchBrandHierarchyPage,
+  fetchBrandTreeDetail,
+  removeItem,
+  saveBrandTree,
+  uploadFileByBizType,
+} from '../api/module';
 
 const props = defineProps({
   moduleActions: {
@@ -219,11 +379,12 @@ const statusOptions = [
 ];
 
 const columns = [
-  { title: 'ID', dataIndex: 'id', key: 'id', width: 90 },
-  { title: '画像', dataIndex: 'image', key: 'image', width: 96 },
-  { title: 'ブランド名', dataIndex: 'name', key: 'name' },
-  { title: '英語名', dataIndex: 'englishName', key: 'englishName' },
-  { title: 'シリーズ数', dataIndex: 'seriesCount', key: 'seriesCount', width: 110 },
+  { title: 'ブランド名', dataIndex: 'brandName', key: 'brandName', width: 160 },
+  { title: 'ブランド英語名', dataIndex: 'brandEnglishName', key: 'brandEnglishName', width: 180 },
+  { title: 'シリーズ名', dataIndex: 'seriesName', key: 'seriesName', width: 160 },
+  { title: 'シリーズ英語名', dataIndex: 'seriesEnglishName', key: 'seriesEnglishName', width: 180 },
+  { title: 'メーカー名', dataIndex: 'makerName', key: 'makerName', width: 160 },
+  { title: 'メーカー英語名', dataIndex: 'makerEnglishName', key: 'makerEnglishName', width: 180 },
   { title: '状態', dataIndex: 'status', key: 'status', width: 100 },
   { title: '更新日時', dataIndex: 'updateTime', key: 'updateTime', width: 180 },
   { title: '操作', key: 'actions', width: 150, fixed: 'right' },
@@ -235,8 +396,12 @@ const modalOpen = ref(false);
 const editing = ref(false);
 const rows = ref([]);
 const query = reactive({
-  name: '',
-  englishName: '',
+  brandName: '',
+  brandEnglishName: '',
+  seriesName: '',
+  seriesEnglishName: '',
+  makerName: '',
+  makerEnglishName: '',
   status: undefined,
 });
 const pagination = reactive({
@@ -258,11 +423,15 @@ async function loadRows() {
   if (!canRead.value) return;
   loading.value = true;
   try {
-    const page = await fetchPage('brand', {
+    const page = await fetchBrandHierarchyPage({
       pageNum: pagination.current,
       pageSize: pagination.pageSize,
-      name: query.name || undefined,
-      englishName: query.englishName || undefined,
+      brandName: query.brandName || undefined,
+      brandEnglishName: query.brandEnglishName || undefined,
+      seriesName: query.seriesName || undefined,
+      seriesEnglishName: query.seriesEnglishName || undefined,
+      makerName: query.makerName || undefined,
+      makerEnglishName: query.makerEnglishName || undefined,
       status: query.status,
       sortBy: 'updateTime',
       sortOrder: 'desc',
@@ -277,8 +446,12 @@ async function loadRows() {
 }
 
 function resetQuery() {
-  query.name = '';
-  query.englishName = '';
+  query.brandName = '';
+  query.brandEnglishName = '';
+  query.seriesName = '';
+  query.seriesEnglishName = '';
+  query.makerName = '';
+  query.makerEnglishName = '';
   query.status = undefined;
   pagination.current = 1;
   loadRows();
@@ -290,6 +463,18 @@ function handleTableChange(nextPagination) {
   loadRows();
 }
 
+function rowKey(record) {
+  return [
+    record?.brandId ?? 'brand',
+    record?.seriesId ?? 'series',
+    record?.makerId ?? 'maker',
+  ].join('-');
+}
+
+function resolveBrandId(record) {
+  return record?.brandId ?? record?.id ?? null;
+}
+
 function openCreate() {
   if (!props.moduleActions?.create) return;
   replaceForm(createEmptyForm());
@@ -298,9 +483,10 @@ function openCreate() {
 }
 
 async function openEdit(record) {
-  if (!props.moduleActions?.edit || !record?.id) return;
+  const brandId = resolveBrandId(record);
+  if (!props.moduleActions?.edit || !brandId) return;
   try {
-    const detail = await fetchBrandTreeDetail(record.id);
+    const detail = await fetchBrandTreeDetail(brandId);
     replaceForm(normalizeDetail(detail));
     editing.value = true;
     modalOpen.value = true;
@@ -310,9 +496,10 @@ async function openEdit(record) {
 }
 
 async function removeBrand(record) {
-  if (!props.moduleActions?.delete || !record?.id) return;
+  const brandId = resolveBrandId(record);
+  if (!props.moduleActions?.delete || !brandId) return;
   try {
-    await removeItem('brand', record.id);
+    await removeItem('brand', brandId);
     message.success('削除しました');
     if (rows.value.length === 1 && pagination.current > 1) {
       pagination.current -= 1;
