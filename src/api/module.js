@@ -115,7 +115,7 @@ export async function fetchCustomerStockGoodsDetailPage(params) {
 }
 
 export async function fetchDeliverySchedulePage(params) {
-  return fetchPageByUrl('/stock/customer/delivery-schedule/page', params);
+  return fetchPageByUrl('/api/stock/customer/delivery-schedule/page', params);
 }
 
 export async function fetchCustomerStockOrderPage(params) {
