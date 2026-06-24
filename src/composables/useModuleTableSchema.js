@@ -169,7 +169,11 @@ function isPermissionNamesKey(key) {
 
 function isSafeColumnKey(key) {
   const value = String(key || '').trim();
-  return Boolean(value) && !value.startsWith('$') && !value.startsWith('__v_');
+  const low = value.toLowerCase();
+  return Boolean(value)
+    && !value.startsWith('$')
+    && !value.startsWith('__')
+    && low !== 'nodetype';
 }
 
 function columnFixed(key, isGoodsManagement) {

@@ -118,6 +118,18 @@ export async function fetchDeliverySchedulePage(params) {
   return fetchPageByUrl('/api/stock/customer/delivery-schedule/page', params);
 }
 
+export async function fetchRequestItemCartPage(params) {
+  return fetchPageByUrl('/api/requestForm/items/cart/page', params);
+}
+
+export async function addRequestItemsToCart(payload) {
+  return http.post('/api/requestForm/items/cart/add', payload || {});
+}
+
+export async function removeRequestItemsFromCart(payload) {
+  return http.post('/api/requestForm/items/cart/remove', payload || {});
+}
+
 export async function fetchCustomerStockOrderPage(params) {
   return fetchPageByUrl('/api/stockOrder/customer/page', params);
 }
@@ -286,51 +298,16 @@ export async function upsertGoodsBatch(payload) {
   return http.post('/api/goods/batch/upsert', payload || {});
 }
 
-export async function getCandidateItems(id) {
-  if (id === undefined || id === null || String(id).trim() === '') return [];
-  const data = await http.get(`/api/requestForm/${id}/candidateItems`);
-  return Array.isArray(data) ? data : [];
-}
-
-export async function addRequestItems(payload) {
-  return http.post('/api/requestForm/items/add', payload || {});
-}
-
-export async function matchRequestItems(payload) {
-  return http.post('/api/requestForm/items/match', payload || {});
-}
-
-export async function removeRequestItems(payload) {
-  return http.post('/api/requestForm/items/remove', payload || {});
-}
-
-export async function createRequestForm(payload) {
-  return http.post('/api/requestForm', payload || {});
-}
-
-export async function createRequestFormWithItems(payload) {
-  return http.post('/api/requestForm/withItems', payload || {});
-}
-
-export async function createRequestFormFromOutbound(payload) {
-  return http.post('/api/requestForm/fromOutbound', payload || {});
+export async function createRequestFormWithSelectedItems(payload) {
+  return requestWithFallback(
+    () => http.post('/api/requestForm/withItems', payload || {}),
+    () => http.post('/api/requestForm/fromOutbound', payload || {}),
+  );
 }
 
 export async function reapplyRequestInbound(id) {
   if (id === undefined || id === null || String(id).trim() === '') return null;
   return http.post(`/api/requestForm/reapplyInbound/${id}`);
-}
-
-export async function reapplyRequestItemInbound(payload) {
-  return http.post('/api/requestForm/items/reapplyInbound', payload || {});
-}
-
-export async function addRequestItemsFromStockOrder(payload) {
-  return requestWithFallback(
-    () => http.post('/api/requestForm/items/add', payload || {}),
-    () => http.post('/api/requestForm/items/addFromStockOrder', payload || {}),
-    () => http.post('/api/requestForm/fromOutbound', payload || {}),
-  );
 }
 
 function normalizePage(data) {

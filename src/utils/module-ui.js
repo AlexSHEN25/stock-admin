@@ -96,7 +96,6 @@ const TABLE_TEXT = {
   outbound: '出庫',
   addOutboundDetail: '出庫明細追加',
   returnInbound: '戻り入庫',
-  returnToSchedule: '発送予定表へ戻す',
   reapplyInbound: '入庫申請を作成',
   reapplyInboundSuccess: '入庫申請を作成しました',
   reapplyInboundFail: '入庫申請の作成に失敗しました',
@@ -244,7 +243,6 @@ export const MODULE_ROW_EXTRA_ACTIONS = {
     { key: 'detail', label: TABLE_TEXT.detail },
   ],
   stockOrderItem: [{ key: 'returnInbound', label: TABLE_TEXT.returnInbound }],
-  deliverySchedule: [{ key: 'addToRequestItem', label: '請求書明細へ追加' }],
   requestForm: [
     { key: 'detail', label: TABLE_TEXT.detail },
     { key: 'download', label: TABLE_TEXT.download },

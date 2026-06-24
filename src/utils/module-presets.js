@@ -5,7 +5,8 @@ const NAME_STATUS_FORM_FIELDS = ['name', 'status'];
 const STOCK_ORDER_ITEM_FIELDS = ['id', 'orderId', 'orderType', 'state', 'bizDate', 'warehouseId', 'goodsId', 'skuId', 'skuCode', 'goodsName', 'englishName', 'brandId', 'brandName', 'seriesId', 'seriesName', 'categoryId', 'categoryName', 'stockTypeId', 'stockTypeName', 'makerId', 'makerName', 'changeQty', 'price', 'currency', 'remark'];
 const REQUEST_FINANCE_FIELDS = ['exchangeRate', 'currency', 'paymentDate', 'hasFee', 'feeAmount', 'hasUnpaid', 'unpaidAmount'];
 const REQUEST_FORM_FIELDS = ['id', 'bizNo', 'sourceOrderId', 'sourceOrderNo', 'userId', 'username', 'deptId', 'deptName', 'customerId', 'customerName', 'warehouseId', 'totalQty', 'requestQty', 'totalAmt', ...REQUEST_FINANCE_FIELDS, 'state', 'approverId', 'approverName', 'approveTime', 'approveRemark'];
-const REQUEST_ITEM_QUERY_FIELDS = ['requestId', 'goodsName', 'skuCode', 'brandName', 'seriesName', 'categoryName', 'makerName', 'stockTypeName', 'warehouseId', 'requestQty', 'approveQty', 'outQty', 'remark'];
+const REQUEST_ITEM_QUERY_FIELDS = ['customerId', 'customerName', 'goodsId', 'goodsName', 'skuId', 'skuCode', 'stockTypeId', 'startDate', 'endDate'];
+const REQUEST_FLOW_TABLE_FIELDS = ['bizNo', 'country', 'customerName', 'groupCode', 'outboundDate', 'goodsName', 'skuCode', 'brandName', 'seriesName', 'categoryName', 'makerName', 'stockTypeName', 'sourceQty', 'moveQty', 'price', 'currency', 'operatorName'];
 const STOCK_PRESET = {
   queryFields: ['id', 'goodsId', 'goodsName', 'skuCode', 'skuId', 'stockTypeId', 'currentQty', 'groupAQty', 'groupBQty', 'groupCQty', 'price', 'priceUpdateTime', 'currency', 'warehouseId', 'status'],
   formFields: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity', 'remark', 'status'],
@@ -58,7 +59,7 @@ export const MODULE_GROUPS = [
     label: '請求書管理',
     children: [
       { key: 'deliverySchedule', label: '発送予定表' },
-      { key: 'requestForm', label: '請求書' },
+      { key: 'requestItem', label: '請求書明細' },
     ],
   },
   {
@@ -229,9 +230,10 @@ export const MODULE_PRESETS = {
     },
   },
   deliverySchedule: {
-    tableFields: ['recordId', 'bizNo', 'customerName', 'groupCode', 'goodsName', 'skuCode', 'stockTypeName', 'scheduledShipDate', 'shippingQty', 'operatorName'],
-    queryFields: ['customerId', 'customerName', 'categoryId', 'categoryName', 'goodsId', 'goodsName', 'skuId', 'skuCode', 'stockTypeId', 'groupCode', 'startDate', 'endDate'],
+    tableFields: REQUEST_FLOW_TABLE_FIELDS,
+    queryFields: ['customerId', 'customerName', 'country', 'categoryId', 'categoryName', 'goodsId', 'goodsName', 'skuId', 'skuCode', 'stockTypeId', 'groupCode', 'startDate', 'endDate'],
     fieldTypes: {
+      country: 'text',
       customerId: 'relation',
       categoryId: 'relation',
       goodsId: 'relation',
@@ -241,10 +243,13 @@ export const MODULE_PRESETS = {
     },
   },
   requestItem: {
+    hideActions: true,
+    tableFields: REQUEST_FLOW_TABLE_FIELDS,
     queryFields: REQUEST_ITEM_QUERY_FIELDS,
     formFields: REQUEST_FINANCE_FIELDS,
     fieldTypes: {
       requestId: 'relation',
+      customerId: 'relation',
       goodsId: 'relation',
       skuId: 'relation',
       brandId: 'relation',
@@ -263,9 +268,12 @@ export const MODULE_PRESETS = {
       hasUnpaid: 'switch',
       unpaidAmount: 'decimal',
       discount: 'decimal',
+      availableQty: 'number',
       requestQty: 'number',
       approveQty: 'number',
       outQty: 'number',
+      startDate: 'datetime',
+      endDate: 'datetime',
       remark: 'textarea',
     },
   },

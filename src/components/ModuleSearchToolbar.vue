@@ -167,6 +167,39 @@
         {{ tableText.readAll }}
       </a-button>
       <a-button
+        v-if="canUseRequestFlowActions"
+        class="search-btn"
+        :disabled="selectedCount === 0"
+        @click="$emit('fill-selected-qty')"
+      >
+        選択行を最大数量
+      </a-button>
+      <a-button
+        v-if="canUseRequestFlowActions"
+        class="search-btn"
+        :disabled="selectedCount === 0"
+        @click="$emit('clear-selected-qty')"
+      >
+        数量クリア
+      </a-button>
+      <a-button
+        v-if="canMoveDeliveryToRequest"
+        type="primary"
+        class="search-btn"
+        :disabled="selectedCount === 0"
+        @click="$emit('move-delivery-to-request')"
+      >
+        請求書明細へ追加
+      </a-button>
+      <a-button
+        v-if="canMoveRequestToDelivery"
+        class="search-btn"
+        :disabled="selectedCount === 0"
+        @click="$emit('move-request-to-delivery')"
+      >
+        発送予定表へ戻す
+      </a-button>
+      <a-button
         v-if="canGenerateRequestForm"
         type="primary"
         class="search-btn"
@@ -195,6 +228,8 @@ const props = defineProps({
   canExport: { type: Boolean, default: false },
   exportLoading: { type: Boolean, default: false },
   canGenerateRequestForm: { type: Boolean, default: false },
+  canMoveDeliveryToRequest: { type: Boolean, default: false },
+  canMoveRequestToDelivery: { type: Boolean, default: false },
   goodsImportLoading: { type: Boolean, default: false },
   selectedCount: { type: Number, default: 0 },
   queryInputType: { type: Function, required: true },
@@ -217,6 +252,10 @@ const emit = defineEmits([
   'goods-import',
   'read-all',
   'generate-request-form',
+  'fill-selected-qty',
+  'clear-selected-qty',
+  'move-delivery-to-request',
+  'move-request-to-delivery',
   'update-field',
 ]);
 
@@ -231,6 +270,10 @@ const showSheetOutboundButton = computed(() => (
   || props.moduleKey === 'stockSelf'
   || props.moduleKey === 'stockGroup'
   || /^stockGroup[ABC]$/.test(String(props.moduleKey || ''))
+));
+
+const canUseRequestFlowActions = computed(() => (
+  props.canMoveDeliveryToRequest || props.canMoveRequestToDelivery
 ));
 
 const query = computed(() => new Proxy(props.queryState, {

@@ -14,7 +14,7 @@ const MODULE_KEY_ALIASES = {
 const REQUEST_CUSTOMER_PAGE_SIZE = 200;
 const REQUEST_CHILDREN = [
   { key: 'deliverySchedule', label: '発送予定表' },
-  { key: 'requestForm', label: '請求書' },
+  { key: 'requestItem', label: '請求書明細' },
 ];
 
 export function useModuleMenu(options) {
@@ -161,6 +161,7 @@ export function useModuleMenu(options) {
     if (scopeKeySet.has('requestForm') || scopeKeySet.has('requestItem') || scopeKeySet.has('deliverySchedule')) {
       scopeKeySet.add('deliverySchedule');
       scopeKeySet.add('requestForm');
+      scopeKeySet.add('requestItem');
     }
     if (scopeKeySet.has('stockGroupA') || scopeKeySet.has('stockGroupB') || scopeKeySet.has('stockGroupC')) {
       scopeKeySet.add('stockGroup');

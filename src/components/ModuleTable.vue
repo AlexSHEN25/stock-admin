@@ -17,6 +17,8 @@
       :can-export="canExportCurrentList"
       :export-loading="exportLoading"
       :can-generate-request-form="canGenerateRequestForm"
+      :can-move-delivery-to-request="canMoveDeliveryToRequest"
+      :can-move-request-to-delivery="canMoveRequestToDelivery"
       :goods-import-loading="goodsImportLoading"
       :selected-count="selectedRowKeys.length"
       :query-input-type="queryInputType"
@@ -35,66 +37,12 @@
       @goods-import="importGoodsBatchFromFile"
       @read-all="onReadAllMessages"
       @generate-request-form="generateRequestForm"
+      @fill-selected-qty="fillSelectedRequestFlowQty"
+      @clear-selected-qty="clearSelectedRequestFlowQty"
+      @move-delivery-to-request="moveSelectedDeliveryToRequest"
+      @move-request-to-delivery="moveSelectedRequestToDelivery"
       @update-field="updateQueryField"
     />
-
-    <request-candidate-modal
-      :open="props.moduleKey === 'requestItem' && candidateModalOpen"
-      :loading="candidateLoading"
-      :submit-text="candidateSubmitText"
-      :rows="candidateRows"
-      :selected-keys="candidateSelectedKeys"
-      :qty-state="candidateQtyState"
-      :inbound-loading-keys="candidateInboundLoadingKeys"
-      :row-key="candidateRowKey"
-      :max-request-qty="maxRequestQty"
-      :format-qty="formatQty"
-      :is-inbound-applied="isCandidateInboundApplied"
-      :candidate-status="candidateStatus"
-      @match="submitMatchCandidates"
-      @submit="submitAddCandidates"
-      @inbound="submitCandidateInbound"
-      @selection-change="onCandidateSelectChange"
-      @qty-change="onCandidateQtyChange"
-      @remove="removeCandidate"
-    />
-
-    <a-modal
-      :open="deliveryScheduleAddOpen"
-      title="請求書明細へ追加"
-      :ok-text="TABLE_TEXT.save"
-      :cancel-text="TABLE_TEXT.cancel"
-      :confirm-loading="deliveryScheduleAddSubmitting"
-      @ok="submitDeliveryScheduleAdd"
-      @cancel="closeDeliveryScheduleAdd"
-    >
-      <a-spin :spinning="deliveryScheduleAddLoading">
-        <a-form layout="vertical">
-          <a-form-item
-            label="請求書"
-            required
-          >
-            <a-select
-              v-model:value="deliveryScheduleAddForm.requestId"
-              :options="deliveryScheduleRequestOptions"
-              show-search
-              option-filter-prop="label"
-            />
-          </a-form-item>
-          <a-form-item
-            label="請求数量"
-            required
-          >
-            <a-input-number
-              v-model:value="deliveryScheduleAddForm.requestQty"
-              :min="1"
-              :max="deliveryScheduleAddMaxQty"
-              style="width:100%"
-            />
-          </a-form-item>
-        </a-form>
-      </a-spin>
-    </a-modal>
 
     <div :class="['table-stage', { 'customer-matrix-stage': isCustomerGoodsSummary }]">
       <a-table
@@ -181,6 +129,16 @@
                 </div>
               </div>
             </div>
+          </template>
+          <template v-else-if="isRequestFlowModule && String(column.key) === 'moveQty'">
+            <a-input-number
+              :value="requestFlowQtyValue(record)"
+              :min="1"
+              :max="requestFlowMaxQty(record) || undefined"
+              :precision="0"
+              style="width: 100%;"
+              @update:value="(value) => updateRequestFlowQty(record, value)"
+            />
           </template>
           <template v-else-if="String(column.key) === 'updateTime'">
             {{ formatTime(record.updateTime) }}
@@ -376,12 +334,15 @@ import {
   fetchOutboundStockOrderOptions,
   fetchGoodsCascadeOptions,
   fetchDeliverySchedulePage,
+  fetchRequestItemCartPage,
+  addRequestItemsToCart,
+  removeRequestItemsFromCart,
   fetchCustomerStockGoodsTreePage,
   fetchMyGroupStockAvailable,
   fetchModuleOptions,
   importGoodsByExcel,
   importCustomerByExcel,
-  addRequestItemsFromStockOrder,
+  createRequestFormWithSelectedItems,
   createItemByUrl,
   updateItem,
   removeItem,
@@ -393,7 +354,6 @@ import ModuleEditModal from './ModuleEditModal.vue';
 import ModuleInlineEditor from './ModuleInlineEditor.vue';
 import ModuleRowActions from './ModuleRowActions.vue';
 import ModuleSearchToolbar from './ModuleSearchToolbar.vue';
-import RequestCandidateModal from './RequestCandidateModal.vue';
 import StockSheetFlowModal from './StockSheetFlowModal.vue';
 import { useGoodsDrawer } from '../composables/useGoodsDrawer';
 import { useModuleActions } from '../composables/useModuleActions';
@@ -401,7 +361,6 @@ import { useModuleFieldBehavior } from '../composables/useModuleFieldBehavior';
 import { useModuleMedia } from '../composables/useModuleMedia';
 import { useModuleOptions } from '../composables/useModuleOptions';
 import { useModuleTablePresentation } from '../composables/useModuleTablePresentation';
-import { useRequestItemCandidates } from '../composables/useRequestItemCandidates';
 import { useRelationOptions } from '../composables/useRelationOptions';
 import { useModuleTableSchema } from '../composables/useModuleTableSchema';
 import { useModuleTableState } from '../composables/useModuleTableState';
@@ -463,15 +422,7 @@ const exportLoading = ref(false);
 const goodsStockLoading = ref(false);
 const goodsInboundForm = reactive({});
 const goodsOutboundForm = reactive({});
-const deliveryScheduleAddOpen = ref(false);
-const deliveryScheduleAddLoading = ref(false);
-const deliveryScheduleAddSubmitting = ref(false);
-const deliveryScheduleAddRecord = ref(null);
-const deliveryScheduleRequestOptions = ref([]);
-const deliveryScheduleAddForm = reactive({
-  requestId: null,
-  requestQty: 1,
-});
+const requestItemQtyState = reactive({});
 const sheetOutboundModalOpen = ref(false);
 const sheetOutboundSubmitting = ref(false);
 const sheetFlowMode = ref('outbound');
@@ -532,6 +483,7 @@ const isGroupStockModule = computed(() => (
 ));
 const canUseGroupAllocation = computed(() => isAdminUser.value && isSelfStockModule.value);
 const isCustomerGoodsSummary = computed(() => props.moduleKey === 'stockCustomerGoods');
+const isRequestFlowModule = computed(() => props.moduleKey === 'deliverySchedule' || props.moduleKey === 'requestItem');
 const customerGoodsMatrixTableColumns = computed(() => {
   if (!isCustomerGoodsSummary.value) return [];
   const staticColumns = [
@@ -609,9 +561,6 @@ const modulePath = computed(() => {
 const preset = computed(() => getModulePreset(props.moduleKey));
 const rowExtraActions = computed(() => {
   const base = getRowExtraActions(props.moduleKey) || [];
-  if (props.moduleKey === 'requestItem') {
-    return [...base, { key: 'returnToSchedule', label: TABLE_TEXT.returnToSchedule }];
-  }
   return base;
 });
 const canWrite = computed(() => {
@@ -622,8 +571,16 @@ const canWrite = computed(() => {
 });
 const canGenerateRequestForm = computed(() => (
   props.moduleKey === 'requestItem'
-  && Boolean(props.moduleActions?.create || props.moduleActions?.edit)
+  && canWrite.value
   && selectedRowKeys.value.length > 0
+));
+const canMoveDeliveryToRequest = computed(() => (
+  props.moduleKey === 'deliverySchedule'
+  && canWrite.value
+));
+const canMoveRequestToDelivery = computed(() => (
+  props.moduleKey === 'requestItem'
+  && canWrite.value
 ));
 const canUseGoodsInboundActions = computed(() => (
   isSelfStockModule.value
@@ -633,10 +590,6 @@ const canUseGoodsOutboundActions = computed(() => (
   isSplitStockManagement.value
 ));
 const isAdminUser = computed(() => isAdminByPermissionCodes(props.permissionCodes || []));
-const deliveryScheduleAddMaxQty = computed(() => {
-  const qty = Number(deliveryScheduleAddRecord.value?.quantity ?? deliveryScheduleAddRecord.value?.shippingQty ?? 1);
-  return !Number.isNaN(qty) && qty > 0 ? Math.floor(qty) : undefined;
-});
 const {
   statusOptions,
   queryInputType,
@@ -717,36 +670,6 @@ const {
       : { ...stockViewQueryParams(), ...(props.fixedQueryParams || {}) }
   ),
   fetchPageData: (path, params) => fetchPageDataByModule(path, params),
-});
-
-const {
-  tableRows: requestItemTableRows,
-  candidateModalOpen,
-  candidateLoading,
-  candidateRows,
-  candidateSelectedKeys,
-  candidateInboundLoadingKeys,
-  candidateQtyState,
-  candidateSubmitText,
-  candidateRowKey,
-  maxRequestQty,
-  formatQty,
-  openCandidateModal,
-  onCandidateSelectChange,
-  onCandidateQtyChange,
-  submitAddCandidates,
-  submitMatchCandidates,
-  submitCandidateInbound,
-  isCandidateInboundApplied,
-  candidateStatus,
-  removeRequestItem,
-  removeCandidate,
-} = useRequestItemCandidates({
-  moduleKey: computed(() => props.moduleKey),
-  queryState,
-  rows,
-  reload,
-  notify: message,
 });
 
 const isUserSelfEditMode = computed(() => props.moduleKey === 'user' && editing.value);
@@ -869,13 +792,96 @@ const visibleQueryFields = computed(() => {
 });
 const tableRows = computed(() => {
   if (isGoodsManagement.value) {
-    return mergeGoodsWithStock(requestItemTableRows.value, goodsStockRows.value);
+    return mergeGoodsWithStock(rows.value, goodsStockRows.value);
   }
   if (isSplitStockManagement.value) {
-    return requestItemTableRows.value;
+    return rows.value;
   }
-  return requestItemTableRows.value;
+  if (isRequestFlowModule.value) {
+    return aggregateRequestFlowRows(rows.value, props.moduleKey);
+  }
+  return rows.value;
 });
+
+function aggregateRequestFlowRows(sourceRows = [], moduleKey = props.moduleKey) {
+  const groups = new Map();
+  for (const record of Array.isArray(sourceRows) ? sourceRows : []) {
+    if (!record || typeof record !== 'object') continue;
+    const normalized = normalizeRequestFlowRecord(record, moduleKey);
+    const key = requestFlowAggregateKey(normalized);
+    const existing = groups.get(key);
+    if (!existing) {
+      groups.set(key, {
+        ...normalized,
+        id: key,
+        aggregateKey: key,
+        __sources: [normalized],
+        sourceQty: requestFlowSourceQty(normalized, moduleKey),
+      });
+      continue;
+    }
+    existing.__sources.push(normalized);
+    existing.sourceQty += requestFlowSourceQty(normalized, moduleKey);
+    existing.quantity = Number(existing.quantity || 0) + Number(normalized.quantity || 0);
+    existing.availableQty = Number(existing.availableQty || 0) + Number(normalized.availableQty || 0);
+    existing.requestQty = Number(existing.requestQty || 0) + Number(normalized.requestQty || 0);
+  }
+  return [...groups.values()].map((record) => ({
+    ...record,
+    sourceQty: Math.max(0, Math.floor(Number(record.sourceQty || 0))),
+  }));
+}
+
+function normalizeRequestFlowRecord(record, moduleKey = props.moduleKey) {
+  const isRequestItem = moduleKey === 'requestItem';
+  const quantity = Number(isRequestItem
+    ? record?.requestQty ?? record?.availableQty ?? 0
+    : record?.quantity ?? record?.availableQty ?? 0);
+  const bizNo = record?.bizNo ?? record?.orderNo ?? record?.sourceOrderNo ?? '';
+  const outboundDate = record?.outboundDate ?? record?.bizDate ?? record?.scheduledShipDate ?? '';
+  const stockRecordId = record?.stockRecordId ?? record?.stock_record_id ?? record?.recordId ?? record?.record_id ?? null;
+  const stockOrderItemId = record?.stockOrderItemId ?? record?.stock_order_item_id ?? record?.orderItemId ?? record?.order_item_id ?? null;
+  return {
+    ...record,
+    bizNo,
+    outboundDate,
+    stockRecordId,
+    stockOrderItemId,
+    quantity: moduleKey === 'deliverySchedule' ? safeWholeQty(quantity) : Number(record?.quantity ?? 0),
+    availableQty: safeWholeQty(record?.availableQty ?? quantity),
+    requestQty: safeWholeQty(record?.requestQty ?? quantity),
+    sourceQty: safeWholeQty(quantity),
+  };
+}
+
+function requestFlowAggregateKey(record) {
+  return [
+    record?.customerId,
+    record?.customerName,
+    record?.country,
+    record?.groupCode,
+    record?.outboundDate,
+    record?.goodsId,
+    record?.skuId,
+    record?.skuCode,
+    record?.stockTypeId,
+    record?.price,
+    record?.currency,
+  ].map((value) => String(value ?? '')).join('|');
+}
+
+function requestFlowSourceQty(record, moduleKey = props.moduleKey) {
+  if (moduleKey === 'requestItem') {
+    return safeWholeQty(record?.requestQty ?? record?.availableQty ?? record?.sourceQty ?? 0);
+  }
+  return safeWholeQty(record?.quantity ?? record?.sourceQty ?? 0);
+}
+
+function safeWholeQty(value) {
+  const qty = Number(value);
+  if (Number.isNaN(qty)) return 0;
+  return Math.max(0, Math.floor(Math.abs(qty)));
+}
 
 function stockViewQueryParams() {
   if (props.moduleKey === 'stockSelf' || props.moduleKey === 'stockSummary' || props.moduleKey === 'stock') {
@@ -895,7 +901,10 @@ function stockViewQueryParams() {
 
 function fetchPageDataByModule(path, params) {
   if (props.moduleKey === 'deliverySchedule') {
-    return fetchDeliverySchedulePage(params).then(normalizeDeliverySchedulePage);
+    return fetchDeliverySchedulePage(params);
+  }
+  if (props.moduleKey === 'requestItem') {
+    return fetchRequestItemCartPage(params);
   }
   if (props.moduleKey === 'stockCustomerGoods') {
     return fetchCustomerStockGoodsTreePage(params).then(normalizeCustomerGoodsTreePage);
@@ -903,17 +912,6 @@ function fetchPageDataByModule(path, params) {
   return fetchPage(path, params);
 }
 
-function normalizeDeliverySchedulePage(page) {
-  const records = Array.isArray(page?.records) ? page.records : [];
-  return {
-    ...page,
-    records: records.map((record) => ({
-      ...record,
-      scheduledShipDate: record?.outboundDate ?? record?.scheduledShipDate,
-      shippingQty: record?.quantity ?? record?.shippingQty,
-    })),
-  };
-}
 const visibleFormKeys = computed(() => {
   const list = editing.value ? activeFormKeys() : formKeys.value.filter((field) => String(field || '').toLowerCase() !== 'status');
   return filterFinanceFormKeys(list, formState);
@@ -967,9 +965,6 @@ watch(
     await reload();
     if (isGoodsManagement.value) {
       await loadGoodsStockRows();
-    }
-    if (props.moduleKey === 'requestItem' && !isCurrentRequestCompleted()) {
-      openCandidateModal();
     }
   },
   { immediate: true },
@@ -1897,6 +1892,12 @@ function stockCurrentQty(stock) {
   return Number.isNaN(quantity) ? 0 : quantity;
 }
 
+function formatQty(value) {
+  const quantity = Number(value);
+  if (Number.isNaN(quantity)) return value ?? '-';
+  return Math.abs(quantity);
+}
+
 function buildCustomerQtyBreakdown(stocks) {
   const grouped = new Map();
   (Array.isArray(stocks) ? stocks : []).forEach((stock, index) => {
@@ -1935,20 +1936,8 @@ function persistGoodsFlowState() {
   // Browser storage cache removed intentionally.
 }
 
-function openRequestItemCandidateModal() {
-  if (props.moduleKey === 'requestItem' && isCurrentRequestCompleted()) {
-    message.warning(TABLE_TEXT.completedRequestReadonly);
-    return;
-  }
-  openCandidateModal();
-}
-
 function openCreate() {
   if (!canWrite.value || !canCreateInModule()) return;
-  if (props.moduleKey === 'requestItem') {
-    openRequestItemCandidateModal();
-    return;
-  }
   if (isGoodsManagement.value) {
     openGoodsDrawerCreate();
     return;
@@ -2166,10 +2155,6 @@ async function submit() {
 
 async function onDelete(record) {
   if (!canWrite.value || !canDeleteRecord(record)) return;
-  if (props.moduleKey === 'requestItem') {
-    await removeRequestItem(record, getRecordId);
-    return;
-  }
   if (isSplitStockManagement.value) {
     try {
       await removeItem(modulePath.value, getRecordId(record));
@@ -2343,14 +2328,6 @@ async function handleRowExtraAction(actionKey, record) {
     await submitStockOrderApproval(record, actionKey === 'approve');
     return;
   }
-  if (props.moduleKey === 'requestItem' && actionKey === 'returnToSchedule') {
-    await removeRequestItem(record, getRecordId);
-    return;
-  }
-  if (props.moduleKey === 'deliverySchedule' && actionKey === 'addToRequestItem') {
-    await openDeliveryScheduleAdd(record);
-    return;
-  }
   if (actionKey === 'inbound') {
     await openGoodsInboundModal(record);
     return;
@@ -2371,135 +2348,186 @@ async function handleRowExtraAction(actionKey, record) {
 
 async function generateRequestForm() {
   if (props.moduleKey !== 'requestItem') return;
-  const requestId = resolveCurrentRequestId();
-  const items = selectedRequestItemRows();
-  if (!requestId) {
-    message.warning(TABLE_TEXT.selectRequestForm);
-    return;
-  }
+  const items = selectedRequestFlowRows();
   if (items.length === 0) {
     message.warning(TABLE_TEXT.selectRequestItems);
     return;
   }
+  const customerId = resolveRequestItemCustomerId(items);
+  if (!customerId) {
+    message.warning(TABLE_TEXT.selectRequestForm);
+    return;
+  }
 
   try {
-    await updateItem('requestForm', {
-      id: requestId,
-      state: 2,
-      approveRemark: TABLE_TEXT.requestFormCompleted,
+    const payloadItems = items.map((record) => buildRequestFlowPayloadItem(record))
+      .filter((item) => isValidRequestFlowPayloadItem(item));
+    if (payloadItems.length === 0) {
+      message.warning('請求数量を入力してください');
+      return;
+    }
+    const invalidQty = items.some((record) => {
+      const requestQty = Number(requestFlowQtyValue(record) || 0);
+      const availableQty = requestFlowMaxQty(record);
+      return requestQty < 1 || (availableQty > 0 && requestQty > availableQty);
+    });
+    if (invalidQty) {
+      message.warning('請求数量は1以上、生成可能数量以下で入力してください');
+      return;
+    }
+    await createRequestFormWithSelectedItems({
+      customerId,
+      items: payloadItems,
     });
     message.success(TABLE_TEXT.requestFormGenerated);
+    selectedRowKeys.value = [];
+    Object.keys(requestItemQtyState).forEach((key) => delete requestItemQtyState[key]);
     await reload();
   } catch (error) {
     message.error(error?.message || TABLE_TEXT.saveFail);
   }
 }
 
-function resolveCurrentRequestId() {
-  const fromQuery = Number(queryState.requestId);
-  if (fromQuery) return fromQuery;
-  const first = rows.value?.[0];
-  const fromRow = Number(first?.requestId);
-  if (fromRow) return fromRow;
-  const raw = getNavigationState('jump_request_form_id');
-  const fromJump = Number(raw);
-  if (fromJump) return fromJump;
-  return null;
+async function moveSelectedDeliveryToRequest() {
+  if (props.moduleKey !== 'deliverySchedule') return;
+  await submitRequestFlowMove({
+    rowsToSubmit: selectedRequestFlowRows(),
+    submitter: addRequestItemsToCart,
+    emptyMessage: '発送予定表から追加する商品を選択してください',
+    successMessage: '請求書明細へ追加しました',
+  });
 }
 
-function selectedRequestItemRows() {
-  if (props.moduleKey !== 'requestItem') return [];
+async function moveSelectedRequestToDelivery() {
+  if (props.moduleKey !== 'requestItem') return;
+  await submitRequestFlowMove({
+    rowsToSubmit: selectedRequestFlowRows(),
+    submitter: removeRequestItemsFromCart,
+    emptyMessage: '発送予定表へ戻す明細を選択してください',
+    successMessage: '発送予定表へ戻しました',
+  });
+}
+
+async function submitRequestFlowMove({ rowsToSubmit, submitter, emptyMessage, successMessage }) {
+  const items = Array.isArray(rowsToSubmit) ? rowsToSubmit : [];
+  if (items.length === 0) {
+    message.warning(emptyMessage);
+    return;
+  }
+  const customerId = resolveRequestItemCustomerId(items);
+  if (!customerId) {
+    message.warning(TABLE_TEXT.selectRequestForm);
+    return;
+  }
+  const invalidQty = items.some((record) => {
+    const requestQty = Number(requestFlowQtyValue(record) || 0);
+    const maxQty = requestFlowMaxQty(record);
+    return requestQty < 1 || (maxQty > 0 && requestQty > maxQty);
+  });
+  if (invalidQty) {
+    message.warning('処理数量は1以上、選択行の数量以下で入力してください');
+    return;
+  }
+  const payloadItems = items.map((record) => buildRequestFlowPayloadItem(record))
+    .filter((item) => isValidRequestFlowPayloadItem(item));
+  if (payloadItems.length === 0) {
+    message.warning('処理数量を入力してください');
+    return;
+  }
+  try {
+    await submitter({
+      customerId,
+      items: payloadItems,
+    });
+    message.success(successMessage);
+    selectedRowKeys.value = [];
+    Object.keys(requestItemQtyState).forEach((key) => delete requestItemQtyState[key]);
+    await reload();
+  } catch (error) {
+    message.error(error?.message || TABLE_TEXT.saveFail);
+  }
+}
+
+function buildRequestFlowPayloadItem(record) {
+  const requestQty = Math.max(0, Math.floor(Number(requestFlowQtyValue(record) || 0)));
+  const sources = Array.isArray(record?.__sources) && record.__sources.length > 0 ? record.__sources : [record];
+  const stockRecordIds = uniquePositiveIds(sources.map((source) => source?.stockRecordId ?? source?.stock_record_id ?? source?.recordId ?? source?.record_id));
+  const stockOrderItemIds = uniquePositiveIds(sources.map((source) => source?.stockOrderItemId ?? source?.stock_order_item_id ?? source?.orderItemId ?? source?.order_item_id));
+  if (stockRecordIds.length > 1 || stockOrderItemIds.length > 1) {
+    return {
+      stockRecordIds,
+      stockOrderItemIds,
+      requestQty,
+    };
+  }
+  return {
+    stockRecordId: stockRecordIds[0] || 0,
+    stockOrderItemId: stockOrderItemIds[0] || undefined,
+    requestQty,
+  };
+}
+
+function uniquePositiveIds(values = []) {
+  return [...new Set((Array.isArray(values) ? values : [])
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0))];
+}
+
+function isValidRequestFlowPayloadItem(item) {
+  if (!item || Number(item.requestQty || 0) <= 0) return false;
+  if (item.stockRecordId) return true;
+  return Array.isArray(item.stockRecordIds) && item.stockRecordIds.length > 0;
+}
+
+function resolveRequestItemCustomerId(items = []) {
+  const fixed = props.fixedQueryParams?.customerId;
+  if (fixed !== undefined && fixed !== null && String(fixed).trim() !== '') return fixed;
+  const fromQuery = queryState.customerId;
+  if (fromQuery !== undefined && fromQuery !== null && String(fromQuery).trim() !== '') return fromQuery;
+  const hit = items.find((record) => record?.customerId !== undefined && record?.customerId !== null && String(record.customerId).trim() !== '');
+  return hit?.customerId ?? null;
+}
+
+function selectedRequestFlowRows() {
+  if (!isRequestFlowModule.value) return [];
   const selected = new Set((selectedRowKeys.value || []).map((key) => String(key)));
   return (tableRows.value || []).filter((record) => selected.has(String(getRowKey(record))));
 }
 
-async function openDeliveryScheduleAdd(record) {
-  deliveryScheduleAddRecord.value = record || null;
-  deliveryScheduleAddForm.requestId = null;
-  deliveryScheduleAddForm.requestQty = Math.max(1, Number(record?.quantity ?? record?.shippingQty ?? 1) || 1);
-  deliveryScheduleAddOpen.value = true;
-  await loadDeliveryScheduleRequestOptions(record);
-}
-
-function closeDeliveryScheduleAdd() {
-  deliveryScheduleAddOpen.value = false;
-  deliveryScheduleAddRecord.value = null;
-}
-
-async function loadDeliveryScheduleRequestOptions(record) {
-  const customerId = record?.customerId ?? props.fixedQueryParams?.customerId;
-  deliveryScheduleAddLoading.value = true;
-  try {
-    const page = await fetchPage('requestForm', {
-      pageNum: 1,
-      pageSize: 50,
-      customerId,
-      sortBy: 'updateTime',
-      sortOrder: 'desc',
-    });
-    const options = (Array.isArray(page?.records) ? page.records : [])
-      .filter((item) => !isCompletedRequestRecord(item))
-      .map((item) => ({
-        value: item?.id,
-        label: String(item?.bizNo || item?.requestNo || item?.sourceOrderNo || `ID:${item?.id}`),
-        raw: item,
-      }))
-      .filter((item) => item.value !== undefined && item.value !== null);
-    deliveryScheduleRequestOptions.value = options;
-    if (options.length === 1) {
-      deliveryScheduleAddForm.requestId = options[0].value;
-    }
-  } catch (error) {
-    deliveryScheduleRequestOptions.value = [];
-    message.error(error?.message || TABLE_TEXT.fetchFail);
-  } finally {
-    deliveryScheduleAddLoading.value = false;
+function fillSelectedRequestFlowQty() {
+  for (const record of selectedRequestFlowRows()) {
+    requestItemQtyState[getRowKey(record)] = Math.max(1, requestFlowMaxQty(record) || 1);
   }
 }
 
-async function submitDeliveryScheduleAdd() {
-  const record = deliveryScheduleAddRecord.value || {};
-  const requestId = Number(deliveryScheduleAddForm.requestId);
-  const requestQty = Number(deliveryScheduleAddForm.requestQty);
-  const stockRecordId = Number(record.recordId ?? record.stockRecordId ?? 0);
-  const stockOrderItemId = Number(record.orderItemId ?? record.stockOrderItemId ?? 0);
-  if (!requestId) {
-    message.warning(TABLE_TEXT.selectRequestForm);
-    return;
+function clearSelectedRequestFlowQty() {
+  for (const record of selectedRequestFlowRows()) {
+    requestItemQtyState[getRowKey(record)] = 1;
   }
-  if (!requestQty || requestQty <= 0) {
-    message.warning('請求数量を入力してください');
-    return;
-  }
-  if (!stockRecordId && !stockOrderItemId) {
-    message.warning('発送予定表データに明細IDがありません');
-    return;
-  }
+}
 
-  deliveryScheduleAddSubmitting.value = true;
-  try {
-    await addRequestItemsFromStockOrder({
-      requestId,
-      items: [{
-        stockRecordId: stockRecordId || undefined,
-        stockOrderItemId: stockOrderItemId || undefined,
-        requestQty,
-      }],
-    });
-    message.success('請求書明細へ追加しました');
-    closeDeliveryScheduleAdd();
-    await reload();
-  } catch (error) {
-    message.error(error?.message || TABLE_TEXT.saveFail);
-  } finally {
-    deliveryScheduleAddSubmitting.value = false;
+function requestFlowQtyValue(record) {
+  const key = getRowKey(record);
+  if (Object.prototype.hasOwnProperty.call(requestItemQtyState, key)) {
+    return requestItemQtyState[key];
   }
+  const qty = Number(record?.sourceQty ?? record?.requestQty ?? record?.quantity ?? record?.availableQty ?? 1);
+  return Math.max(1, Math.abs(Number.isNaN(qty) ? 1 : Math.floor(qty || 1)));
+}
+
+function updateRequestFlowQty(record, value) {
+  const key = getRowKey(record);
+  const availableQty = requestFlowMaxQty(record);
+  const nextQty = Math.max(1, Math.floor(Number(value || 1)));
+  requestItemQtyState[key] = availableQty > 0 ? Math.min(nextQty, availableQty) : nextQty;
+}
+
+function requestFlowMaxQty(record) {
+  const qty = Number(record?.sourceQty ?? record?.requestQty ?? record?.quantity ?? record?.availableQty ?? record?.requestableQty ?? record?.remainQty ?? 0);
+  return Number.isNaN(qty) ? 0 : Math.max(0, Math.floor(Math.abs(qty)));
 }
 
 function canShowRowExtraAction(actionKey, record) {
-  if (props.moduleKey === 'deliverySchedule' && actionKey === 'addToRequestItem') {
-    return Boolean(record);
-  }
   if (props.moduleKey === 'stockOrder' && (actionKey === 'approve' || actionKey === 'reject')) {
     return Boolean(props.moduleActions?.edit) && Number(record?.state ?? record?.orderState) !== 2;
   }

@@ -113,6 +113,9 @@ export const FIELD_LABELS = {
   seriesId: 'シリーズ',
   seriesName: 'シリーズ名',
   quantity: '数量',
+  sourceQty: '数量',
+  moveQty: '処理数量',
+  availableQty: '生成可能数量',
   stock: '在庫数',
   price: '価格',
   amount: '金額',
@@ -287,8 +290,8 @@ export function displayKeys(record) {
 
   return keyList.filter((key) => {
     const low = key.toLowerCase();
-  if (String(key).startsWith('__')) return false;
-  if (low === 'beforeqty' || low === 'afterqty' || low === 'lockqty' || low === 'inbounddone' || low === 'inventorystatus') return false;
+    if (String(key).startsWith('__')) return false;
+    if (low === 'nodetype' || low === 'beforeqty' || low === 'afterqty' || low === 'lockqty' || low === 'inbounddone' || low === 'inventorystatus') return false;
     if (!low.endsWith('id') && !low.endsWith('ids')) return true;
     if (low === 'id') return true;
     if (alwaysDisplayIdFields.has(low)) return true;
