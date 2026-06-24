@@ -1381,7 +1381,7 @@ function importTemplateConfigByModule() {
     return {
       url: '/api/customer/import/template',
       fileName: 'customers-import-template.xlsx',
-      failMessage: '鬘ｧ螳｢繝・Φ繝励Ξ繝ｼ繝医・繝繧ｦ繝ｳ繝ｭ繝ｼ繝峨↓螟ｱ謨励＠縺ｾ縺励◆',
+      failMessage: '顧客テンプレートのダウンロードに失敗しました',
     };
   }
   return null;
@@ -1489,13 +1489,13 @@ function formatImportSummary(result) {
 
 function importSuccessMessage() {
   return props.moduleKey === 'customer'
-    ? '鬘ｧ螳｢繧剃ｸ諡ｬ蟆主・縺励∪縺励◆'
+    ? '顧客を一括導入しました'
     : TABLE_TEXT.goodsImportSuccess;
 }
 
 function importFailMessage() {
   return props.moduleKey === 'customer'
-    ? '鬘ｧ螳｢荳諡ｬ蟆主・縺ｫ螟ｱ謨励＠縺ｾ縺励◆'
+    ? '顧客一括導入に失敗しました'
     : TABLE_TEXT.goodsImportFail;
 }
 
@@ -1512,7 +1512,7 @@ function showCustomerImportResult(result) {
     row?.message || '',
   ].filter(Boolean).join(' | '));
   Modal.info({
-    title: '鬘ｧ螳｢蟆主・邨先棡',
+    title: '顧客導入結果',
     width: 760,
     content: h('div', [
       h('div', { style: 'margin-bottom: 12px;' }, summary),
@@ -1586,7 +1586,7 @@ async function openBatchStockDrawer(mode) {
   batchStockSettings.sourceType = STOCK_SOURCE_TYPE.SELF_INBOUND;
   batchStockSettings.warehouseId = null;
   batchStockSettings.stockTypeId = null;
-  batchStockSettings.remark = normalizedMode === 'inbound' ? '荳諡ｬ蜈･蠎ｫ' : '荳諡ｬ蜃ｺ蠎ｫ';
+  batchStockSettings.remark = normalizedMode === 'inbound' ? '一括入庫' : '一括出庫';
   batchStockDrawerOpen.value = true;
 
   if (normalizedMode === 'inbound') {
@@ -1728,7 +1728,7 @@ async function submitBatchStockFlow() {
       return;
     }
     const payload = {
-      remark: batchStockSettings.remark || (batchStockMode.value === 'inbound' ? '荳諡ｬ蜈･蠎ｫ' : '荳諡ｬ蜃ｺ蠎ｫ'),
+      remark: batchStockSettings.remark || (batchStockMode.value === 'inbound' ? '一括入庫' : '一括出庫'),
       items: items.map((item) => removeEmptyBatchStockItem({
         stockId: item.stockId,
         goodsId: item.goodsId,
@@ -1760,7 +1760,7 @@ async function submitBatchStockFlow() {
 }
 
 async function submitGroupBatchInboundFromSelfStock(items, groupCode) {
-  const remark = batchStockSettings.remark || '荳諡ｬ蜈･蠎ｫ';
+  const remark = batchStockSettings.remark || '一括入庫';
   for (const item of items) {
     // eslint-disable-next-line no-await-in-loop
     await createItemByUrl('/api/stock/group/allocate', {
@@ -1854,7 +1854,7 @@ async function submitSheetFlow() {
           && Number(item?.quantity || 0) > 0
       ));
       if (!validCustomerAllocation) {
-        message.warning('鬘ｧ螳｢縺ｨ1莉･荳翫・蜃ｺ蠎ｫ謨ｰ驥上ｒ蜈･蜉帙＠縺ｦ縺上□縺輔＞');
+        message.warning('顧客と1以上の出庫数量を入力してください');
         return;
       }
     }
@@ -2505,7 +2505,7 @@ async function generateRequestForm() {
     const payloadItems = items.map((record) => buildRequestFlowPayloadItem(record))
       .filter((item) => isValidRequestFlowPayloadItem(item));
     if (payloadItems.length === 0) {
-      message.warning('隲区ｱよ焚驥上ｒ蜈･蜉帙＠縺ｦ縺上□縺輔＞');
+      message.warning('請求数量を入力してください');
       return;
     }
     const invalidQty = items.some((record) => {
@@ -2514,7 +2514,7 @@ async function generateRequestForm() {
       return requestQty < 1 || (availableQty > 0 && requestQty > availableQty);
     });
     if (invalidQty) {
-      message.warning('隲区ｱよ焚驥上・1莉･荳翫∫函謌仙庄閭ｽ謨ｰ驥丈ｻ･荳九〒蜈･蜉帙＠縺ｦ縺上□縺輔＞');
+      message.warning('請求数量は1以上、生成可能数量以下で入力してください');
       return;
     }
     await createRequestFormWithSelectedItems({
@@ -2537,8 +2537,8 @@ async function moveSelectedDeliveryToRequest() {
   await submitRequestFlowMove({
     rowsToSubmit: selectedRequestFlowRows(),
     submitter: addRequestItemsToCart,
-    emptyMessage: '逋ｺ騾∽ｺ亥ｮ夊｡ｨ縺九ｉ霑ｽ蜉縺吶ｋ蝠・刀繧帝∈謚槭＠縺ｦ縺上□縺輔＞',
-    successMessage: '隲区ｱよ嶌譏守ｴｰ縺ｸ霑ｽ蜉縺励∪縺励◆',
+    emptyMessage: '発送予定表から追加する商品を選択してください',
+    successMessage: '請求書明細へ追加しました',
   });
 }
 
@@ -2547,8 +2547,8 @@ async function moveSelectedRequestToDelivery() {
   await submitRequestFlowMove({
     rowsToSubmit: selectedRequestFlowRows(),
     submitter: removeRequestItemsFromCart,
-    emptyMessage: '逋ｺ騾∽ｺ亥ｮ夊｡ｨ縺ｸ謌ｻ縺呎・邏ｰ繧帝∈謚槭＠縺ｦ縺上□縺輔＞',
-    successMessage: '逋ｺ騾∽ｺ亥ｮ夊｡ｨ縺ｸ謌ｻ縺励∪縺励◆',
+    emptyMessage: '発送予定表へ戻す明細を選択してください',
+    successMessage: '発送予定表へ戻しました',
   });
 }
 
@@ -2570,13 +2570,13 @@ async function submitRequestFlowMove({ rowsToSubmit, submitter, emptyMessage, su
     return requestQty < 1 || (maxQty > 0 && requestQty > maxQty);
   });
   if (invalidQty) {
-    message.warning('蜃ｦ逅・焚驥上・1莉･荳翫・∈謚櫁｡後・謨ｰ驥丈ｻ･荳九〒蜈･蜉帙＠縺ｦ縺上□縺輔＞');
+    message.warning('処理数量は1以上、選択行の数量以下で入力してください');
     return;
   }
   const payloadItems = items.map((record) => buildRequestFlowPayloadItem(record))
     .filter((item) => isValidRequestFlowPayloadItem(item));
   if (payloadItems.length === 0) {
-    message.warning('蜃ｦ逅・焚驥上ｒ蜈･蜉帙＠縺ｦ縺上□縺輔＞');
+    message.warning('処理数量を入力してください');
     return;
   }
   requestFlowSubmitting.value = true;
@@ -2896,14 +2896,14 @@ function canOpenHierarchyCreate() {
   if (props.moduleKey === 'series') {
     const options = relationOptions.brandId || [];
     if (options.length === 0) {
-      message.warning('蜈医↓繝悶Λ繝ｳ繝峨ｒ逋ｻ骭ｲ縺励※縺上□縺輔＞');
+      message.warning('先にブランドを登録してください');
       return false;
     }
   }
   if (props.moduleKey === 'maker') {
     const options = relationOptions.seriesId || [];
     if (options.length === 0) {
-      message.warning('蜈医↓繧ｷ繝ｪ繝ｼ繧ｺ繧堤匳骭ｲ縺励※縺上□縺輔＞');
+      message.warning('先にシリーズを登録してください');
       return false;
     }
   }
@@ -2923,10 +2923,10 @@ function formPlaceholder(field) {
     return TABLE_TEXT.passwordEmptyNoChange;
   }
   if (props.moduleKey === 'series' && field === 'brandId' && (relationOptions.brandId || []).length === 0) {
-    return '蜈医↓繝悶Λ繝ｳ繝峨ｒ逋ｻ骭ｲ縺励※縺上□縺輔＞';
+    return '先にブランドを登録してください';
   }
   if (props.moduleKey === 'maker' && field === 'seriesId' && (relationOptions.seriesId || []).length === 0) {
-    return '蜈医↓繧ｷ繝ｪ繝ｼ繧ｺ繧堤匳骭ｲ縺励※縺上□縺輔＞';
+    return '先にシリーズを登録してください';
   }
   return '';
 }
