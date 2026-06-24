@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <a-card
     :class="['module-surface', { 'customer-matrix-surface': isCustomerGoodsSummary }]"
     :title="null"
@@ -19,6 +19,7 @@
       :can-generate-request-form="canGenerateRequestForm"
       :can-move-delivery-to-request="canMoveDeliveryToRequest"
       :can-move-request-to-delivery="canMoveRequestToDelivery"
+      :request-submitting="requestFlowSubmitting"
       :goods-import-loading="goodsImportLoading"
       :selected-count="selectedRowKeys.length"
       :query-input-type="queryInputType"
@@ -44,10 +45,17 @@
       @update-field="updateQueryField"
     />
 
-    <div :class="['table-stage', { 'customer-matrix-stage': isCustomerGoodsSummary }]">
+    <div :class="['table-stage', { 'customer-matrix-stage': isCustomerGoodsSummary, 'excel-table-stage': isExcelEditModule }]">
+      <div
+        v-if="isExcelEditModule"
+        class="excel-grid-hint"
+      >
+        <span class="excel-grid-hint-dot" />
+        <span class="excel-grid-hint-text">セルをクリックして選択、ダブルクリックまたは Enter で編集できます。保存・追加・生成ボタンで一括反映します。</span>
+      </div>
       <a-table
         :key="props.moduleKey"
-        class="module-table"
+        :class="['module-table', { 'excel-edit-table': isExcelEditModule }]"
         :row-key="getRowKey"
         :row-class-name="rowClassName"
         :columns="columns"
@@ -60,7 +68,7 @@
         @change="onChange"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="isEditing(record) && column.key !== '__actions' && !isReadonlyField(column.key)">
+          <template v-if="canRenderExcelInlineEditor(record, column.key)">
             <module-inline-editor
               :field="column.key"
               :edit-state="editState"
@@ -131,14 +139,69 @@
             </div>
           </template>
           <template v-else-if="isRequestFlowModule && String(column.key) === 'moveQty'">
-            <a-input-number
-              :value="requestFlowQtyValue(record)"
-              :min="1"
-              :max="requestFlowMaxQty(record) || undefined"
-              :precision="0"
-              style="width: 100%;"
-              @update:value="(value) => updateRequestFlowQty(record, value)"
-            />
+            <div
+              v-if="!isActiveExcelCell(record, column.key)"
+              :class="['excel-display-cell', { 'excel-display-cell-selected': isSelectedExcelCell(record, column.key) }]"
+              role="button"
+              tabindex="0"
+              title="ダブルクリックまたは Enter で編集"
+              @click.stop="activateExcelCell(record, column.key)"
+              @dblclick.stop="editExcelCell(record, column.key)"
+              @keydown.enter.prevent.stop="editExcelCell(record, column.key)"
+            >
+              <span class="excel-display-value">{{ requestFlowQtyValue(record) }}</span>
+              <span class="excel-edit-limit">/ {{ requestFlowMaxQty(record) || '-' }}</span>
+            </div>
+            <div
+              v-else
+              class="excel-edit-cell"
+              @click.stop
+            >
+              <a-input-number
+                :value="requestFlowQtyValue(record)"
+                :min="1"
+                :max="requestFlowMaxQty(record) || undefined"
+                :precision="0"
+                class="excel-edit-input"
+                autofocus
+                @update:value="(value) => updateRequestFlowQty(record, value)"
+                @blur="deactivateExcelCell"
+                @press-enter="deactivateExcelCell"
+              />
+              <span class="excel-edit-limit">
+                / {{ requestFlowMaxQty(record) || '-' }}
+              </span>
+            </div>
+          </template>
+          <template v-else-if="canRenderRequestFlowDraftEditor(record, column.key)">
+            <div
+              class="excel-edit-cell"
+              @click.stop
+            >
+              <a-input-number
+                v-if="excelCellInputType(column.key) === 'number'"
+                :value="requestFlowCellDraftValue(record, column.key)"
+                :precision="numberPrecisionByField(column.key)"
+                class="excel-edit-input excel-edit-input-wide"
+                autofocus
+                @update:value="(value) => updateRequestFlowCellDraft(record, column.key, value)"
+                @blur="deactivateExcelCell"
+                @press-enter="deactivateExcelCell"
+              />
+              <a-input
+                v-else
+                :value="requestFlowCellDraftValue(record, column.key)"
+                class="excel-text-input"
+                autofocus
+                @update:value="(value) => updateRequestFlowCellDraft(record, column.key, value)"
+                @focus="placeCursorAtEnd"
+                @blur="deactivateExcelCell"
+                @press-enter="deactivateExcelCell"
+              />
+            </div>
+          </template>
+          <template v-else-if="isEditing(record) && isExcelEditModule && column.key !== '__actions'">
+            {{ normalizeDisplayLabel(cellDisplayValue(record, column.key)) }}
           </template>
           <template v-else-if="String(column.key) === 'updateTime'">
             {{ formatTime(record.updateTime) }}
@@ -159,10 +222,10 @@
             <span v-else>-</span>
           </template>
           <template v-else-if="hasEnumOptionsMerged(column.key)">
-            {{ enumLabelMerged(column.key, record[column.key]) }}
+            {{ enumLabelMerged(column.key, cellDisplayValue(record, column.key)) }}
           </template>
           <template v-else-if="column.key !== '__actions'">
-            {{ normalizeDisplayLabel(record[column.key]) }}
+            {{ normalizeDisplayLabel(cellDisplayValue(record, column.key)) }}
           </template>
 
           <template v-else-if="column.key === '__actions'">
@@ -398,7 +461,7 @@ const STOCK_ORDER_USER_STATES = new Set([STOCK_ORDER_STATE.PENDING, STOCK_ORDER_
 const REQUEST_FORM_DEFAULT_STATE = REQUEST_FORM_STATE.PENDING;
 const REQUEST_FORM_COMPLETED_STATE = REQUEST_FORM_STATE.COMPLETED;
 const REQUEST_FORM_USER_STATES = new Set([REQUEST_FORM_STATE.PENDING, REQUEST_FORM_STATE.APPLYING]);
-const NORMAL_STOCK_TYPE_KEYWORDS = ['通常', 'normal'];
+const NORMAL_STOCK_TYPE_KEYWORDS = ['騾壼ｸｸ', 'normal'];
 
 const props = defineProps({
   moduleKey: { type: String, required: true },
@@ -423,6 +486,10 @@ const goodsStockLoading = ref(false);
 const goodsInboundForm = reactive({});
 const goodsOutboundForm = reactive({});
 const requestItemQtyState = reactive({});
+const requestFlowCellDraftState = reactive({});
+const selectedExcelCell = ref('');
+const activeExcelCell = ref('');
+const requestFlowSubmitting = ref(false);
 const sheetOutboundModalOpen = ref(false);
 const sheetOutboundSubmitting = ref(false);
 const sheetFlowMode = ref('outbound');
@@ -484,6 +551,8 @@ const isGroupStockModule = computed(() => (
 const canUseGroupAllocation = computed(() => isAdminUser.value && isSelfStockModule.value);
 const isCustomerGoodsSummary = computed(() => props.moduleKey === 'stockCustomerGoods');
 const isRequestFlowModule = computed(() => props.moduleKey === 'deliverySchedule' || props.moduleKey === 'requestItem');
+const isRequestManagementModule = computed(() => props.moduleKey === 'requestForm' || isRequestFlowModule.value);
+const isExcelEditModule = computed(() => isRequestManagementModule.value);
 const customerGoodsMatrixTableColumns = computed(() => {
   if (!isCustomerGoodsSummary.value) return [];
   const staticColumns = [
@@ -693,6 +762,9 @@ const {
   editingRaw,
   isUserSelfEditMode,
   mapNameFieldToIdField,
+  onExcelCellClick: activateExcelCell,
+  onExcelCellEdit: editExcelCell,
+  isExcelCellSelected: isSelectedExcelCell,
 });
 const {
   queryRelationOptions,
@@ -1182,7 +1254,7 @@ function goodsOutboundSelectOptions(field) {
   if (field === 'outboundMode') {
     return [
       { label: '顧客出庫', value: GOODS_OUTBOUND_MODE.CUSTOMER },
-      { label: '組別分貨', value: GOODS_OUTBOUND_MODE.DEPT },
+      { label: '部署振替', value: GOODS_OUTBOUND_MODE.DEPT },
     ];
   }
   if (field === 'stockScope') {
@@ -1244,6 +1316,10 @@ async function submitGoodsOutbound() {
 }
 
 async function downloadGoodsImportTemplate() {
+  if (props.moduleKey === 'goods') {
+    downloadLocalGoodsImportTemplate();
+    return;
+  }
   const config = importTemplateConfigByModule();
   if (!config) return;
   try {
@@ -1297,7 +1373,7 @@ function importTemplateConfigByModule() {
   if (props.moduleKey === 'goods') {
     return {
       url: '/api/goods/import/template',
-      fileName: 'goods-import-template.xlsx',
+      fileName: 'goods-import-template.xls',
       failMessage: TABLE_TEXT.goodsTemplateDownloadFail,
     };
   }
@@ -1305,10 +1381,72 @@ function importTemplateConfigByModule() {
     return {
       url: '/api/customer/import/template',
       fileName: 'customers-import-template.xlsx',
-      failMessage: '顧客テンプレートのダウンロードに失敗しました',
+      failMessage: '鬘ｧ螳｢繝・Φ繝励Ξ繝ｼ繝医・繝繧ｦ繝ｳ繝ｭ繝ｼ繝峨↓螟ｱ謨励＠縺ｾ縺励◆',
     };
   }
   return null;
+}
+
+function downloadLocalGoodsImportTemplate() {
+  const columns = [
+    'ID',
+    'Name',
+    'English Name',
+    'Brand ID',
+    'Series ID',
+    'Category ID',
+    'Maker ID',
+    'SKU Code',
+    'SKU Name',
+    'Price',
+    'Currency',
+    'Status',
+  ];
+  const sample = [
+    '',
+    'Sample Goods',
+    'Sample Goods EN',
+    '',
+    '',
+    '',
+    '',
+    'SKU001',
+    'Sample SKU',
+    '1000',
+    'JPY',
+    '1',
+  ];
+  const rows = [columns, sample];
+  const worksheet = rows.map((row) => (
+    `<tr>${row.map((cell) => `<td>${escapeExcelXml(cell)}</td>`).join('')}</tr>`
+  )).join('');
+  const html = `<?xml version="1.0" encoding="UTF-8"?>
+    <html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:x="urn:schemas-microsoft-com:office:excel"
+      xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="UTF-8">
+        <style>td{mso-number-format:"\\@";}</style>
+      </head>
+      <body><table>${worksheet}</table></body>
+    </html>`;
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = 'goods-import-template.xls';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+function escapeExcelXml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 async function importGoodsBatchFromFile(file) {
@@ -1351,13 +1489,13 @@ function formatImportSummary(result) {
 
 function importSuccessMessage() {
   return props.moduleKey === 'customer'
-    ? '顧客を一括導入しました'
+    ? '鬘ｧ螳｢繧剃ｸ諡ｬ蟆主・縺励∪縺励◆'
     : TABLE_TEXT.goodsImportSuccess;
 }
 
 function importFailMessage() {
   return props.moduleKey === 'customer'
-    ? '顧客一括導入に失敗しました'
+    ? '鬘ｧ螳｢荳諡ｬ蟆主・縺ｫ螟ｱ謨励＠縺ｾ縺励◆'
     : TABLE_TEXT.goodsImportFail;
 }
 
@@ -1374,7 +1512,7 @@ function showCustomerImportResult(result) {
     row?.message || '',
   ].filter(Boolean).join(' | '));
   Modal.info({
-    title: '顧客導入結果',
+    title: '鬘ｧ螳｢蟆主・邨先棡',
     width: 760,
     content: h('div', [
       h('div', { style: 'margin-bottom: 12px;' }, summary),
@@ -1448,7 +1586,7 @@ async function openBatchStockDrawer(mode) {
   batchStockSettings.sourceType = STOCK_SOURCE_TYPE.SELF_INBOUND;
   batchStockSettings.warehouseId = null;
   batchStockSettings.stockTypeId = null;
-  batchStockSettings.remark = normalizedMode === 'inbound' ? '一括入庫' : '一括出庫';
+  batchStockSettings.remark = normalizedMode === 'inbound' ? '荳諡ｬ蜈･蠎ｫ' : '荳諡ｬ蜃ｺ蠎ｫ';
   batchStockDrawerOpen.value = true;
 
   if (normalizedMode === 'inbound') {
@@ -1590,7 +1728,7 @@ async function submitBatchStockFlow() {
       return;
     }
     const payload = {
-      remark: batchStockSettings.remark || (batchStockMode.value === 'inbound' ? '一括入庫' : '一括出庫'),
+      remark: batchStockSettings.remark || (batchStockMode.value === 'inbound' ? '荳諡ｬ蜈･蠎ｫ' : '荳諡ｬ蜃ｺ蠎ｫ'),
       items: items.map((item) => removeEmptyBatchStockItem({
         stockId: item.stockId,
         goodsId: item.goodsId,
@@ -1622,7 +1760,7 @@ async function submitBatchStockFlow() {
 }
 
 async function submitGroupBatchInboundFromSelfStock(items, groupCode) {
-  const remark = batchStockSettings.remark || '一括入庫';
+  const remark = batchStockSettings.remark || '荳諡ｬ蜈･蠎ｫ';
   for (const item of items) {
     // eslint-disable-next-line no-await-in-loop
     await createItemByUrl('/api/stock/group/allocate', {
@@ -1716,7 +1854,7 @@ async function submitSheetFlow() {
           && Number(item?.quantity || 0) > 0
       ));
       if (!validCustomerAllocation) {
-        message.warning('顧客と1以上の出庫数量を入力してください');
+        message.warning('鬘ｧ螳｢縺ｨ1莉･荳翫・蜃ｺ蠎ｫ謨ｰ驥上ｒ蜈･蜉帙＠縺ｦ縺上□縺輔＞');
         return;
       }
     }
@@ -2175,7 +2313,8 @@ function isEditing(record) {
 }
 
 function startInlineEdit(record) {
-  if (!canWrite.value || !canInlineEditRecord(record)) return;
+  if (!canWrite.value) return;
+  if (!canInlineEditRecord(record) && !(isExcelEditModule.value && canEditRecord(record))) return;
   const started = startInlineEditState(record, getRecordId);
   if (started) {
     loadScopedRelationOptions(formKeys.value, keys.value);
@@ -2183,7 +2322,8 @@ function startInlineEdit(record) {
 }
 
 async function saveInlineEdit(record) {
-  if (!canWrite.value || !canInlineEditRecord(record)) return;
+  if (!canWrite.value) return;
+  if (!canInlineEditRecord(record) && !(isExcelEditModule.value && canEditRecord(record))) return;
   await saveInlineEditState(record, getRecordId, normalizeModulePayload);
   refreshRelationOptionCache();
 }
@@ -2348,6 +2488,7 @@ async function handleRowExtraAction(actionKey, record) {
 
 async function generateRequestForm() {
   if (props.moduleKey !== 'requestItem') return;
+  if (requestFlowSubmitting.value) return;
   const items = selectedRequestFlowRows();
   if (items.length === 0) {
     message.warning(TABLE_TEXT.selectRequestItems);
@@ -2359,11 +2500,12 @@ async function generateRequestForm() {
     return;
   }
 
+  requestFlowSubmitting.value = true;
   try {
     const payloadItems = items.map((record) => buildRequestFlowPayloadItem(record))
       .filter((item) => isValidRequestFlowPayloadItem(item));
     if (payloadItems.length === 0) {
-      message.warning('請求数量を入力してください');
+      message.warning('隲区ｱよ焚驥上ｒ蜈･蜉帙＠縺ｦ縺上□縺輔＞');
       return;
     }
     const invalidQty = items.some((record) => {
@@ -2372,7 +2514,7 @@ async function generateRequestForm() {
       return requestQty < 1 || (availableQty > 0 && requestQty > availableQty);
     });
     if (invalidQty) {
-      message.warning('請求数量は1以上、生成可能数量以下で入力してください');
+      message.warning('隲区ｱよ焚驥上・1莉･荳翫∫函謌仙庄閭ｽ謨ｰ驥丈ｻ･荳九〒蜈･蜉帙＠縺ｦ縺上□縺輔＞');
       return;
     }
     await createRequestFormWithSelectedItems({
@@ -2385,6 +2527,8 @@ async function generateRequestForm() {
     await reload();
   } catch (error) {
     message.error(error?.message || TABLE_TEXT.saveFail);
+  } finally {
+    requestFlowSubmitting.value = false;
   }
 }
 
@@ -2393,8 +2537,8 @@ async function moveSelectedDeliveryToRequest() {
   await submitRequestFlowMove({
     rowsToSubmit: selectedRequestFlowRows(),
     submitter: addRequestItemsToCart,
-    emptyMessage: '発送予定表から追加する商品を選択してください',
-    successMessage: '請求書明細へ追加しました',
+    emptyMessage: '逋ｺ騾∽ｺ亥ｮ夊｡ｨ縺九ｉ霑ｽ蜉縺吶ｋ蝠・刀繧帝∈謚槭＠縺ｦ縺上□縺輔＞',
+    successMessage: '隲区ｱよ嶌譏守ｴｰ縺ｸ霑ｽ蜉縺励∪縺励◆',
   });
 }
 
@@ -2403,12 +2547,13 @@ async function moveSelectedRequestToDelivery() {
   await submitRequestFlowMove({
     rowsToSubmit: selectedRequestFlowRows(),
     submitter: removeRequestItemsFromCart,
-    emptyMessage: '発送予定表へ戻す明細を選択してください',
-    successMessage: '発送予定表へ戻しました',
+    emptyMessage: '逋ｺ騾∽ｺ亥ｮ夊｡ｨ縺ｸ謌ｻ縺呎・邏ｰ繧帝∈謚槭＠縺ｦ縺上□縺輔＞',
+    successMessage: '逋ｺ騾∽ｺ亥ｮ夊｡ｨ縺ｸ謌ｻ縺励∪縺励◆',
   });
 }
 
 async function submitRequestFlowMove({ rowsToSubmit, submitter, emptyMessage, successMessage }) {
+  if (requestFlowSubmitting.value) return;
   const items = Array.isArray(rowsToSubmit) ? rowsToSubmit : [];
   if (items.length === 0) {
     message.warning(emptyMessage);
@@ -2425,15 +2570,16 @@ async function submitRequestFlowMove({ rowsToSubmit, submitter, emptyMessage, su
     return requestQty < 1 || (maxQty > 0 && requestQty > maxQty);
   });
   if (invalidQty) {
-    message.warning('処理数量は1以上、選択行の数量以下で入力してください');
+    message.warning('蜃ｦ逅・焚驥上・1莉･荳翫・∈謚櫁｡後・謨ｰ驥丈ｻ･荳九〒蜈･蜉帙＠縺ｦ縺上□縺輔＞');
     return;
   }
   const payloadItems = items.map((record) => buildRequestFlowPayloadItem(record))
     .filter((item) => isValidRequestFlowPayloadItem(item));
   if (payloadItems.length === 0) {
-    message.warning('処理数量を入力してください');
+    message.warning('蜃ｦ逅・焚驥上ｒ蜈･蜉帙＠縺ｦ縺上□縺輔＞');
     return;
   }
+  requestFlowSubmitting.value = true;
   try {
     await submitter({
       customerId,
@@ -2445,6 +2591,8 @@ async function submitRequestFlowMove({ rowsToSubmit, submitter, emptyMessage, su
     await reload();
   } catch (error) {
     message.error(error?.message || TABLE_TEXT.saveFail);
+  } finally {
+    requestFlowSubmitting.value = false;
   }
 }
 
@@ -2504,6 +2652,104 @@ function clearSelectedRequestFlowQty() {
   for (const record of selectedRequestFlowRows()) {
     requestItemQtyState[getRowKey(record)] = 1;
   }
+}
+
+function excelCellKey(record, field) {
+  return `${getRowKey(record)}::${String(field || '')}`;
+}
+
+function isActiveExcelCell(record, field) {
+  return activeExcelCell.value === excelCellKey(record, field);
+}
+
+function isSelectedExcelCell(record, field) {
+  return selectedExcelCell.value === excelCellKey(record, field);
+}
+
+function activateExcelCell(record, field) {
+  if (!isExcelEditModule.value) return;
+  selectedExcelCell.value = excelCellKey(record, field);
+  activeExcelCell.value = '';
+}
+
+function editExcelCell(record, field) {
+  if (!isExcelEditModule.value) return;
+  if (props.moduleKey === 'requestForm' && !canEditRecord(record)) return;
+  if (props.moduleKey === 'requestForm' && !isEditing(record)) return;
+  selectedExcelCell.value = excelCellKey(record, field);
+  const key = excelCellKey(record, field);
+  if (!Object.prototype.hasOwnProperty.call(requestFlowCellDraftState, key)) {
+    requestFlowCellDraftState[key] = cellDisplayValue(record, field) ?? '';
+  }
+  const editableField = inlineField(field);
+  if (props.moduleKey === 'requestForm' && !Object.prototype.hasOwnProperty.call(editState, editableField)) {
+    editState[editableField] = record?.[field] ?? null;
+  }
+  activeExcelCell.value = excelCellKey(record, field);
+}
+
+function deactivateExcelCell() {
+  activeExcelCell.value = '';
+}
+
+function canRenderExcelInlineEditor(record, field) {
+  if (String(field || '') === '__actions') return false;
+  if (!isEditing(record)) return false;
+  if (isExcelEditModule.value) return false;
+  return !isReadonlyField(field);
+}
+
+function canRenderRequestFlowDraftEditor(record, field) {
+  if (!isExcelEditModule.value) return false;
+  if (String(field || '') === 'moveQty' || String(field || '') === '__actions') return false;
+  return isActiveExcelCell(record, field);
+}
+
+function cellDisplayValue(record, field) {
+  if (isExcelEditModule.value && String(field || '') !== 'moveQty') {
+    const key = excelCellKey(record, field);
+    if (Object.prototype.hasOwnProperty.call(requestFlowCellDraftState, key)) {
+      return requestFlowCellDraftState[key];
+    }
+  }
+  if (!isEditing(record)) return record?.[field];
+  const editableField = inlineField(field);
+  if (Object.prototype.hasOwnProperty.call(editState, editableField)) {
+    return editState[editableField];
+  }
+  return record?.[field];
+}
+
+function requestFlowCellDraftValue(record, field) {
+  const key = excelCellKey(record, field);
+  if (Object.prototype.hasOwnProperty.call(requestFlowCellDraftState, key)) {
+    return requestFlowCellDraftState[key];
+  }
+  return record?.[field] ?? '';
+}
+
+function updateRequestFlowCellDraft(record, field, value) {
+  requestFlowCellDraftState[excelCellKey(record, field)] = value;
+  if (props.moduleKey === 'requestForm') {
+    editState[inlineField(field)] = value;
+  }
+}
+
+function excelCellInputType(field) {
+  const lower = String(field || '').toLowerCase();
+  if (lower.includes('qty') || lower.includes('amount') || lower.includes('amt') || lower.includes('price') || lower.includes('rate')) {
+    return 'number';
+  }
+  return 'text';
+}
+
+function placeCursorAtEnd(event) {
+  const input = event?.target;
+  if (!input || typeof input.setSelectionRange !== 'function') return;
+  const length = String(input.value ?? '').length;
+  requestAnimationFrame(() => {
+    input.setSelectionRange(length, length);
+  });
 }
 
 function requestFlowQtyValue(record) {
@@ -2614,6 +2860,7 @@ function canEditRecord(record) {
 function canInlineEditRecord(record) {
   if (props.moduleKey === 'deliverySchedule') return false;
   if (props.moduleKey === 'requestForm' && isCompletedRequestRecord(record)) return false;
+  if (props.moduleKey === 'requestForm') return canEditRecord(record);
   if (props.moduleKey === 'requestItem' && (isCompletedRequestRecord(record) || isCurrentRequestCompleted())) return false;
   if (props.moduleKey === 'requestItem') return false;
   if (props.moduleKey === 'stockOrder' && Number(record?.state ?? record?.orderState) === STOCK_ORDER_STATE.COMPLETED) return false;
@@ -2649,14 +2896,14 @@ function canOpenHierarchyCreate() {
   if (props.moduleKey === 'series') {
     const options = relationOptions.brandId || [];
     if (options.length === 0) {
-      message.warning('先にブランドを登録してください');
+      message.warning('蜈医↓繝悶Λ繝ｳ繝峨ｒ逋ｻ骭ｲ縺励※縺上□縺輔＞');
       return false;
     }
   }
   if (props.moduleKey === 'maker') {
     const options = relationOptions.seriesId || [];
     if (options.length === 0) {
-      message.warning('先にシリーズを登録してください');
+      message.warning('蜈医↓繧ｷ繝ｪ繝ｼ繧ｺ繧堤匳骭ｲ縺励※縺上□縺輔＞');
       return false;
     }
   }
@@ -2676,10 +2923,10 @@ function formPlaceholder(field) {
     return TABLE_TEXT.passwordEmptyNoChange;
   }
   if (props.moduleKey === 'series' && field === 'brandId' && (relationOptions.brandId || []).length === 0) {
-    return '先にブランドを登録してください';
+    return '蜈医↓繝悶Λ繝ｳ繝峨ｒ逋ｻ骭ｲ縺励※縺上□縺輔＞';
   }
   if (props.moduleKey === 'maker' && field === 'seriesId' && (relationOptions.seriesId || []).length === 0) {
-    return '先にシリーズを登録してください';
+    return '蜈医↓繧ｷ繝ｪ繝ｼ繧ｺ繧堤匳骭ｲ縺励※縺上□縺輔＞';
   }
   return '';
 }
@@ -2727,6 +2974,323 @@ function isFormFieldDisabled(field) {
 
 .table-stage {
   min-width: 0;
+}
+
+.excel-table-stage {
+  margin-top: 8px;
+  border: 1px solid #cfd8e3;
+  border-radius: 10px;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+:deep(.excel-edit-table .ant-table) {
+  background: #ffffff;
+  font-size: 13px;
+}
+
+:deep(.excel-edit-table .ant-table-container) {
+  border-radius: 10px;
+}
+
+:deep(.excel-edit-table .ant-table-thead > tr > th) {
+  height: 36px;
+  padding: 8px 10px;
+  border-color: #cfd8e3 !important;
+  background: #eaf0f7 !important;
+  color: #1f2937;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+:deep(.excel-edit-table .ant-table-tbody > tr > td) {
+  height: 38px;
+  padding: 4px 8px;
+  border-color: #d8e0ea !important;
+  background: #ffffff;
+  color: #111827;
+  white-space: nowrap;
+}
+
+:deep(.excel-edit-table .ant-table-tbody > tr:hover > td) {
+  background: #eef6ff !important;
+}
+
+:deep(.excel-edit-table .ant-table-tbody > tr:hover > td.excel-grid-cell-selected) {
+  background: #ffffff !important;
+  color: #111827 !important;
+}
+
+:deep(.excel-edit-table .ant-table-tbody > tr > td.excel-grid-cell-editable) {
+  background: #fff8d7;
+  box-shadow: inset 0 0 0 1px #efd27a, inset 4px 0 0 #f6c343;
+  cursor: cell;
+}
+
+:deep(.excel-edit-table .ant-table-tbody > tr > td.excel-grid-cell-selected) {
+  position: relative;
+  background: #ffffff !important;
+  color: #111827 !important;
+  box-shadow: inset 0 0 0 2px #2563eb !important;
+}
+
+:deep(.excel-edit-table .ant-table-tbody > tr > td.excel-grid-cell-selected *) {
+  color: #111827 !important;
+  opacity: 1 !important;
+}
+
+:deep(.excel-edit-table .ant-table-tbody > tr > td.excel-grid-cell-selected::before) {
+  position: absolute;
+  top: 7px;
+  bottom: 7px;
+  left: 7px;
+  width: 2px;
+  background: #2563eb;
+  content: "";
+  pointer-events: none;
+}
+
+.excel-grid-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #cfd8e3;
+  background: linear-gradient(90deg, #fff8d7 0%, #eff6ff 100%);
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.excel-grid-hint-text {
+  font-size: 12px;
+}
+
+.excel-grid-hint-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #f6c343;
+  box-shadow: 0 0 0 3px rgba(246, 195, 67, 0.2);
+}
+
+.excel-display-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 120px;
+  height: 30px;
+  margin: -1px -4px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: cell;
+  outline: none;
+}
+
+.excel-display-cell:hover,
+.excel-display-cell:focus {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: inset 0 0 0 1px #2563eb;
+}
+
+.excel-display-cell-selected {
+  position: relative;
+  border-color: #2563eb;
+  background: #ffffff;
+  color: #111827;
+  box-shadow: inset 0 0 0 2px #2563eb;
+}
+
+.excel-display-cell-selected::before {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 6px;
+  width: 2px;
+  background: #2563eb;
+  content: "";
+}
+
+.excel-display-value {
+  color: #0f172a;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.excel-display-cell-selected .excel-display-value {
+  color: #111827;
+}
+
+.excel-edit-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 120px;
+}
+
+:deep(.excel-edit-input) {
+  width: 86px;
+}
+
+:deep(.excel-edit-input-wide) {
+  width: 120px;
+}
+
+:deep(.excel-text-input) {
+  width: 100%;
+  min-width: 120px;
+}
+
+:deep(.excel-edit-input .ant-input-number-input) {
+  height: 28px;
+  text-align: right;
+  font-weight: 700;
+}
+
+:deep(.excel-edit-input.ant-input-number) {
+  border-color: #94a3b8;
+  background: #ffffff;
+}
+
+:deep(.excel-edit-input.ant-input-number-focused),
+:deep(.excel-edit-input.ant-input-number:focus-within) {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.16);
+}
+
+:deep(.excel-edit-table .ant-input),
+:deep(.excel-edit-table .ant-input-number),
+:deep(.excel-edit-table .ant-select-selector),
+:deep(.excel-edit-table .ant-picker) {
+  min-height: 28px;
+  border-radius: 3px !important;
+}
+
+:deep(.excel-edit-table .ant-input),
+:deep(.excel-edit-table .ant-picker),
+:deep(.excel-edit-table .ant-select-selector) {
+  background: #ffffff !important;
+}
+
+.excel-edit-limit {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+:global(html[data-theme-mode='dark']) .excel-table-stage {
+  border-color: #3a3a3a;
+  background: #151515;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.excel-edit-table .ant-table) {
+  background: #151515;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.excel-edit-table .ant-table-thead > tr > th) {
+  border-color: #3a3a3a !important;
+  background: #242424 !important;
+  color: #f4f4f5;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.excel-edit-table .ant-table-tbody > tr > td) {
+  border-color: #333333 !important;
+  background: #181818;
+  color: #f4f4f5;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.excel-edit-table .ant-table-tbody > tr:hover > td) {
+  background: #222a35 !important;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.excel-edit-table .ant-table-tbody > tr:hover > td.excel-grid-cell-selected) {
+  background: #111111 !important;
+  color: #ffffff !important;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.excel-edit-table .ant-table-tbody > tr > td.excel-grid-cell-editable) {
+  background: #29230f;
+  box-shadow: inset 0 0 0 1px #7c651d, inset 4px 0 0 #d6a52a;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.excel-edit-table .ant-table-tbody > tr > td.excel-grid-cell-selected) {
+  position: relative;
+  background: #111111 !important;
+  color: #ffffff !important;
+  box-shadow: inset 0 0 0 2px #60a5fa !important;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.excel-edit-table .ant-table-tbody > tr > td.excel-grid-cell-selected *) {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.excel-edit-table .ant-table-tbody > tr > td.excel-grid-cell-selected::before) {
+  background: #60a5fa;
+}
+
+:global(html[data-theme-mode='dark']) .excel-grid-hint {
+  border-bottom-color: #3a3a3a;
+  background: linear-gradient(90deg, #29230f 0%, #172033 100%);
+  color: #e5e7eb;
+}
+
+:global(html[data-theme-mode='dark']) .excel-display-cell:hover,
+:global(html[data-theme-mode='dark']) .excel-display-cell:focus {
+  border-color: #60a5fa;
+  background: #172033;
+}
+
+:global(html[data-theme-mode='dark']) .excel-display-cell-selected {
+  border-color: #60a5fa;
+  background: #111111;
+  color: #ffffff;
+  box-shadow: inset 0 0 0 2px #60a5fa;
+}
+
+:global(html[data-theme-mode='dark']) .excel-display-cell-selected::before {
+  background: #60a5fa;
+}
+
+:global(html[data-theme-mode='dark']) .excel-display-value {
+  color: #ffffff;
+}
+
+:global(html[data-theme-mode='dark']) .excel-display-cell-selected .excel-display-value {
+  color: #ffffff;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.excel-edit-input.ant-input-number) {
+  border-color: #4b5563;
+  background: #111111;
+  color: #ffffff;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.excel-edit-table .ant-input),
+:global(html[data-theme-mode='dark']) :deep(.excel-edit-table .ant-input-number),
+:global(html[data-theme-mode='dark']) :deep(.excel-edit-table .ant-select-selector),
+:global(html[data-theme-mode='dark']) :deep(.excel-edit-table .ant-picker) {
+  border-color: #4b5563 !important;
+  background: #111111 !important;
+  color: #ffffff !important;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.excel-edit-table .ant-select-selection-item),
+:global(html[data-theme-mode='dark']) :deep(.excel-edit-table .ant-picker-input > input) {
+  color: #ffffff !important;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.excel-edit-input .ant-input-number-input) {
+  color: #ffffff;
+}
+
+:global(html[data-theme-mode='dark']) .excel-edit-limit {
+  color: #a1a1aa;
 }
 
 .customer-matrix-stage {

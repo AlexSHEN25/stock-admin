@@ -169,7 +169,7 @@
       <a-button
         v-if="canUseRequestFlowActions"
         class="search-btn"
-        :disabled="selectedCount === 0"
+        :disabled="requestSubmitting || selectedCount === 0"
         @click="$emit('fill-selected-qty')"
       >
         選択行を最大数量
@@ -177,7 +177,7 @@
       <a-button
         v-if="canUseRequestFlowActions"
         class="search-btn"
-        :disabled="selectedCount === 0"
+        :disabled="requestSubmitting || selectedCount === 0"
         @click="$emit('clear-selected-qty')"
       >
         数量クリア
@@ -186,6 +186,7 @@
         v-if="canMoveDeliveryToRequest"
         type="primary"
         class="search-btn"
+        :loading="requestSubmitting"
         :disabled="selectedCount === 0"
         @click="$emit('move-delivery-to-request')"
       >
@@ -194,6 +195,7 @@
       <a-button
         v-if="canMoveRequestToDelivery"
         class="search-btn"
+        :loading="requestSubmitting"
         :disabled="selectedCount === 0"
         @click="$emit('move-request-to-delivery')"
       >
@@ -203,6 +205,7 @@
         v-if="canGenerateRequestForm"
         type="primary"
         class="search-btn"
+        :loading="requestSubmitting"
         @click="$emit('generate-request-form')"
       >
         請求書生成
@@ -230,6 +233,7 @@ const props = defineProps({
   canGenerateRequestForm: { type: Boolean, default: false },
   canMoveDeliveryToRequest: { type: Boolean, default: false },
   canMoveRequestToDelivery: { type: Boolean, default: false },
+  requestSubmitting: { type: Boolean, default: false },
   goodsImportLoading: { type: Boolean, default: false },
   selectedCount: { type: Number, default: 0 },
   queryInputType: { type: Function, required: true },

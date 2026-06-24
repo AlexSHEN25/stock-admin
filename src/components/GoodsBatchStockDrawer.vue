@@ -3,8 +3,9 @@
     :open="open"
     :title="title"
     placement="right"
-    width="min(94vw, 1280px)"
+    width="100%"
     :get-container="false"
+    :body-style="drawerBodyStyle"
     @close="$emit('cancel')"
   >
     <div class="batch-stock-drawer">
@@ -31,7 +32,7 @@
         :data-source="rows"
         :loading="loading"
         :pagination="pagination"
-        :scroll="{ x: 'max-content', y: 560 }"
+        :scroll="tableScroll"
         :row-selection="rowSelection"
         size="small"
         @change="onTableChange"
@@ -127,6 +128,15 @@ const emit = defineEmits([
 
 const title = computed(() => (props.mode === 'inbound' ? '一括入庫' : '一括出庫'));
 const shouldLimitQuantity = computed(() => props.mode === 'outbound' || props.limitQuantityToCurrent);
+const drawerBodyStyle = {
+  height: '100%',
+  overflow: 'hidden',
+  padding: '16px',
+};
+const tableScroll = computed(() => ({
+  x: 'max-content',
+  y: props.pagination ? 'calc(100vh - 260px)' : 'calc(100vh - 220px)',
+}));
 
 const columns = computed(() => ([
   { title: '商品名', dataIndex: 'goodsName', key: 'goodsName', width: 220, fixed: 'left' },
@@ -176,6 +186,8 @@ function onTableChange(page) {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-height: 0;
+  height: 100%;
 }
 
 .batch-stock-toolbar {
@@ -191,6 +203,7 @@ function onTableChange(page) {
 }
 
 .batch-stock-footer {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -205,6 +218,10 @@ function onTableChange(page) {
 .batch-stock-actions {
   display: flex;
   gap: 8px;
+}
+
+:deep(.ant-table-wrapper) {
+  min-height: 0;
 }
 
 @media (max-width: 768px) {

@@ -6,6 +6,7 @@ export function useModuleTableSchema(options) {
   const {
     rows,
     preset,
+    moduleKey,
     isGoodsManagement,
     normalizeTitle,
     isReadonlyField,
@@ -16,6 +17,9 @@ export function useModuleTableSchema(options) {
     editingRaw,
     isUserSelfEditMode,
     mapNameFieldToIdField,
+    onExcelCellClick,
+    onExcelCellEdit,
+    isExcelCellSelected,
   } = options;
 
   const keys = computed(() => {
@@ -70,14 +74,48 @@ export function useModuleTableSchema(options) {
       title: isGoodsSkuIdAsId(key, isGoodsManagement.value) ? 'ID' : normalizeTitle(key),
       dataIndex: key,
       key,
-      className: isPermissionNamesKey(key) ? 'cell-permission-names' : undefined,
+      className: columnClassName(key, moduleKey?.value),
       fixed: columnFixed(key, isGoodsManagement.value),
-      width: columnWidth(key, isGoodsManagement.value),
+      width: columnWidth(key, isGoodsManagement.value, moduleKey?.value),
       ellipsis: false,
-      onCell: (record) => {
+      align: columnAlign(key, moduleKey?.value),
+      customCell: (record) => {
+        if (isRequestManagementModule(moduleKey?.value)) {
+          if (!isEditableExcelCell(key, moduleKey?.value)) return {};
+          const selectedClass = typeof isExcelCellSelected === 'function' && isExcelCellSelected(record, key)
+            ? 'excel-grid-cell-selected'
+            : '';
+          return {
+            tabindex: 0,
+            class: selectedClass,
+            onClick: () => {
+              if (canWrite.value && typeof onExcelCellClick === 'function') {
+                onExcelCellClick(record, key);
+              }
+            },
+            onDblclick: () => {
+              if (canWrite.value && !isEditing(record)) {
+                startInlineEdit(record);
+              }
+              if (canWrite.value && typeof onExcelCellEdit === 'function') {
+                onExcelCellEdit(record, key);
+              }
+            },
+            onKeydown: (event) => {
+              if (event?.key !== 'Enter') return;
+              event.preventDefault?.();
+              if (canWrite.value && !isEditing(record)) {
+                startInlineEdit(record);
+              }
+              if (canWrite.value && typeof onExcelCellEdit === 'function') {
+                onExcelCellEdit(record, key);
+              }
+            },
+          };
+        }
         if (preset.value.hideActions || isReadonlyField(key)) return {};
         return {
-          ondblclick: () => {
+          onDblclick: () => {
             if (canWrite.value && !isEditing(record)) {
               startInlineEdit(record);
             }
@@ -184,8 +222,59 @@ function columnFixed(key, isGoodsManagement) {
   return undefined;
 }
 
-function columnWidth(key, isGoodsManagement) {
+function columnClassName(key, moduleKey) {
+  const classes = [];
+  if (isPermissionNamesKey(key)) classes.push('cell-permission-names');
+  if (isRequestManagementModule(moduleKey)) {
+    classes.push('excel-grid-cell');
+    if (isEditableExcelCell(key, moduleKey)) classes.push('excel-grid-cell-editable');
+  }
+  return classes.length > 0 ? classes.join(' ') : undefined;
+}
+
+function columnWidth(key, isGoodsManagement, moduleKey) {
   const lower = String(key || '').toLowerCase();
+  if (isRequestManagementModule(moduleKey)) {
+    const requestFlowWidths = {
+      id: 80,
+      bizno: 150,
+      sourceorderid: 130,
+      sourceorderno: 160,
+      username: 130,
+      deptname: 140,
+      country: 110,
+      customername: 180,
+      warehouseid: 130,
+      groupcode: 100,
+      outbounddate: 150,
+      goodsname: 220,
+      skucode: 150,
+      brandname: 150,
+      seriesname: 150,
+      categoryname: 150,
+      makername: 150,
+      stocktypename: 130,
+      sourceqty: 110,
+      moveqty: 150,
+      price: 120,
+      totalqty: 110,
+      requestqty: 110,
+      totalamt: 130,
+      exchangerate: 120,
+      paymentdate: 150,
+      hasfee: 100,
+      feeamount: 120,
+      hasunpaid: 110,
+      unpaidamount: 130,
+      state: 120,
+      approvername: 130,
+      approvetime: 150,
+      approveremark: 220,
+      currency: 90,
+      operatorname: 130,
+    };
+    return requestFlowWidths[lower] || 140;
+  }
   if (isGoodsManagement && lower === 'skuid') return 120;
   if (lower === 'id') return 72;
   if (lower.endsWith('ids')) return 160;
@@ -194,6 +283,23 @@ function columnWidth(key, isGoodsManagement) {
   if (lower === 'rolename') return 220;
   if (lower === 'createtime' || lower === 'updatetime') return 160;
   return undefined;
+}
+
+function columnAlign(key, moduleKey) {
+  if (!isRequestManagementModule(moduleKey)) return undefined;
+  const lower = String(key || '').toLowerCase();
+  if (lower.includes('qty') || lower.includes('amount') || lower.includes('amt') || lower === 'price' || lower === 'exchangerate') return 'right';
+  return undefined;
+}
+
+function isRequestManagementModule(moduleKey) {
+  return moduleKey === 'requestForm' || moduleKey === 'deliverySchedule' || moduleKey === 'requestItem';
+}
+
+function isEditableExcelCell(key, moduleKey) {
+  if (!isRequestManagementModule(moduleKey)) return false;
+  const lower = String(key || '').toLowerCase();
+  return lower !== '__actions';
 }
 
 function isGoodsSkuIdAsId(key, isGoodsManagement) {
@@ -214,18 +320,32 @@ function orderGoodsKeys(sourceKeys, availableKeys) {
   const seen = new Set();
   const result = [];
   const hiddenIdFields = new Set(['brandid', 'seriesid', 'categoryid', 'makerid']);
+  const hiddenGoodsFields = new Set([
+    'sort',
+    'ishot',
+    'imagesort',
+    'skustatus',
+    'skustatusdesc',
+    'statusdesc',
+    'status',
+  ]);
   const detailOnlyFields = new Set(['costprice', 'updateprice', 'priceupdatetime', 'barcode', 'weight', 'volume', 'imageurl']);
 
   const push = (key) => {
     if (!keySet.has(key)) return;
-    if (hiddenIdFields.has(String(key || '').toLowerCase())) return;
-    if (detailOnlyFields.has(String(key || '').toLowerCase())) return;
+    const lower = String(key || '').toLowerCase();
+    if (hiddenIdFields.has(lower)) return;
+    if (hiddenGoodsFields.has(lower)) return;
+    if (detailOnlyFields.has(lower)) return;
     if (seen.has(key)) return;
     seen.add(key);
     result.push(key);
   };
 
-  const working = sourceKeys.filter((key) => !isTimeLikeField(key) && key !== 'status' && key !== 'statusDesc');
+  const working = sourceKeys.filter((key) => {
+    const lower = String(key || '').toLowerCase();
+    return !isTimeLikeField(key) && !hiddenGoodsFields.has(lower);
+  });
   const head = ['skuId', 'goodsName', 'name', 'goodsId'];
   head.forEach(push);
 
@@ -236,9 +356,6 @@ function orderGoodsKeys(sourceKeys, availableKeys) {
   }
 
   moveAfter(result, 'englishName', ['skuCode', 'skuName']);
-
-  if (keySet.has('statusDesc')) push('statusDesc');
-  else if (keySet.has('status')) push('status');
 
   return result;
 }

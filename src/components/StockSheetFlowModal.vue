@@ -3,9 +3,10 @@
     :open="open"
     :title="title"
     placement="right"
-    width="min(94vw, 1680px)"
+    width="100%"
     :closable="true"
     :get-container="false"
+    :body-style="drawerBodyStyle"
     @close="$emit('cancel')"
   >
     <div class="sheet-flow-drawer">
@@ -24,7 +25,7 @@
             :data-source="rows"
             :columns="groupColumns"
             :pagination="false"
-            :scroll="{ x: 'max-content', y: 560 }"
+            :scroll="largeTableScroll"
             size="small"
             bordered
           >
@@ -95,7 +96,7 @@
             :data-source="rows"
             :columns="customerColumns"
             :pagination="false"
-            :scroll="{ x: 'max-content', y: isDelivery ? 560 : 380 }"
+            :scroll="customerTableScroll"
             size="small"
             bordered
           >
@@ -280,6 +281,19 @@ const title = computed(() => '発送予定表振分処理');
 const isInbound = computed(() => props.mode === 'inbound');
 const isDelivery = computed(() => props.mode === 'delivery');
 const isCustomerMode = computed(() => String(activeTab.value) === 'customer');
+const drawerBodyStyle = {
+  height: '100%',
+  overflow: 'hidden',
+  padding: '16px',
+};
+const largeTableScroll = computed(() => ({
+  x: 'max-content',
+  y: 'calc(100vh - 280px)',
+}));
+const customerTableScroll = computed(() => ({
+  x: 'max-content',
+  y: isDelivery.value ? 'calc(100vh - 280px)' : 'calc(100vh - 420px)',
+}));
 const customerAllocations = computed(() => (Array.isArray(props.settings?.customerAllocations) ? props.settings.customerAllocations : []));
 
 const baseColumns = [
@@ -381,6 +395,13 @@ function maxQty(record) {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-height: 0;
+  height: 100%;
+}
+
+.sheet-flow-tabs {
+  min-height: 0;
+  flex: 1 1 auto;
 }
 
 .sheet-flow-table :deep(.ant-table-tbody > tr > td) {
@@ -396,9 +417,16 @@ function maxQty(record) {
 }
 
 .sheet-flow-footer {
+  flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
   padding-top: 8px;
+}
+
+:deep(.ant-tabs-content),
+:deep(.ant-tabs-tabpane),
+:deep(.ant-table-wrapper) {
+  min-height: 0;
 }
 
 .customer-allocation-panel {
