@@ -26,17 +26,16 @@ export function useModuleTableSchema(options) {
     if (isGoodsManagement.value) {
       const first = rows.value[0];
       if (!first) return GOODS_TABLE_CONFIG.preferredFields;
-      const raw = [...new Set([...Object.keys(first), 'inventoryStatus', 'currentQty'])];
+      const raw = [...new Set([...Object.keys(first), 'inventoryStatus'])];
       const noStatus = raw.includes('statusDesc') ? raw.filter((key) => key !== 'status') : raw;
       const withoutTail = noStatus.filter((key) => {
         const lower = String(key || '').toLowerCase();
-        if (lower === 'id' || lower === 'imageid') return false;
+        if (lower === 'imageid') return false;
         if (isTimeLikeField(key) && !isLastUpdateField(key)) return false;
         return true;
       });
       const preferred = GOODS_TABLE_CONFIG.preferredFields.filter((key) => withoutTail.includes(key) && (!isTimeLikeField(key) || isLastUpdateField(key)));
-      const rest = withoutTail.filter((key) => !GOODS_TABLE_CONFIG.preferredFields.includes(key));
-      return orderGoodsKeys([...preferred, ...rest], noStatus);
+      return orderGoodsKeys(preferred, noStatus);
     }
 
     const presetTableFields = preset.value.tableFields || [];
@@ -346,11 +345,11 @@ function orderGoodsKeys(sourceKeys, availableKeys) {
     const lower = String(key || '').toLowerCase();
     return !isTimeLikeField(key) && !hiddenGoodsFields.has(lower);
   });
-  const head = ['skuId', 'goodsName', 'name', 'goodsId'];
+  const head = ['id', 'name'];
   head.forEach(push);
 
   for (const key of working) {
-    if (key !== 'skuId' && key !== 'goodsName' && key !== 'name' && key !== 'goodsId') {
+    if (key !== 'id' && key !== 'name') {
       push(key);
     }
   }

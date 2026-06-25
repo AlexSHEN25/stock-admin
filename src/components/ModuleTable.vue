@@ -112,6 +112,11 @@
               {{ normalizeDisplayLabel(record.statusDesc || (Number(record.status) === 1 ? 'ON' : 'OFF')) }}
             </a-tag>
           </template>
+          <template v-else-if="String(column.key) === 'inventoryStatus'">
+            <a-tag :color="isActiveStatus(record.inventoryStatus ?? record.status ?? record.statusDesc) ? 'success' : 'default'">
+              {{ formatInventoryStatus(record.inventoryStatus ?? record.status ?? record.statusDesc) }}
+            </a-tag>
+          </template>
           <template v-else-if="String(column.key) === 'isHot'">
             {{ Number(record.isHot) === 1 ? TABLE_TEXT.hotYes : TABLE_TEXT.hotNo }}
           </template>
@@ -358,6 +363,8 @@
       :settings="batchStockSettings"
       :row-key="goodsRowKey"
       :source-type-options="stockSourceTypeOptions"
+      :warehouse-options="relationOptions.warehouseId || []"
+      :stock-type-options="relationOptions.stockTypeId || []"
       :limit-quantity-to-current="isGroupBatchInbound"
       :submitting="batchStockSubmitting"
       @cancel="batchStockDrawerOpen = false"
@@ -520,6 +527,8 @@ const batchStockSettings = reactive({
   sourceType: STOCK_SOURCE_TYPE.SELF_INBOUND,
   warehouseId: null,
   stockTypeId: null,
+  quantity: 1,
+  saleDeadline: null,
   remark: '',
 });
 const batchStockPagination = reactive({
@@ -957,7 +966,7 @@ function safeWholeQty(value) {
 
 function stockViewQueryParams() {
   if (props.moduleKey === 'stockSelf' || props.moduleKey === 'stockSummary' || props.moduleKey === 'stock') {
-    return { stockScope: 'self' };
+    return {};
   }
   if (props.moduleKey === 'stockGroup') {
     const groupCode = String(props.currentGroupCode || '').trim().toUpperCase();
@@ -1149,6 +1158,8 @@ async function openGoodsInboundModal(record) {
   goodsInboundForm.saleDeadline = null;
   goodsInboundForm.remark = null;
   await loadRelationOptions(['warehouseId', 'stockTypeId', 'customerId'], keys.value);
+  goodsInboundForm.warehouseId = findOptionByMinId(relationOptions.warehouseId || [])?.value ?? null;
+  goodsInboundForm.stockTypeId = findOptionByMinId(relationOptions.stockTypeId || [])?.value ?? null;
   goodsInboundModalOpen.value = true;
 }
 
@@ -1458,9 +1469,15 @@ async function importGoodsBatchFromFile(file) {
       ? await importCustomerByExcel(rawFile)
       : await importGoodsByExcel(rawFile);
     const summary = formatImportSummary(result);
-    message.success(summary || importSuccessMessage());
-    if (props.moduleKey === 'customer') {
-      showCustomerImportResult(result);
+    const failed = importFailureCount(result);
+    if (failed > 0) {
+      message.error(summary || importFailMessage());
+      showImportResult(result, { force: true });
+    } else {
+      message.success(summary || importSuccessMessage());
+      if (props.moduleKey === 'customer') {
+        showImportResult(result, { force: true });
+      }
     }
     await reload();
   } catch (error) {
@@ -1487,6 +1504,14 @@ function formatImportSummary(result) {
   return parts.length > 0 ? parts.join(' / ') : '';
 }
 
+function importFailureCount(result) {
+  if (!result || typeof result !== 'object') return 0;
+  const byCount = Number(result.failureCount ?? 0);
+  if (byCount > 0) return byCount;
+  const rows = Array.isArray(result.rows) ? result.rows : [];
+  return rows.filter((row) => row?.success === false || String(row?.action || '').toUpperCase() === 'FAILED').length;
+}
+
 function importSuccessMessage() {
   return props.moduleKey === 'customer'
     ? '顧客を一括導入しました'
@@ -1499,28 +1524,73 @@ function importFailMessage() {
     : TABLE_TEXT.goodsImportFail;
 }
 
-function showCustomerImportResult(result) {
+function showImportResult(result, options = {}) {
   const rows = Array.isArray(result?.rows) ? result.rows : [];
-  if (rows.length === 0) return;
+  const failed = importFailureCount(result);
+  if (!options.force && rows.length === 0 && failed === 0) return;
   const summary = formatImportSummary(result);
-  const lines = rows.map((row) => [
-    `row ${row?.rowNo ?? '-'}`,
-    row?.action || '-',
-    row?.success ? 'OK' : 'FAILED',
-    row?.customerCode ? `code=${row.customerCode}` : '',
-    row?.customerId ? `id=${row.customerId}` : '',
-    row?.message || '',
-  ].filter(Boolean).join(' | '));
-  Modal.info({
-    title: '顧客導入結果',
+  const lines = rows.length > 0
+    ? rows.map((row) => formatImportRowLine(row))
+    : ['エラー明細はありません。'];
+  const hasErrorReport = Boolean(result?.errorReportBase64);
+  const modal = failed > 0 ? Modal.error : Modal.info;
+  modal({
+    title: failed > 0 ? `${importResultTitle()}に失敗しました` : `${importResultTitle()}結果`,
     width: 760,
     content: h('div', [
       h('div', { style: 'margin-bottom: 12px;' }, summary),
       h('pre', {
         style: 'max-height: 420px; overflow: auto; white-space: pre-wrap; margin: 0;',
       }, lines.join('\n')),
+      hasErrorReport
+        ? h('div', { style: 'margin-top: 12px;' }, [
+          h('button', {
+            type: 'button',
+            class: 'ant-btn ant-btn-primary',
+            onClick: () => downloadImportErrorReport(result),
+          }, 'エラーレポートをダウンロード'),
+        ])
+        : null,
     ]),
   });
+}
+
+function importResultTitle() {
+  return props.moduleKey === 'customer' ? '顧客導入' : '商品導入';
+}
+
+function formatImportRowLine(row) {
+  return [
+    `row ${row?.rowNo ?? '-'}`,
+    row?.action || '-',
+    row?.success ? 'OK' : 'FAILED',
+    row?.skuCode ? `sku=${row.skuCode}` : '',
+    row?.customerCode ? `code=${row.customerCode}` : '',
+    row?.goodsId ? `goodsId=${row.goodsId}` : '',
+    row?.skuId ? `skuId=${row.skuId}` : '',
+    row?.customerId ? `id=${row.customerId}` : '',
+    row?.message || '',
+  ].filter(Boolean).join(' | ');
+}
+
+function downloadImportErrorReport(result) {
+  const base64 = String(result?.errorReportBase64 || '').trim();
+  if (!base64) return;
+  const fileName = String(result?.errorReportFileName || 'import_error_report.xlsx');
+  const binary = window.atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  const blob = new Blob([bytes], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  window.URL.revokeObjectURL(url);
 }
 
 async function openSheetOutboundModal(record = null) {
@@ -1586,16 +1656,15 @@ async function openBatchStockDrawer(mode) {
   batchStockSettings.sourceType = STOCK_SOURCE_TYPE.SELF_INBOUND;
   batchStockSettings.warehouseId = null;
   batchStockSettings.stockTypeId = null;
+  batchStockSettings.quantity = 1;
+  batchStockSettings.saleDeadline = null;
   batchStockSettings.remark = normalizedMode === 'inbound' ? '一括入庫' : '一括出庫';
   batchStockDrawerOpen.value = true;
 
   if (normalizedMode === 'inbound') {
     await loadRelationOptions(['warehouseId', 'stockTypeId'], []);
-    batchStockSettings.warehouseId = relationOptions.warehouseId?.[0]?.value ?? null;
-    batchStockSettings.stockTypeId = findOptionByKeywords(
-      relationOptions.stockTypeId || [],
-      NORMAL_STOCK_TYPE_KEYWORDS,
-    )?.value ?? relationOptions.stockTypeId?.[0]?.value ?? null;
+    batchStockSettings.warehouseId = findOptionByMinId(relationOptions.warehouseId || [])?.value ?? relationOptions.warehouseId?.[0]?.value ?? null;
+    batchStockSettings.stockTypeId = findOptionByMinId(relationOptions.stockTypeId || [])?.value ?? relationOptions.stockTypeId?.[0]?.value ?? null;
     await loadBatchStockGoodsPage({ pageNum: 1, pageSize: batchStockPagination.pageSize });
     return;
   }
@@ -1638,9 +1707,11 @@ async function loadBatchStockGoodsPage({ pageNum = 1, pageSize = 10 } = {}) {
       sortBy: 'updateTime',
       sortOrder: 'desc',
     });
-    await loadGoodsStockRows();
     const goodsRows = Array.isArray(page.records) ? page.records : [];
-    const rowsForDrawer = mergeGoodsWithStock(goodsRows, goodsStockRows.value);
+    const rowsForDrawer = goodsRows.map((record) => ({
+      ...record,
+      goodsId: record?.goodsId ?? record?.id ?? null,
+    }));
     batchStockRows.value = rowsForDrawer;
     batchStockPagination.current = Number(page.pageNum || pageNum);
     batchStockPagination.pageSize = Number(page.pageSize || pageSize);
@@ -1657,8 +1728,19 @@ async function loadBatchStockGoodsPage({ pageNum = 1, pageSize = 10 } = {}) {
 
 function seedBatchStockDrafts(records) {
   (records || []).forEach((record) => {
+    const inboundMode = batchStockMode.value === 'inbound';
     batchStockDrafts[goodsRowKey(record)] = {
-      quantity: 1,
+      sourceType: inboundMode
+        ? Number(batchStockSettings.sourceType || STOCK_SOURCE_TYPE.SELF_INBOUND)
+        : record?.sourceType ?? null,
+      warehouseId: inboundMode
+        ? batchStockSettings.warehouseId ?? record?.warehouseId ?? null
+        : record?.warehouseId ?? batchStockSettings.warehouseId ?? null,
+      stockTypeId: inboundMode
+        ? batchStockSettings.stockTypeId ?? record?.stockTypeId ?? null
+        : record?.stockTypeId ?? batchStockSettings.stockTypeId ?? null,
+      quantity: Number(batchStockSettings.quantity || 1),
+      saleDeadline: inboundMode ? batchStockSettings.saleDeadline || null : null,
       remark: '',
     };
   });
@@ -1690,9 +1772,17 @@ async function submitBatchStockFlow() {
         stockId: Number(record?.stockId ?? 0) || null,
         goodsId: Number(record?.goodsId ?? record?.id ?? 0) || null,
         skuId: record?.skuId ? Number(record.skuId) : null,
-        warehouseId: Number(record?.warehouseId ?? batchStockSettings.warehouseId ?? 0) || null,
-        stockTypeId: Number(record?.stockTypeId ?? batchStockSettings.stockTypeId ?? 0) || null,
+        warehouseId: batchStockMode.value === 'inbound'
+          ? Number(draft.warehouseId ?? batchStockSettings.warehouseId ?? record?.warehouseId ?? 0) || null
+          : Number(record?.warehouseId ?? batchStockSettings.warehouseId ?? 0) || null,
+        stockTypeId: batchStockMode.value === 'inbound'
+          ? Number(draft.stockTypeId ?? batchStockSettings.stockTypeId ?? record?.stockTypeId ?? 0) || null
+          : Number(record?.stockTypeId ?? batchStockSettings.stockTypeId ?? 0) || null,
+        sourceType: batchStockMode.value === 'inbound'
+          ? Number(draft.sourceType ?? batchStockSettings.sourceType ?? STOCK_SOURCE_TYPE.SELF_INBOUND)
+          : null,
         quantity: Number(draft.quantity || 0),
+        saleDeadline: batchStockMode.value === 'inbound' ? (draft.saleDeadline || null) : null,
         remark: String(draft.remark || '').trim() || null,
       };
     });
@@ -1703,7 +1793,7 @@ async function submitBatchStockFlow() {
     || (isGroupBatchInbound.value && (!item.stockId || item.quantity > stockCurrentQty(item.record)))
     || (batchStockMode.value === 'inbound'
       && !item.stockId
-      && !(item.goodsId && item.skuId && item.warehouseId && item.stockTypeId))
+      && !(item.goodsId && item.skuId && item.sourceType && item.warehouseId && item.stockTypeId))
   ));
   if (items.length === 0 || invalid) {
     message.warning(TABLE_TEXT.requiredField);
@@ -1730,18 +1820,17 @@ async function submitBatchStockFlow() {
     const payload = {
       remark: batchStockSettings.remark || (batchStockMode.value === 'inbound' ? '一括入庫' : '一括出庫'),
       items: items.map((item) => removeEmptyBatchStockItem({
-        stockId: item.stockId,
+        stockId: batchStockMode.value === 'inbound' ? null : item.stockId,
         goodsId: item.goodsId,
         skuId: item.skuId,
+        sourceType: item.sourceType,
         warehouseId: item.warehouseId,
         stockTypeId: item.stockTypeId,
         quantity: item.quantity,
+        saleDeadline: item.saleDeadline,
         remark: item.remark,
       })),
     };
-    if (batchStockMode.value === 'inbound') {
-      payload.sourceType = Number(batchStockSettings.sourceType || STOCK_SOURCE_TYPE.SELF_INBOUND);
-    }
     await createItemByUrl(
       batchStockMode.value === 'inbound' ? '/api/stock/inbound/batch' : '/api/stock/outbound/batch',
       payload,
@@ -1821,7 +1910,7 @@ async function addCustomerAllocation() {
   list.push({
     key: `customer-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     customerId: null,
-    quantity: 1,
+    quantity: null,
   });
   sheetOutboundSettings.customerAllocations = list;
 }
@@ -1842,26 +1931,35 @@ function removeCustomerAllocation(key) {
     : []).filter((row) => String(row.key) !== String(key));
 }
 
+function validSheetCustomerAllocations() {
+  return (Array.isArray(sheetOutboundSettings.customerAllocations)
+    ? sheetOutboundSettings.customerAllocations
+    : []).filter((item) => (
+    item?.customerId !== undefined
+      && item?.customerId !== null
+      && String(item.customerId).trim() !== ''
+      && Number(item?.quantity || 0) > 0
+  ));
+}
+
 async function submitSheetFlow() {
+  const validCustomerAllocations = validSheetCustomerAllocations();
+  const useCustomerAllocation = sheetFlowMode.value !== 'inbound'
+    && (
+      sheetOutboundSettings.allocationMode === 'customer'
+        || validCustomerAllocations.length > 0
+    );
+
+  if (useCustomerAllocation && validCustomerAllocations.length === 0) {
+    message.warning('顧客と1以上の出庫数量を入力してください');
+    return;
+  }
+
   if (sheetFlowMode.value === 'outbound') {
-    if (sheetOutboundSettings.allocationMode === 'customer') {
-      const validCustomerAllocation = (Array.isArray(sheetOutboundSettings.customerAllocations)
-        ? sheetOutboundSettings.customerAllocations
-        : []).some((item) => (
-        item?.customerId !== undefined
-          && item?.customerId !== null
-          && String(item.customerId).trim() !== ''
-          && Number(item?.quantity || 0) > 0
-      ));
-      if (!validCustomerAllocation) {
-        message.warning('顧客と1以上の出庫数量を入力してください');
-        return;
-      }
-    }
     const invalid = sheetOutboundRows.value.some((record) => {
       const draft = sheetOutboundDrafts[goodsRowKey(record)] || {};
-      const total = Array.isArray(sheetOutboundSettings.customerAllocations) && sheetOutboundSettings.customerAllocations.length > 0
-        ? sheetOutboundSettings.customerAllocations.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+      const total = useCustomerAllocation
+        ? validCustomerAllocations.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
         : Number(draft.aQty || 0) + Number(draft.bQty || 0) + Number(draft.cQty || 0);
       return total > availableGoodsOutboundQty(goodsRowKey(record));
     });
@@ -1884,10 +1982,9 @@ async function submitSheetFlow() {
 
   sheetOutboundSubmitting.value = true;
   try {
-    const customerAllocation = sheetOutboundSettings.allocationMode === 'customer';
     const submitFlow = sheetFlowMode.value === 'inbound'
       ? submitSheetStockInboundFlow
-      : (!customerAllocation
+      : (!useCustomerAllocation
         ? submitDeliveryAllocationFlow
         : submitSheetStockOutboundFlow);
     const success = await submitFlow({
@@ -1897,6 +1994,10 @@ async function submitSheetFlow() {
       })),
       settings: {
         ...sheetOutboundSettings,
+        allocationMode: useCustomerAllocation ? 'customer' : sheetOutboundSettings.allocationMode,
+        customerAllocations: useCustomerAllocation
+          ? validCustomerAllocations
+          : sheetOutboundSettings.customerAllocations,
         currentDeptId: props.currentDeptId || null,
       },
       notify: message,
@@ -2007,6 +2108,7 @@ function mergeGoodsWithStock(goodsRows, stockRows) {
       warehouseName: goods?.warehouseName ?? stock?.warehouseName ?? null,
       stockTypeId: goods?.stockTypeId ?? stock?.stockTypeId ?? null,
       stockTypeName: goods?.stockTypeName ?? stock?.stockTypeName ?? null,
+      inventoryStatus: goods?.inventoryStatus ?? goods?.status ?? goods?.statusDesc ?? null,
       currentQty,
       outboundMaxQty: currentQty,
       customerQtyBreakdown: buildCustomerQtyBreakdown(matched),
@@ -2034,6 +2136,17 @@ function formatQty(value) {
   const quantity = Number(value);
   if (Number.isNaN(quantity)) return value ?? '-';
   return Math.abs(quantity);
+}
+
+function isActiveStatus(value) {
+  const text = String(value ?? '').trim().toLowerCase();
+  if (!text) return false;
+  if (['0', 'false', 'off', 'disabled', 'inactive', 'invalid', '無効', '无效'].includes(text)) return false;
+  return ['1', 'true', 'on', 'enabled', 'active', 'valid', '有効', '有效'].includes(text);
+}
+
+function formatInventoryStatus(value) {
+  return isActiveStatus(value) ? '有効' : '無効';
 }
 
 function buildCustomerQtyBreakdown(stocks) {
@@ -2191,16 +2304,7 @@ function scopeRelationOptionsByRecords(field, records, idField, labelFields) {
 }
 
 function scopeWarehouseOptionsByModuleLabel() {
-  const options = relationOptions.warehouseId || [];
-  if (!Array.isArray(options) || options.length === 0) return;
-  const keywords = splitStockWarehouseKeywords();
-  const matched = options.filter((option) => {
-    const label = String(option?.label || '').toLowerCase();
-    return keywords.some((keyword) => label.includes(String(keyword).toLowerCase()));
-  });
-  if (matched.length > 0) {
-    relationOptions.warehouseId = dedupeOptions(matched);
-  }
+  relationOptions.warehouseId = dedupeOptions(relationOptions.warehouseId || []);
 }
 
 function applyDefaultSplitStockWarehouse() {
@@ -2226,7 +2330,7 @@ function findSplitStockWarehouseOption(options) {
 }
 
 function splitStockWarehouseKeywords() {
-  return [];
+  return ['自社', 'self'];
 }
 
 function firstNonEmpty(record, fields) {
@@ -2420,6 +2524,19 @@ function findOptionByKeywords(options, keywords) {
     const label = String(option?.label || '').toLowerCase();
     return keywords.some((keyword) => label.includes(String(keyword).toLowerCase()));
   });
+}
+
+function findOptionByMinId(options) {
+  return (Array.isArray(options) ? options : [])
+    .map((option, index) => {
+      const numericId = Number(option?.value ?? option?.id);
+      return {
+        option,
+        index,
+        numericId: Number.isNaN(numericId) ? Number.POSITIVE_INFINITY : numericId,
+      };
+    })
+    .sort((left, right) => left.numericId - right.numericId || left.index - right.index)[0]?.option ?? null;
 }
 
 function formatDateTime(date) {

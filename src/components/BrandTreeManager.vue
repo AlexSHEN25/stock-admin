@@ -75,8 +75,8 @@
         </a-button>
       </a-space>
       <a-button
+        v-if="canCreate"
         type="primary"
-        :disabled="!moduleActions?.create"
         @click="openCreate"
       >
         新規追加
@@ -101,15 +101,20 @@
           {{ formatTime(record.updateTime) }}
         </template>
         <template v-else-if="column.key === 'actions'">
-          <a-space :size="8">
+          <span v-if="!canRowActions">閲覧のみ</span>
+          <a-space
+            v-else
+            :size="8"
+          >
             <a-button
+              v-if="canEdit"
               type="link"
-              :disabled="!moduleActions?.edit"
               @click="openEdit(record)"
             >
               編集
             </a-button>
             <a-popconfirm
+              v-if="canDelete"
               title="このブランド配下のシリーズとメーカーも一緒に削除します。よろしいですか。"
               ok-text="はい"
               cancel-text="キャンセル"
@@ -118,7 +123,6 @@
               <a-button
                 type="link"
                 danger
-                :disabled="!moduleActions?.delete"
               >
                 削除
               </a-button>
@@ -411,16 +415,16 @@ const pagination = reactive({
 });
 const form = reactive(createEmptyForm());
 
-const canRead = computed(() => props.moduleActions?.read !== false);
+const canCreate = computed(() => Boolean(props.moduleActions?.create));
+const canEdit = computed(() => Boolean(props.moduleActions?.edit));
+const canDelete = computed(() => Boolean(props.moduleActions?.delete));
+const canRowActions = computed(() => canEdit.value || canDelete.value);
 
 onMounted(() => {
-  if (canRead.value) {
-    loadRows();
-  }
+  loadRows();
 });
 
 async function loadRows() {
-  if (!canRead.value) return;
   loading.value = true;
   try {
     const page = await fetchBrandHierarchyPage({
@@ -476,7 +480,7 @@ function resolveBrandId(record) {
 }
 
 function openCreate() {
-  if (!props.moduleActions?.create) return;
+  if (!canCreate.value) return;
   replaceForm(createEmptyForm());
   editing.value = false;
   modalOpen.value = true;
@@ -484,7 +488,7 @@ function openCreate() {
 
 async function openEdit(record) {
   const brandId = resolveBrandId(record);
-  if (!props.moduleActions?.edit || !brandId) return;
+  if (!canEdit.value || !brandId) return;
   try {
     const detail = await fetchBrandTreeDetail(brandId);
     replaceForm(normalizeDetail(detail));
@@ -497,7 +501,7 @@ async function openEdit(record) {
 
 async function removeBrand(record) {
   const brandId = resolveBrandId(record);
-  if (!props.moduleActions?.delete || !brandId) return;
+  if (!canDelete.value || !brandId) return;
   try {
     await removeItem('brand', brandId);
     message.success('削除しました');

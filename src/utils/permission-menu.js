@@ -103,6 +103,7 @@ export function normalizePermissionPathKey(rawPath) {
   if (parts[0] === 'stock' && parts[1] === 'customer' && parts[2] === 'delivery-schedule') {
     return 'deliverySchedule';
   }
+  if (parts[0] === 'brand') return 'brand';
 
   const last = parts[parts.length - 1];
   return PATH_KEY_ALIASES[last] || DIRECT_KEY_ALIASES[last] || last;

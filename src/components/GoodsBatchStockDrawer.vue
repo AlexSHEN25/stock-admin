@@ -9,22 +9,12 @@
     @close="$emit('cancel')"
   >
     <div class="batch-stock-drawer">
-      <div class="batch-stock-toolbar">
-        <a-select
-          v-if="mode === 'inbound'"
-          :value="settings.sourceType"
-          :options="sourceTypeOptions"
-          class="batch-stock-source"
-          placeholder="入庫区分を選択"
-          @update:value="(value) => $emit('update-setting', 'sourceType', value)"
-        />
-        <a-input
-          :value="settings.remark"
-          class="batch-stock-remark"
-          :placeholder="mode === 'inbound' ? '一括入庫の備考' : '一括出庫の備考'"
-          @update:value="(value) => $emit('update-setting', 'remark', value)"
-        />
-      </div>
+      <a-alert
+        v-if="mode === 'inbound'"
+        type="info"
+        show-icon
+        message="各行ごとに元種別、倉庫、在庫分類、数量、販売期限、備考を入力してください。"
+      />
 
       <a-table
         :row-key="rowKey"
@@ -59,6 +49,39 @@
           <template v-else-if="column.key === 'currentQty'">
             {{ currentQty(record) }}
           </template>
+          <template v-else-if="column.key === 'sourceType'">
+            <a-select
+              :value="draftValue(record, 'sourceType')"
+              :options="sourceTypeOptions"
+              class="batch-stock-input"
+              placeholder="元種別"
+              @update:value="(value) => $emit('update-draft', rowKey(record), 'sourceType', value)"
+            />
+          </template>
+          <template v-else-if="column.key === 'warehouseId'">
+            <a-select
+              :value="draftValue(record, 'warehouseId')"
+              :options="warehouseOptions"
+              class="batch-stock-input"
+              placeholder="倉庫"
+              show-search
+              allow-clear
+              option-filter-prop="label"
+              @update:value="(value) => $emit('update-draft', rowKey(record), 'warehouseId', value)"
+            />
+          </template>
+          <template v-else-if="column.key === 'stockTypeId'">
+            <a-select
+              :value="draftValue(record, 'stockTypeId')"
+              :options="stockTypeOptions"
+              class="batch-stock-input"
+              placeholder="在庫分類"
+              show-search
+              allow-clear
+              option-filter-prop="label"
+              @update:value="(value) => $emit('update-draft', rowKey(record), 'stockTypeId', value)"
+            />
+          </template>
           <template v-else-if="column.key === 'quantity'">
             <a-input-number
               :value="draftValue(record, 'quantity')"
@@ -67,6 +90,17 @@
               :precision="0"
               class="batch-stock-number"
               @update:value="(value) => $emit('update-draft', rowKey(record), 'quantity', value)"
+            />
+          </template>
+          <template v-else-if="column.key === 'saleDeadline'">
+            <a-date-picker
+              :value="draftValue(record, 'saleDeadline') || null"
+              show-time
+              format="YYYY-MM-DD HH:mm:ss"
+              value-format="YYYY-MM-DD HH:mm:ss"
+              class="batch-stock-input"
+              placeholder="販売期限"
+              @update:value="(value) => $emit('update-draft', rowKey(record), 'saleDeadline', value)"
             />
           </template>
           <template v-else-if="column.key === 'remark'">
@@ -80,7 +114,7 @@
       </a-table>
 
       <div class="batch-stock-footer">
-        <span class="batch-stock-count">選択 {{ selectedKeys.length }} 件</span>
+        <span class="batch-stock-count">選択：{{ selectedKeys.length }} 件</span>
         <div class="batch-stock-actions">
           <a-button @click="$emit('cancel')">
             キャンセル
@@ -113,6 +147,8 @@ const props = defineProps({
   settings: { type: Object, default: () => ({}) },
   rowKey: { type: Function, required: true },
   sourceTypeOptions: { type: Array, default: () => [] },
+  warehouseOptions: { type: Array, default: () => [] },
+  stockTypeOptions: { type: Array, default: () => [] },
   limitQuantityToCurrent: { type: Boolean, default: false },
   submitting: { type: Boolean, default: false },
 });
@@ -138,17 +174,35 @@ const tableScroll = computed(() => ({
   y: props.pagination ? 'calc(100vh - 260px)' : 'calc(100vh - 220px)',
 }));
 
-const columns = computed(() => ([
-  { title: '商品名', dataIndex: 'goodsName', key: 'goodsName', width: 220, fixed: 'left' },
-  { title: '品番', dataIndex: 'skuCode', key: 'skuCode', width: 140 },
-  { title: 'ブランド', dataIndex: 'brandName', key: 'brandName', width: 150 },
-  { title: 'シリーズ', dataIndex: 'seriesName', key: 'seriesName', width: 150 },
-  { title: '倉庫名', dataIndex: 'warehouseName', key: 'warehouseName', width: 150 },
-  { title: '在庫分類', dataIndex: 'stockTypeName', key: 'stockTypeName', width: 140 },
-  { title: '現在数量', dataIndex: 'currentQty', key: 'currentQty', width: 110, align: 'right' },
-  { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 130 },
-  { title: '備考', dataIndex: 'remark', key: 'remark', width: 240 },
-]));
+const columns = computed(() => {
+  const base = [
+    { title: '商品名', dataIndex: 'goodsName', key: 'goodsName', width: 260, fixed: 'left' },
+    { title: '品番', dataIndex: 'skuCode', key: 'skuCode', width: 140 },
+    { title: 'ブランド', dataIndex: 'brandName', key: 'brandName', width: 150 },
+    { title: 'シリーズ', dataIndex: 'seriesName', key: 'seriesName', width: 150 },
+  ];
+  if (props.mode === 'inbound') {
+    base.push(
+      { title: '元種別', dataIndex: 'sourceType', key: 'sourceType', width: 170 },
+      { title: '倉庫', dataIndex: 'warehouseId', key: 'warehouseId', width: 190 },
+      { title: '在庫分類', dataIndex: 'stockTypeId', key: 'stockTypeId', width: 190 },
+    );
+  } else {
+    base.push(
+      { title: '倉庫名', dataIndex: 'warehouseName', key: 'warehouseName', width: 150 },
+      { title: '在庫分類', dataIndex: 'stockTypeName', key: 'stockTypeName', width: 140 },
+      { title: '現在数量', dataIndex: 'currentQty', key: 'currentQty', width: 110, align: 'right' },
+    );
+  }
+  return [
+    ...base,
+    { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 130 },
+    ...(props.mode === 'inbound'
+      ? [{ title: '販売期限', dataIndex: 'saleDeadline', key: 'saleDeadline', width: 190 }]
+      : []),
+    { title: '備考', dataIndex: 'remark', key: 'remark', width: 240 },
+  ];
+});
 
 const rowSelection = computed(() => ({
   selectedRowKeys: (props.selectedKeys || []).map((key) => String(key)),
@@ -163,7 +217,11 @@ const rowSelection = computed(() => ({
 
 function draftValue(record, field) {
   const row = props.drafts?.[props.rowKey(record)] || {};
-  if (field === 'quantity') return row.quantity ?? 1;
+  if (field === 'quantity') return row.quantity ?? props.settings?.quantity ?? 1;
+  if (field === 'sourceType') return row.sourceType ?? props.settings?.sourceType ?? null;
+  if (field === 'warehouseId') return row.warehouseId ?? record?.warehouseId ?? props.settings?.warehouseId ?? null;
+  if (field === 'stockTypeId') return row.stockTypeId ?? record?.stockTypeId ?? props.settings?.stockTypeId ?? null;
+  if (field === 'saleDeadline') return row.saleDeadline ?? props.settings?.saleDeadline ?? null;
   return row[field] ?? '';
 }
 
@@ -190,14 +248,7 @@ function onTableChange(page) {
   height: 100%;
 }
 
-.batch-stock-toolbar {
-  display: grid;
-  grid-template-columns: 180px minmax(0, 1fr);
-  gap: 12px;
-}
-
-.batch-stock-source,
-.batch-stock-remark,
+.batch-stock-input,
 .batch-stock-number {
   width: 100%;
 }
@@ -225,10 +276,6 @@ function onTableChange(page) {
 }
 
 @media (max-width: 768px) {
-  .batch-stock-toolbar {
-    grid-template-columns: 1fr;
-  }
-
   .batch-stock-footer {
     flex-direction: column;
     align-items: stretch;

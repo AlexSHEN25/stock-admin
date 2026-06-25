@@ -247,11 +247,16 @@ function buildDeliveryAllocationPayloads(items, settings) {
     if (allocations.length === 0) return;
     payloads.push({
       stockId: Number(record?.stockId ?? record?.id ?? 0) || null,
+      goodsId: Number(record?.goodsId ?? record?.id ?? 0) || null,
+      skuId: record?.skuId ? Number(record.skuId) : null,
+      warehouseId: Number(record?.warehouseId ?? settings?.warehouseId ?? 0) || null,
+      stockTypeId: Number(record?.stockTypeId ?? settings?.stockTypeId ?? 0) || null,
       allocations,
+      saleDeadline: settings?.saleDeadline || draft?.saleDeadline || null,
       remark: [settings?.remark, draft?.remark].filter(Boolean).join(' / ') || '\u7d0d\u54c1\u632f\u5206',
     });
   });
-  return payloads.filter((payload) => payload.stockId && payload.allocations.length > 0);
+  return payloads.filter((payload) => hasStockTarget(payload) && payload.allocations.length > 0);
 }
 
 function buildSheetOutboundPayloads(items, settings) {
@@ -286,10 +291,17 @@ function buildSheetOutboundPayloads(items, settings) {
     });
   });
   return payloads.filter((payload) => (
-    payload.stockId
+    hasStockTarget(payload)
     && payload.quantity > 0
     && payload.customerId
   ));
+}
+
+function hasStockTarget(payload) {
+  return Boolean(
+    payload?.stockId
+      || (payload?.goodsId && payload?.skuId && payload?.warehouseId && payload?.stockTypeId),
+  );
 }
 
 function normalizeRelationId(value) {
@@ -306,6 +318,7 @@ function buildSheetInboundPayloads(items, settings) {
     warehouseId: Number(record?.warehouseId ?? settings?.warehouseId ?? 0) || null,
     stockTypeId: Number(record?.stockTypeId ?? settings?.stockTypeId ?? 0) || null,
     quantity: Number(draft?.quantity || 0),
+    saleDeadline: settings?.saleDeadline || draft?.saleDeadline || null,
     remark: [settings?.remark, draft?.remark].filter(Boolean).join(' / ') || null,
   })).filter((payload) => (
     payload.quantity > 0

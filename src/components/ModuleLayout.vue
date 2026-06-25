@@ -191,6 +191,7 @@ import { useHeaderMessages } from '../composables/useHeaderMessages';
 import { useModuleMenu } from '../composables/useModuleMenu';
 import { usePasswordChange } from '../composables/usePasswordChange';
 import { HEADER_UI } from '../utils/module-ui';
+import { normalizePermissionMenuKey } from '../utils/permission-menu';
 import BrandTreeManager from './BrandTreeManager.vue';
 import ModuleTable from './ModuleTable.vue';
 
@@ -231,8 +232,42 @@ const {
 });
 
 const activeModuleActions = computed(() => {
-  const scope = (props.menuScopes || []).find((item) => item?.key === activeModule.value);
-  return scope?.actions || {
+  if (props.allDataWrite) return fullActions();
+  const scopes = (props.menuScopes || []).filter((item) => isActionScopeForModule(item, activeModule.value));
+  if (scopes.length === 0) {
+    return emptyActions();
+  }
+  return scopes.reduce((acc, scope) => mergeActions(acc, scope?.actions), emptyActions());
+});
+
+function isActionScopeForModule(scope, moduleKey) {
+  const normalizedKeys = normalizeScopeModuleKeys(scope);
+  return normalizedKeys.includes(moduleKey);
+}
+
+function normalizeScopeModuleKeys(scope) {
+  const rawPath = scope?.path || scope?.apiPath || scope?.url || scope?.requestUrl || '';
+  return [...new Set([
+    normalizePermissionMenuKey(scope?.key, rawPath),
+    normalizePermissionMenuKey(scope?.module, rawPath),
+    normalizePermissionMenuKey('', rawPath),
+  ].filter(Boolean))];
+}
+
+function mergeActions(base, next) {
+  const actions = next || {};
+  return {
+    read: Boolean(base.read || actions.read),
+    create: Boolean(base.create || actions.create),
+    edit: Boolean(base.edit || actions.edit),
+    delete: Boolean(base.delete || actions.delete),
+    batchDelete: Boolean(base.batchDelete || actions.batchDelete),
+    inlineEdit: Boolean(base.inlineEdit || actions.inlineEdit),
+  };
+}
+
+function emptyActions() {
+  return {
     read: false,
     create: false,
     edit: false,
@@ -240,7 +275,18 @@ const activeModuleActions = computed(() => {
     batchDelete: false,
     inlineEdit: false,
   };
-});
+}
+
+function fullActions() {
+  return {
+    read: true,
+    create: true,
+    edit: true,
+    delete: true,
+    batchDelete: true,
+    inlineEdit: true,
+  };
+}
 
 const {
   unreadCount,

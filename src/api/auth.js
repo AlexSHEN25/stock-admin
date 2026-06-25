@@ -118,6 +118,14 @@ function normalizeMenuScopes(source) {
 }
 
 function normalizeActions(source) {
+  if (Array.isArray(source)) {
+    const actionSet = new Set(source.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean));
+    return actionObjectFromSet(actionSet);
+  }
+  if (typeof source === 'string') {
+    const actionSet = new Set(source.split(/[\s,;|/]+/).map((item) => item.trim().toLowerCase()).filter(Boolean));
+    return actionObjectFromSet(actionSet);
+  }
   const actions = source && typeof source === 'object' ? source : {};
   return {
     read: Boolean(actions.read),
@@ -126,5 +134,17 @@ function normalizeActions(source) {
     delete: Boolean(actions.delete),
     batchDelete: Boolean(actions.batchDelete),
     inlineEdit: Boolean(actions.inlineEdit),
+  };
+}
+
+function actionObjectFromSet(actionSet) {
+  const has = (...names) => names.some((name) => actionSet.has(name));
+  return {
+    read: has('read', 'view', 'list', 'page'),
+    create: has('create', 'add', 'insert'),
+    edit: has('edit', 'update', 'modify'),
+    delete: has('delete', 'remove'),
+    batchDelete: has('batchdelete', 'batch_delete', 'batch-delete'),
+    inlineEdit: has('inlineedit', 'inline_edit', 'inline-edit'),
   };
 }

@@ -486,6 +486,129 @@ html[data-theme-mode='dark'] .login-card .ant-input-password .ant-input::placeho
   color: rgba(242, 242, 242, 0.55);
 }
 
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-drawer-content,
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-drawer-header,
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-drawer-body {
+  background: #181818 !important;
+  color: #f4f4f5 !important;
+}
+
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-drawer-title,
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-drawer-close {
+  color: #f4f4f5 !important;
+}
+
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .sheet-flow-drawer,
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-tabs-content,
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-tabs-tabpane {
+  background: #181818 !important;
+  color: #f4f4f5 !important;
+}
+
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-tabs-nav::before {
+  border-color: #303030 !important;
+}
+
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-tabs-tab {
+  color: #a1a1aa !important;
+}
+
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #ffffff !important;
+}
+
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-table-wrapper,
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-table,
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-table-container,
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-table-content,
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-spin-container {
+  background: #151515 !important;
+  color: #f4f4f5 !important;
+}
+
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-table-thead > tr > th {
+  background: #242424 !important;
+  border-color: #343434 !important;
+  color: #f4f4f5 !important;
+}
+
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-table-tbody > tr > td {
+  background: #181818 !important;
+  border-color: #303030 !important;
+  color: #f4f4f5 !important;
+}
+
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-table-tbody > tr:hover > td {
+  background: #222222 !important;
+}
+
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .customer-allocation-panel {
+  border-color: #343434 !important;
+  background: #151515 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .customer-allocation-header {
+  border-color: #343434 !important;
+  background: #1f1f1f !important;
+  color: #f4f4f5 !important;
+}
+
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .customer-allocation-footer {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: #f4f4f5 !important;
+}
+
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .customer-allocation-scroll {
+  background: #151515 !important;
+}
+
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .empty-state {
+  color: #a1a1aa !important;
+  background: #151515 !important;
+}
+
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-input,
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-input-number,
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-select-selector,
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-picker {
+  background: #111111 !important;
+  border-color: #3f3f46 !important;
+  color: #ffffff !important;
+}
+
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-input-number-input,
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-select-selection-item,
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-picker-input > input {
+  color: #ffffff !important;
+}
+
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-input::placeholder,
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-select-selection-placeholder,
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-input-number-input::placeholder {
+  color: #71717a !important;
+}
+
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-btn-default,
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-btn-dashed {
+  background: #181818 !important;
+  border-color: #3f3f46 !important;
+  color: #f4f4f5 !important;
+}
+
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-btn-default:hover,
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .ant-btn-dashed:hover {
+  background: #242424 !important;
+  border-color: #60a5fa !important;
+  color: #ffffff !important;
+}
+
+html[data-theme-mode='dark'] .sheet-flow-drawer-root .sheet-flow-footer {
+  border-color: #343434 !important;
+  background: #181818 !important;
+}
+
 .goods-thumb {
   width: 40px;
   height: 40px;
