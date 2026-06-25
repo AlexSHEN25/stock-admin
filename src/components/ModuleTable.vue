@@ -1327,10 +1327,6 @@ async function submitGoodsOutbound() {
 }
 
 async function downloadGoodsImportTemplate() {
-  if (props.moduleKey === 'goods') {
-    downloadLocalGoodsImportTemplate();
-    return;
-  }
   const config = importTemplateConfigByModule();
   if (!config) return;
   try {
@@ -1384,7 +1380,7 @@ function importTemplateConfigByModule() {
   if (props.moduleKey === 'goods') {
     return {
       url: '/api/goods/import/template',
-      fileName: 'goods-import-template.xls',
+      fileName: 'goods-import-template.xlsx',
       failMessage: TABLE_TEXT.goodsTemplateDownloadFail,
     };
   }
@@ -1396,68 +1392,6 @@ function importTemplateConfigByModule() {
     };
   }
   return null;
-}
-
-function downloadLocalGoodsImportTemplate() {
-  const columns = [
-    'ID',
-    'Name',
-    'English Name',
-    'Brand ID',
-    'Series ID',
-    'Category ID',
-    'Maker ID',
-    'SKU Code',
-    'SKU Name',
-    'Price',
-    'Currency',
-    'Status',
-  ];
-  const sample = [
-    '',
-    'Sample Goods',
-    'Sample Goods EN',
-    '',
-    '',
-    '',
-    '',
-    'SKU001',
-    'Sample SKU',
-    '1000',
-    'JPY',
-    '1',
-  ];
-  const rows = [columns, sample];
-  const worksheet = rows.map((row) => (
-    `<tr>${row.map((cell) => `<td>${escapeExcelXml(cell)}</td>`).join('')}</tr>`
-  )).join('');
-  const html = `<?xml version="1.0" encoding="UTF-8"?>
-    <html xmlns:o="urn:schemas-microsoft-com:office:office"
-      xmlns:x="urn:schemas-microsoft-com:office:excel"
-      xmlns="http://www.w3.org/TR/REC-html40">
-      <head>
-        <meta charset="UTF-8">
-        <style>td{mso-number-format:"\\@";}</style>
-      </head>
-      <body><table>${worksheet}</table></body>
-    </html>`;
-  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
-  const url = window.URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = 'goods-import-template.xls';
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.URL.revokeObjectURL(url);
-}
-
-function escapeExcelXml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 async function importGoodsBatchFromFile(file) {
