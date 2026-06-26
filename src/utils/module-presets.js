@@ -133,7 +133,8 @@ export const MODULE_PRESETS = {
     fieldTypes: { customerId: 'relation', deptId: 'relation', warehouseId: 'relation', stockTypeId: 'relation', outboundMode: 'select', orderType: 'select', state: 'select', bizDate: 'datetime' },
   },
   stockOrder: {
-    queryFields: ['id', 'orderNo', 'orderType', 'bizDate', 'stockTypeId', 'warehouseId', 'sourceType', 'sourceId', 'totalQty', 'state', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'approverId', 'approverName', 'approveTime', 'finishTime', 'remark'],
+    tableFields: ['id', 'stockCategory', 'orderNo', 'orderType', 'bizDate', 'deptId', 'stockTypeId', 'warehouseId', 'sourceType', 'sourceId', 'totalQty', 'state', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'approverId', 'approverName', 'approveTime', 'finishTime', 'remark'],
+    queryFields: ['id', 'orderNo', 'orderType', 'bizDate', 'deptId', 'stockTypeId', 'warehouseId', 'sourceType', 'sourceId', 'totalQty', 'state', 'requesterId', 'requesterName', 'operatorId', 'operatorName', 'approverId', 'approverName', 'approveTime', 'finishTime', 'remark'],
     formFields: ['orderType', 'bizDate', 'warehouseId', 'sourceType', 'stockTypeId', 'remark'],
     fieldTypes: {
       warehouseId: 'relation',

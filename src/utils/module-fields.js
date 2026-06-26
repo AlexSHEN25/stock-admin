@@ -220,6 +220,7 @@ export const FIELD_LABELS = {
   outQty: '出庫数量',
   outboundMode: '出庫区分',
   stockScope: '出庫元在庫',
+  stockCategory: 'カテゴリ',
   saleDeadline: '販売期限',
   totalAmt: '総金額',
   state: '状態コード',

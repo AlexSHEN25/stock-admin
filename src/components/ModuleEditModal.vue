@@ -76,8 +76,9 @@
           v-else-if="inputType(field) === 'datetime'"
           v-model:value="form[field]"
           :disabled="isFieldDisabled(field)"
-          value-format="YYYY-MM-DD HH:mm:ss"
-          show-time
+          :format="dateFormatByField(field)"
+          :value-format="dateValueFormatByField(field)"
+          :show-time="dateShowTimeByField(field)"
           style="width: 100%"
         />
         <a-textarea
@@ -122,4 +123,20 @@ const form = computed(() => new Proxy(props.formState, {
     return true;
   },
 }));
+
+function isHourOnlyDateTimeField(field) {
+  return field === 'saleDeadline';
+}
+
+function dateFormatByField(field) {
+  return isHourOnlyDateTimeField(field) ? 'MM-DD HH時' : 'YYYY-MM-DD HH:mm:ss';
+}
+
+function dateValueFormatByField(field) {
+  return isHourOnlyDateTimeField(field) ? 'YYYY-MM-DD HH:00:00' : 'YYYY-MM-DD HH:mm:ss';
+}
+
+function dateShowTimeByField(field) {
+  return isHourOnlyDateTimeField(field) ? { format: 'HH' } : true;
+}
 </script>

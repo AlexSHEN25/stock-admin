@@ -46,8 +46,9 @@
   <a-date-picker
     v-else-if="inputType(editableField) === 'datetime'"
     v-model:value="value"
-    value-format="YYYY-MM-DD HH:mm:ss"
-    show-time
+    :format="dateFormatByField(editableField)"
+    :value-format="dateValueFormatByField(editableField)"
+    :show-time="dateShowTimeByField(editableField)"
     style="width: 100%"
   />
   <a-input
@@ -80,4 +81,20 @@ const value = computed({
   get: () => props.editState[editableField.value],
   set: (nextValue) => emit('update-field', editableField.value, nextValue),
 });
+
+function isHourOnlyDateTimeField(field) {
+  return field === 'saleDeadline';
+}
+
+function dateFormatByField(field) {
+  return isHourOnlyDateTimeField(field) ? 'MM-DD HH時' : 'YYYY-MM-DD HH:mm:ss';
+}
+
+function dateValueFormatByField(field) {
+  return isHourOnlyDateTimeField(field) ? 'YYYY-MM-DD HH:00:00' : 'YYYY-MM-DD HH:mm:ss';
+}
+
+function dateShowTimeByField(field) {
+  return isHourOnlyDateTimeField(field) ? { format: 'HH' } : true;
+}
 </script>

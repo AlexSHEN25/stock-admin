@@ -69,9 +69,9 @@
                 <template v-else-if="column.key === 'saleDeadline'">
                   <a-date-picker
                     :value="draftValue(record, 'saleDeadline') || null"
-                    show-time
-                    format="YYYY-MM-DD HH:mm:ss"
-                    value-format="YYYY-MM-DD HH:mm:ss"
+                    :show-time="{ format: 'HH' }"
+                    format="MM-DD HH時"
+                    value-format="YYYY-MM-DD HH:00:00"
                     class="sheet-flow-date"
                     @update:value="(value) => $emit('update-draft', rowKey(record), 'saleDeadline', value)"
                   />
@@ -133,9 +133,9 @@
                 <template v-else-if="column.key === 'saleDeadline'">
                   <a-date-picker
                     :value="draftValue(record, 'saleDeadline') || null"
-                    show-time
-                    format="YYYY-MM-DD HH:mm:ss"
-                    value-format="YYYY-MM-DD HH:mm:ss"
+                    :show-time="{ format: 'HH' }"
+                    format="MM-DD HH時"
+                    value-format="YYYY-MM-DD HH:00:00"
                     class="sheet-flow-date"
                     @update:value="(value) => $emit('update-draft', rowKey(record), 'saleDeadline', value)"
                   />

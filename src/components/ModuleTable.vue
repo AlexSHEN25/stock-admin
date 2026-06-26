@@ -120,6 +120,9 @@
           <template v-else-if="String(column.key) === 'isHot'">
             {{ Number(record.isHot) === 1 ? TABLE_TEXT.hotYes : TABLE_TEXT.hotNo }}
           </template>
+          <template v-else-if="String(column.key) === 'stockCategory'">
+            {{ stockOrderCategoryLabel(record) }}
+          </template>
           <template v-else-if="String(column.key) === 'changeQty'">
             {{ formatQty(record.changeQty) }}
           </template>
@@ -745,7 +748,7 @@ const {
   buildExtraQueryParams: () => (
     props.moduleKey === 'message' && isAdminUser.value
       ? { all: true, scope: 'all' }
-      : { ...stockViewQueryParams(), ...(props.fixedQueryParams || {}) }
+      : { ...stockViewQueryParams(), ...stockOrderUserQueryParams(), ...(props.fixedQueryParams || {}) }
   ),
   fetchPageData: (path, params) => fetchPageDataByModule(path, params),
 });
@@ -978,6 +981,19 @@ function stockViewQueryParams() {
     stockScope: 'group',
     groupCode: match[1],
   };
+}
+
+function stockOrderUserQueryParams() {
+  if (props.moduleKey !== 'stockOrder' || isAdminUser.value) return {};
+  const params = {
+    orderType: STOCK_ORDER_TYPE.OUTBOUND,
+  };
+  if (props.currentUserId) {
+    params.requesterId = props.currentUserId;
+  } else if (props.currentUser) {
+    params.requesterName = props.currentUser;
+  }
+  return params;
 }
 
 function fetchPageDataByModule(path, params) {
@@ -2070,6 +2086,50 @@ function formatQty(value) {
   const quantity = Number(value);
   if (Number.isNaN(quantity)) return value ?? '-';
   return Math.abs(quantity);
+}
+
+function stockOrderCategoryLabel(record) {
+  const category = stockOrderCategoryCode(record);
+  const warehouseName = stockOrderWarehouseName(record);
+  return [category, warehouseName].filter(Boolean).join(' / ') || '-';
+}
+
+function stockOrderCategoryCode(record) {
+  const rawGroup = String(record?.groupCode ?? record?.group_code ?? '').trim().toUpperCase();
+  if (rawGroup) return rawGroup;
+  const deptCode = stockOrderDeptCode(record);
+  if (deptCode) return deptCode;
+  return String(record?.stockCategory ?? record?.category ?? '').trim().toUpperCase();
+}
+
+function stockOrderDeptCode(record) {
+  const direct = record?.deptCode ?? record?.dept_code ?? record?.departmentCode ?? record?.department_code;
+  if (direct !== undefined && direct !== null && String(direct).trim() !== '') {
+    return String(direct).trim().toUpperCase();
+  }
+  const deptId = record?.deptId ?? record?.dept_id;
+  const options = [
+    ...(relationOptions.deptId || []),
+    ...(queryRelationOptions.deptId || []),
+  ];
+  const matched = options.find((option) => String(option?.value) === String(deptId));
+  const code = matched?.raw?.code ?? matched?.raw?.deptCode ?? matched?.raw?.dept_code;
+  return code !== undefined && code !== null ? String(code).trim().toUpperCase() : '';
+}
+
+function stockOrderWarehouseName(record) {
+  const direct = record?.warehouseName ?? record?.warehouse_name ?? record?.warehouse;
+  if (direct !== undefined && direct !== null && String(direct).trim() !== '') {
+    return String(direct).trim();
+  }
+  const warehouseId = record?.warehouseId ?? record?.warehouse_id;
+  const options = [
+    ...(relationOptions.warehouseId || []),
+    ...(queryRelationOptions.warehouseId || []),
+  ];
+  const matched = options.find((option) => String(option?.value) === String(warehouseId));
+  const name = matched?.raw?.name ?? matched?.raw?.warehouseName ?? matched?.raw?.warehouse_name ?? matched?.label;
+  return name !== undefined && name !== null ? String(name).trim() : '';
 }
 
 function isActiveStatus(value) {
