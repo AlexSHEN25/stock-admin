@@ -14,6 +14,7 @@
       :can-create="canCreateInModule()"
       :can-sheet-inbound="canOpenSheetInbound"
       :can-sheet-outbound="canOpenSheetOutbound"
+      :can-batch-stock-flow="canOpenBatchStockFlow"
       :can-export="canExportCurrentList"
       :export-loading="exportLoading"
       :can-generate-request-form="canGenerateRequestForm"
@@ -33,6 +34,7 @@
       @create="openCreate"
       @sheet-inbound="openBatchStockDrawer('inbound')"
       @sheet-outbound="openSheetOutboundModal"
+      @batch-stock-flow="openBatchStockFlow"
       @export-current="exportCurrentList"
       @download-goods-template="downloadGoodsImportTemplate"
       @goods-import="importGoodsBatchFromFile"
@@ -369,12 +371,24 @@
       :warehouse-options="relationOptions.warehouseId || []"
       :stock-type-options="relationOptions.stockTypeId || []"
       :limit-quantity-to-current="isGroupBatchInbound"
+      :show-mode-switch="batchStockModeSwitchable"
       :submitting="batchStockSubmitting"
+      :search-fields="batchStockSearchFields"
+      :query-state="batchStockQueryState"
+      :table-text="TABLE_TEXT"
+      :query-input-type="batchStockQueryInputType"
+      :query-options="queryOptions"
+      :query-placeholder="queryPlaceholder"
+      :has-active-filters="hasActiveFilters"
       @cancel="batchStockDrawerOpen = false"
       @submit="submitBatchStockFlow"
       @page-change="loadBatchStockGoodsPage"
+      @search="searchBatchStockGoods"
+      @reset-search="resetBatchStockGoodsSearch"
       @update-draft="updateBatchStockDraft"
       @update-setting="updateBatchStockSetting"
+      @update-mode="switchBatchStockMode"
+      @update-query-field="updateBatchStockQueryField"
       @update-selected-keys="updateBatchStockSelectedKeys"
     />
     <goods-drawer
@@ -443,6 +457,7 @@ import { markAllMessageListRead, markAllMessagesRead, markMessageListRead, markM
 import { submitDeliveryAllocationFlow, submitGoodsStockOutboundFlow, submitSheetStockInboundFlow, submitSheetStockOutboundFlow, submitStockInboundFlow, submitStockOrderItemReturnFlow, submitStockQuantityAdjustment } from '../utils/stock';
 import { getModulePreset, guessFieldType, isRequiredFormField, mapNameFieldToIdField, normalizeTitle, relationLabel, relationModuleByField } from '../utils/module';
 import TABLE_TEXT, {
+  GOODS_TABLE_CONFIG,
   MODULE_DETAIL_NAVIGATIONS,
   MODULE_QUERY_JUMPS,
   getModuleEnumOptions,
@@ -460,6 +475,7 @@ import {
 } from '../utils/constants';
 import { clearNavigationState, getNavigationState, setNavigationState } from '../utils/navigation-state';
 import { hasActiveFilters } from '../utils/table';
+import { formatTokyoDate, formatTokyoDateStart } from '../utils/timezone';
 
 const STOCK_EDIT_PAYLOAD_FIELDS = ['id', 'goodsId', 'goodsName', 'skuId', 'skuCode', 'warehouseId', 'price', 'currency', 'stockTypeId', 'status', 'version'];
 const GOODS_INBOUND_FIELDS = ['sourceType', 'warehouseId', 'stockTypeId', 'quantity', 'saleDeadline', 'remark'];
@@ -523,15 +539,17 @@ const batchStockDrawerOpen = ref(false);
 const batchStockSubmitting = ref(false);
 const batchStockLoading = ref(false);
 const batchStockMode = ref('inbound');
+const batchStockModeSwitchable = ref(false);
 const batchStockRows = ref([]);
 const batchStockSelectedKeys = ref([]);
 const batchStockDrafts = reactive({});
+const batchStockQueryState = reactive({});
 const batchStockSettings = reactive({
   sourceType: STOCK_SOURCE_TYPE.SELF_INBOUND,
   warehouseId: null,
   stockTypeId: null,
   quantity: 1,
-  saleDeadline: null,
+  bizDate: null,
   remark: '',
 });
 const batchStockPagination = reactive({
@@ -539,6 +557,7 @@ const batchStockPagination = reactive({
   pageSize: 10,
   total: 0,
 });
+const batchStockSearchFields = computed(() => GOODS_TABLE_CONFIG.queryFields || []);
 const goodsFlowByRowKey = reactive({});
 const goodsStockRows = ref([]);
 const customerGoodsMatrixColumns = ref([]);
@@ -1019,13 +1038,17 @@ const visibleGoodsOutboundFields = computed(() => GOODS_OUTBOUND_FIELDS.filter((
   if (field === 'stockScope') return goodsOutboundForm.outboundMode === GOODS_OUTBOUND_MODE.CUSTOMER;
   return true;
 }));
+const canOpenSheetInbound = computed(() => (
+  (isSelfStockModule.value || isGroupStockModule.value)
+  && canWrite.value
+));
 const canOpenSheetOutbound = computed(() => (
   (isSelfStockModule.value || isGroupStockModule.value)
   && canWrite.value
   && selectedGoodsRows().some((record) => stockCurrentQty(record) > 0)
 ));
-const canOpenSheetInbound = computed(() => (
-  (isSelfStockModule.value || isGroupStockModule.value)
+const canOpenBatchStockFlow = computed(() => (
+  isSelfStockModule.value
   && canWrite.value
 ));
 const canExportCurrentList = computed(() => (
@@ -1047,6 +1070,13 @@ const batchStockPaginationConfig = computed(() => {
   };
 });
 const isGroupBatchInbound = computed(() => isGroupStockModule.value && batchStockMode.value === 'inbound');
+
+watch(
+  () => props.moduleKey,
+  () => {
+    clearTransientUiState();
+  },
+);
 
 watch(
   () => [props.moduleKey, JSON.stringify(props.fixedQueryParams || {})],
@@ -1150,6 +1180,10 @@ function updateFormField(field, value) {
 
 function updateQueryField(field, value) {
   queryState[field] = value;
+}
+
+function updateBatchStockQueryField(field, value) {
+  batchStockQueryState[field] = value;
 }
 
 function updateInlineField(field, value) {
@@ -1598,20 +1632,27 @@ async function prepareSheetOutboundModal(selected) {
   sheetOutboundModalOpen.value = true;
 }
 
-async function openBatchStockDrawer(mode) {
+async function openBatchStockDrawer(mode, options = {}) {
   const normalizedMode = mode === 'outbound' ? 'outbound' : 'inbound';
+  const preservedBizDate = options.preserveSettings ? batchStockSettings.bizDate : null;
+  const preservedRemark = options.preserveSettings ? batchStockSettings.remark : '';
+  if (!options.preserveSettings) {
+    resetBatchStockQueryState();
+  }
   batchStockMode.value = normalizedMode;
+  batchStockModeSwitchable.value = Boolean(options.allowModeSwitch);
   batchStockSelectedKeys.value = [];
   Object.keys(batchStockDrafts).forEach((key) => delete batchStockDrafts[key]);
   batchStockSettings.sourceType = STOCK_SOURCE_TYPE.SELF_INBOUND;
   batchStockSettings.warehouseId = null;
   batchStockSettings.stockTypeId = null;
   batchStockSettings.quantity = 1;
-  batchStockSettings.saleDeadline = null;
-  batchStockSettings.remark = normalizedMode === 'inbound' ? '一括入庫' : '一括出庫';
+  batchStockSettings.bizDate = preservedBizDate || formatTokyoDate();
+  batchStockSettings.remark = preservedRemark || (normalizedMode === 'inbound' ? '一括入庫' : '一括出庫');
   batchStockDrawerOpen.value = true;
 
   if (normalizedMode === 'inbound') {
+    await loadQueryRelationOptions(batchStockSearchFields.value);
     await loadRelationOptions(['warehouseId', 'stockTypeId'], []);
     batchStockSettings.warehouseId = findOptionByMinId(relationOptions.warehouseId || [])?.value ?? relationOptions.warehouseId?.[0]?.value ?? null;
     batchStockSettings.stockTypeId = findOptionByMinId(relationOptions.stockTypeId || [])?.value ?? relationOptions.stockTypeId?.[0]?.value ?? null;
@@ -1630,12 +1671,25 @@ async function openBatchStockDrawer(mode) {
   seedBatchStockDrafts(rowsForDrawer);
 }
 
+async function switchBatchStockMode(mode) {
+  if (!batchStockModeSwitchable.value) return;
+  const nextMode = mode === 'outbound' ? 'outbound' : 'inbound';
+  if (nextMode === batchStockMode.value) return;
+  await openBatchStockDrawer(nextMode, { preserveSettings: true, allowModeSwitch: true });
+}
+
+async function openBatchStockFlow() {
+  await openBatchStockDrawer('inbound', { allowModeSwitch: true });
+}
+
 async function loadBatchStockGoodsPage({ pageNum = 1, pageSize = 10 } = {}) {
   batchStockLoading.value = true;
   batchStockSelectedKeys.value = [];
+  const searchParams = buildBatchStockSearchParams();
   try {
     if (isGroupBatchInbound.value) {
       const page = await fetchPage('stock', {
+        ...searchParams,
         pageNum,
         pageSize,
         sortBy: 'updateTime',
@@ -1652,6 +1706,7 @@ async function loadBatchStockGoodsPage({ pageNum = 1, pageSize = 10 } = {}) {
       return;
     }
     const page = await fetchPage('goods', {
+      ...searchParams,
       pageNum,
       pageSize,
       sortBy: 'updateTime',
@@ -1676,6 +1731,40 @@ async function loadBatchStockGoodsPage({ pageNum = 1, pageSize = 10 } = {}) {
   }
 }
 
+function batchStockQueryInputType(field) {
+  if (['name', 'englishName', 'skuCode', 'skuName'].includes(String(field || ''))) return 'text';
+  return queryInputType(field);
+}
+
+function buildBatchStockSearchParams() {
+  const params = {};
+  (batchStockSearchFields.value || []).forEach((field) => {
+    const value = batchStockQueryState[field];
+    if (value === undefined || value === null || String(value).trim() === '') return;
+    const targetField = isGroupBatchInbound.value && field === 'name' ? 'goodsName' : field;
+    params[targetField] = value;
+  });
+  return params;
+}
+
+function resetBatchStockQueryState() {
+  Object.keys(batchStockQueryState).forEach((key) => {
+    delete batchStockQueryState[key];
+  });
+  (batchStockSearchFields.value || []).forEach((field) => {
+    batchStockQueryState[field] = undefined;
+  });
+}
+
+async function searchBatchStockGoods() {
+  await loadBatchStockGoodsPage({ pageNum: 1, pageSize: batchStockPagination.pageSize });
+}
+
+async function resetBatchStockGoodsSearch() {
+  resetBatchStockQueryState();
+  await loadBatchStockGoodsPage({ pageNum: 1, pageSize: batchStockPagination.pageSize });
+}
+
 function seedBatchStockDrafts(records) {
   (records || []).forEach((record) => {
     const inboundMode = batchStockMode.value === 'inbound';
@@ -1690,7 +1779,7 @@ function seedBatchStockDrafts(records) {
         ? batchStockSettings.stockTypeId ?? record?.stockTypeId ?? null
         : record?.stockTypeId ?? batchStockSettings.stockTypeId ?? null,
       quantity: Number(batchStockSettings.quantity || 1),
-      saleDeadline: inboundMode ? batchStockSettings.saleDeadline || null : null,
+      bizDate: batchStockSettings.bizDate || null,
       remark: '',
     };
   });
@@ -1707,6 +1796,36 @@ function updateBatchStockSetting(field, value) {
   batchStockSettings[field] = value;
 }
 
+function clearObjectState(target) {
+  Object.keys(target || {}).forEach((key) => {
+    delete target[key];
+  });
+}
+
+function clearTransientUiState() {
+  modalOpen.value = false;
+  goodsInboundModalOpen.value = false;
+  goodsOutboundModalOpen.value = false;
+  sheetOutboundModalOpen.value = false;
+  batchStockDrawerOpen.value = false;
+  selectedRowKeys.value = [];
+  batchStockSelectedKeys.value = [];
+  sheetOutboundRows.value = [];
+  sheetOutboundActiveRowKey.value = '';
+  activeGoodsRowKey.value = '';
+  selectedExcelCell.value = '';
+  activeExcelCell.value = '';
+  clearObjectState(goodsInboundForm);
+  clearObjectState(goodsOutboundForm);
+  clearObjectState(requestItemQtyState);
+  clearObjectState(requestFlowCellDraftState);
+  clearObjectState(sheetOutboundDrafts);
+  clearObjectState(batchStockDrafts);
+  clearObjectState(goodsFlowByRowKey);
+  resetBatchStockQueryState();
+  closeGoodsDrawer();
+}
+
 function updateBatchStockSelectedKeys(keys) {
   batchStockSelectedKeys.value = (Array.isArray(keys) ? keys : []).map((key) => String(key));
 }
@@ -1719,7 +1838,7 @@ async function submitBatchStockFlow() {
       const draft = batchStockDrafts[goodsRowKey(record)] || {};
       return {
         record,
-        stockId: Number(record?.stockId ?? 0) || null,
+        stockId: Number(record?.stockId ?? record?.id ?? 0) || null,
         goodsId: Number(record?.goodsId ?? record?.id ?? 0) || null,
         skuId: record?.skuId ? Number(record.skuId) : null,
         warehouseId: batchStockMode.value === 'inbound'
@@ -1732,18 +1851,19 @@ async function submitBatchStockFlow() {
           ? Number(draft.sourceType ?? batchStockSettings.sourceType ?? STOCK_SOURCE_TYPE.SELF_INBOUND)
           : null,
         quantity: Number(draft.quantity || 0),
-        saleDeadline: batchStockMode.value === 'inbound' ? (draft.saleDeadline || null) : null,
+        bizDate: batchStockSettings.bizDate || draft.bizDate || null,
         remark: String(draft.remark || '').trim() || null,
       };
     });
 
   const invalid = items.some((item) => (
     item.quantity <= 0
+    || !item.bizDate
     || (batchStockMode.value === 'outbound' && (!item.stockId || item.quantity > availableGoodsOutboundQty(goodsRowKey(item.record))))
     || (isGroupBatchInbound.value && (!item.stockId || item.quantity > stockCurrentQty(item.record)))
     || (batchStockMode.value === 'inbound'
       && !item.stockId
-      && !(item.goodsId && item.skuId && item.sourceType && item.warehouseId && item.stockTypeId))
+      && !(item.goodsId && item.sourceType && item.warehouseId && item.stockTypeId))
   ));
   if (items.length === 0 || invalid) {
     message.warning(TABLE_TEXT.requiredField);
@@ -1768,17 +1888,17 @@ async function submitBatchStockFlow() {
       return;
     }
     const payload = {
+      ...(batchStockMode.value === 'inbound' ? { sourceType: Number(batchStockSettings.sourceType || STOCK_SOURCE_TYPE.SELF_INBOUND) } : {}),
+      bizDate: batchStockSettings.bizDate || items[0]?.bizDate || null,
       remark: batchStockSettings.remark || (batchStockMode.value === 'inbound' ? '一括入庫' : '一括出庫'),
       items: items.map((item) => removeEmptyBatchStockItem({
-        stockId: batchStockMode.value === 'inbound' ? null : item.stockId,
-        goodsId: item.goodsId,
-        skuId: item.skuId,
-        sourceType: item.sourceType,
-        warehouseId: item.warehouseId,
-        stockTypeId: item.stockTypeId,
+        stockId: batchStockMode.value === 'outbound' ? item.stockId : null,
+        goodsId: batchStockMode.value === 'inbound' ? item.goodsId : null,
+        skuId: batchStockMode.value === 'inbound' ? item.skuId : null,
+        warehouseId: batchStockMode.value === 'inbound' ? item.warehouseId : null,
+        stockTypeId: batchStockMode.value === 'inbound' ? item.stockTypeId : null,
         quantity: item.quantity,
-        saleDeadline: item.saleDeadline,
-        remark: item.remark,
+        bizDate: item.bizDate,
       })),
     };
     await createItemByUrl(
@@ -1804,6 +1924,7 @@ async function submitGroupBatchInboundFromSelfStock(items, groupCode) {
     // eslint-disable-next-line no-await-in-loop
     await createItemByUrl('/api/stock/group/allocate', {
       stockId: item.stockId,
+      bizDate: item.bizDate || batchStockSettings.bizDate || null,
       allocations: [
         {
           groupCode,
@@ -2494,7 +2615,7 @@ function normalizeModulePayload(payload) {
 
 function applyStockOrderCreateDefaults() {
   if (props.moduleKey !== 'stockOrder' || editing.value) return;
-  formState.bizDate = formatDateTime(new Date());
+  formState.bizDate = formatTokyoDateStart();
   formState.sourceType = STOCK_ORDER_DEFAULT_SOURCE_TYPE;
   formState.state = STOCK_ORDER_DEFAULT_STATE;
 }
@@ -2531,13 +2652,6 @@ function findOptionByMinId(options) {
       };
     })
     .sort((left, right) => left.numericId - right.numericId || left.index - right.index)[0]?.option ?? null;
-}
-
-function formatDateTime(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day} 00:00:00`;
 }
 
 const {
@@ -2822,6 +2936,9 @@ function cellDisplayValue(record, field) {
     if (Object.prototype.hasOwnProperty.call(requestFlowCellDraftState, key)) {
       return requestFlowCellDraftState[key];
     }
+  }
+  if (props.moduleKey === 'stockOrder' && String(field || '') === 'totalQty') {
+    return record?.totalQty ?? record?.quantity ?? record?.changeQty ?? record?.outQty ?? record?.requestQty;
   }
   if (!isEditing(record)) return record?.[field];
   const editableField = inlineField(field);

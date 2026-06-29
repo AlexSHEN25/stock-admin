@@ -70,7 +70,7 @@ export function useModuleTableSchema(options) {
     const base = keys.value
       .filter((key) => String(key || '').toLowerCase() !== 'updatetime')
       .map((key) => ({
-      title: isGoodsSkuIdAsId(key, isGoodsManagement.value) ? 'ID' : normalizeTitle(key),
+      title: columnTitle(key, moduleKey?.value, isGoodsManagement.value, normalizeTitle),
       dataIndex: key,
       key,
       className: columnClassName(key, moduleKey?.value),
@@ -219,6 +219,28 @@ function columnFixed(key, isGoodsManagement) {
   if (lower === 'id') return 'left';
   if (lower === 'createtime' || lower === 'updatetime') return 'right';
   return undefined;
+}
+
+function columnTitle(key, moduleKey, isGoodsManagement, normalizeTitle) {
+  const lower = String(key || '').toLowerCase();
+  if (moduleKey === 'stockOrder') {
+    const stockOrderTitles = {
+      id: '序号',
+      ordertype: '伝票種別',
+      makername: 'メーカー',
+      seriesname: 'シリーズ',
+      goodsname: '品名',
+      totalqty: '数量',
+      customername: '顧客',
+      bizdate: '納品日',
+      remark: '備考',
+      requestername: '申請者',
+      approvername: '承認者',
+    };
+    if (stockOrderTitles[lower]) return stockOrderTitles[lower];
+  }
+  if (isGoodsSkuIdAsId(key, isGoodsManagement)) return 'ID';
+  return normalizeTitle(key);
 }
 
 function columnClassName(key, moduleKey) {

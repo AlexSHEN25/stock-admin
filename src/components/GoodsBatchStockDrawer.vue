@@ -2,6 +2,8 @@
   <a-drawer
     :open="open"
     :title="title"
+    class="batch-stock-drawer-root"
+    root-class-name="batch-stock-drawer-root"
     placement="right"
     width="100%"
     :get-container="false"
@@ -9,11 +11,106 @@
     @close="$emit('cancel')"
   >
     <div class="batch-stock-drawer">
+      <div class="batch-stock-toolbar">
+        <a-radio-group
+          v-if="showModeSwitch"
+          :value="mode"
+          option-type="button"
+          button-style="solid"
+          @update:value="(value) => $emit('update-mode', value)"
+        >
+          <a-radio-button value="inbound">
+            入庫
+          </a-radio-button>
+          <a-radio-button value="outbound">
+            出庫
+          </a-radio-button>
+        </a-radio-group>
+        <a-date-picker
+          :value="settings.bizDate || null"
+          format="YYYY-MM-DD"
+          value-format="YYYY-MM-DD"
+          class="batch-stock-date"
+          placeholder="納品日"
+          @update:value="(value) => $emit('update-setting', 'bizDate', value)"
+        />
+        <a-input
+          :value="settings.remark"
+          class="batch-stock-remark"
+          :placeholder="mode === 'inbound' ? '入庫の全体備考' : '出庫の全体備考'"
+          @update:value="(value) => $emit('update-setting', 'remark', value)"
+        />
+      </div>
+
+      <div
+        v-if="searchFields.length > 0"
+        class="batch-stock-search"
+      >
+        <div class="batch-stock-search-title">
+          商品検索
+        </div>
+        <div class="batch-stock-search-fields">
+          <template
+            v-for="field in searchFields"
+            :key="field"
+          >
+            <a-select
+              v-if="queryInputType(field) === 'select'"
+              v-model:value="query[field]"
+              :options="queryOptions(field)"
+              :placeholder="queryPlaceholder(field)"
+              class="batch-stock-search-control"
+              allow-clear
+              show-search
+              option-filter-prop="label"
+            />
+            <a-input
+              v-else-if="queryInputType(field) === 'text'"
+              v-model:value="query[field]"
+              :placeholder="queryPlaceholder(field)"
+              class="batch-stock-search-control"
+              allow-clear
+              @press-enter="$emit('search')"
+            />
+            <a-date-picker
+              v-else-if="queryInputType(field) === 'datetime'"
+              v-model:value="query[field]"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              :placeholder="queryPlaceholder(field)"
+              class="batch-stock-search-control"
+              allow-clear
+            />
+            <a-input-number
+              v-else
+              v-model:value="query[field]"
+              :placeholder="queryPlaceholder(field)"
+              class="batch-stock-search-control"
+            />
+          </template>
+        </div>
+        <div class="batch-stock-search-actions">
+          <a-button
+            type="primary"
+            @click="$emit('search')"
+          >
+            {{ tableText.search }}
+          </a-button>
+          <a-button
+            :disabled="!hasActiveFilters(searchFields, queryState)"
+            @click="$emit('reset-search')"
+          >
+            {{ tableText.reset }}
+          </a-button>
+        </div>
+      </div>
+
       <a-alert
-        v-if="mode === 'inbound'"
         type="info"
         show-icon
-        message="各行ごとに元種別、倉庫、在庫分類、数量、販売期限、備考を入力してください。"
+        :message="mode === 'inbound'
+          ? '商品を検索して選択し、入庫種別・倉庫・在庫分類・数量・納品日を入力してください。'
+          : '商品を選択し、数量・納品日を入力してください。出庫数量は現在数量以下で入力してください。'"
       />
 
       <a-table
@@ -54,7 +151,7 @@
               :value="draftValue(record, 'sourceType')"
               :options="sourceTypeOptions"
               class="batch-stock-input"
-              placeholder="元種別"
+              placeholder="入庫種別"
               @update:value="(value) => $emit('update-draft', rowKey(record), 'sourceType', value)"
             />
           </template>
@@ -92,17 +189,6 @@
               @update:value="(value) => $emit('update-draft', rowKey(record), 'quantity', value)"
             />
           </template>
-          <template v-else-if="column.key === 'saleDeadline'">
-            <a-date-picker
-              :value="draftValue(record, 'saleDeadline') || null"
-              :show-time="{ format: 'HH' }"
-              format="MM-DD HH時"
-              value-format="YYYY-MM-DD HH:00:00"
-              class="batch-stock-input"
-              placeholder="販売期限"
-              @update:value="(value) => $emit('update-draft', rowKey(record), 'saleDeadline', value)"
-            />
-          </template>
           <template v-else-if="column.key === 'remark'">
             <a-input
               :value="draftValue(record, 'remark')"
@@ -114,13 +200,14 @@
       </a-table>
 
       <div class="batch-stock-footer">
-        <span class="batch-stock-count">選択：{{ selectedKeys.length }} 件</span>
+        <span class="batch-stock-count">選択: {{ selectedKeys.length }} 件</span>
         <div class="batch-stock-actions">
           <a-button @click="$emit('cancel')">
             キャンセル
           </a-button>
           <a-button
             type="primary"
+            :danger="mode === 'outbound'"
             :loading="submitting"
             :disabled="selectedKeys.length === 0"
             @click="$emit('submit')"
@@ -150,19 +237,34 @@ const props = defineProps({
   warehouseOptions: { type: Array, default: () => [] },
   stockTypeOptions: { type: Array, default: () => [] },
   limitQuantityToCurrent: { type: Boolean, default: false },
+  showModeSwitch: { type: Boolean, default: false },
   submitting: { type: Boolean, default: false },
+  searchFields: { type: Array, default: () => [] },
+  queryState: { type: Object, default: () => ({}) },
+  tableText: { type: Object, required: true },
+  queryInputType: { type: Function, required: true },
+  queryOptions: { type: Function, required: true },
+  queryPlaceholder: { type: Function, required: true },
+  hasActiveFilters: { type: Function, required: true },
 });
 
 const emit = defineEmits([
   'cancel',
   'submit',
   'page-change',
+  'search',
+  'reset-search',
   'update-draft',
   'update-setting',
+  'update-mode',
+  'update-query-field',
   'update-selected-keys',
 ]);
 
-const title = computed(() => (props.mode === 'inbound' ? '一括入庫' : '一括出庫'));
+const title = computed(() => {
+  if (props.showModeSwitch) return '一括出入庫';
+  return props.mode === 'outbound' ? '一括出庫' : '一括入庫';
+});
 const shouldLimitQuantity = computed(() => props.mode === 'outbound' || props.limitQuantityToCurrent);
 const drawerBodyStyle = {
   height: '100%',
@@ -171,7 +273,14 @@ const drawerBodyStyle = {
 };
 const tableScroll = computed(() => ({
   x: 'max-content',
-  y: props.pagination ? 'calc(100vh - 260px)' : 'calc(100vh - 220px)',
+  y: props.pagination ? 'calc(100vh - 430px)' : 'calc(100vh - 360px)',
+}));
+
+const query = computed(() => new Proxy(props.queryState, {
+  set(_target, field, value) {
+    emit('update-query-field', field, value);
+    return true;
+  },
 }));
 
 const columns = computed(() => {
@@ -183,7 +292,7 @@ const columns = computed(() => {
   ];
   if (props.mode === 'inbound') {
     base.push(
-      { title: '元種別', dataIndex: 'sourceType', key: 'sourceType', width: 170 },
+      { title: '入庫種別', dataIndex: 'sourceType', key: 'sourceType', width: 170 },
       { title: '倉庫', dataIndex: 'warehouseId', key: 'warehouseId', width: 190 },
       { title: '在庫分類', dataIndex: 'stockTypeId', key: 'stockTypeId', width: 190 },
     );
@@ -197,9 +306,6 @@ const columns = computed(() => {
   return [
     ...base,
     { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 130 },
-    ...(props.mode === 'inbound'
-      ? [{ title: '販売期限', dataIndex: 'saleDeadline', key: 'saleDeadline', width: 190 }]
-      : []),
     { title: '備考', dataIndex: 'remark', key: 'remark', width: 240 },
   ];
 });
@@ -221,7 +327,6 @@ function draftValue(record, field) {
   if (field === 'sourceType') return row.sourceType ?? props.settings?.sourceType ?? null;
   if (field === 'warehouseId') return row.warehouseId ?? record?.warehouseId ?? props.settings?.warehouseId ?? null;
   if (field === 'stockTypeId') return row.stockTypeId ?? record?.stockTypeId ?? props.settings?.stockTypeId ?? null;
-  if (field === 'saleDeadline') return row.saleDeadline ?? props.settings?.saleDeadline ?? null;
   return row[field] ?? '';
 }
 
@@ -243,14 +348,52 @@ function onTableChange(page) {
 .batch-stock-drawer {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   min-height: 0;
   height: 100%;
 }
 
+.batch-stock-toolbar {
+  display: grid;
+  grid-template-columns: auto 180px minmax(260px, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.batch-stock-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.batch-stock-search-title {
+  padding-top: 5px;
+  color: #1f2937;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.batch-stock-search-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.batch-stock-search-control,
+.batch-stock-date,
 .batch-stock-input,
 .batch-stock-number {
   width: 100%;
+}
+
+.batch-stock-search-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .batch-stock-footer {
@@ -276,12 +419,18 @@ function onTableChange(page) {
 }
 
 @media (max-width: 768px) {
+  .batch-stock-toolbar,
+  .batch-stock-search {
+    grid-template-columns: 1fr;
+  }
+
   .batch-stock-footer {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .batch-stock-actions {
+  .batch-stock-actions,
+  .batch-stock-search-actions {
     justify-content: flex-end;
   }
 }

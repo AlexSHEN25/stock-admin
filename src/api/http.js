@@ -38,6 +38,8 @@ http.interceptors.request.use((config) => {
   config.headers = config.headers || {};
   config.headers['Accept-Language'] = 'ja-JP';
   config.headers['X-Lang'] = 'ja-JP';
+  config.headers['X-Timezone'] = 'Asia/Tokyo';
+  config.headers['X-Time-Zone'] = 'Asia/Tokyo';
 
   const rawToken = localStorage.getItem(TOKEN_KEY);
   const token = getStoredToken();

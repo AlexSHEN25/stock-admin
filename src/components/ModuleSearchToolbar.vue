@@ -110,6 +110,14 @@
         一括出庫
       </a-button>
       <a-button
+        v-if="canWrite && canBatchStockFlow"
+        type="primary"
+        class="search-btn"
+        @click="$emit('batch-stock-flow')"
+      >
+        一括出入庫
+      </a-button>
+      <a-button
         v-if="canWrite && canDeliveryAllocation"
         type="primary"
         class="search-btn"
@@ -227,6 +235,7 @@ const props = defineProps({
   canCreate: { type: Boolean, default: false },
   canSheetInbound: { type: Boolean, default: false },
   canSheetOutbound: { type: Boolean, default: false },
+  canBatchStockFlow: { type: Boolean, default: false },
   canDeliveryAllocation: { type: Boolean, default: false },
   canExport: { type: Boolean, default: false },
   exportLoading: { type: Boolean, default: false },
@@ -250,6 +259,7 @@ const emit = defineEmits([
   'create',
   'sheet-inbound',
   'sheet-outbound',
+  'batch-stock-flow',
   'delivery-allocation',
   'export-current',
   'download-goods-template',

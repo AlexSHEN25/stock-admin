@@ -364,6 +364,7 @@ import {
   saveBrandTree,
   uploadFileByBizType,
 } from '../api/module';
+import { formatTokyoDateTime } from '../utils/timezone';
 
 const props = defineProps({
   moduleActions: {
@@ -690,9 +691,7 @@ function normalizeText(value) {
 }
 
 function formatTime(value) {
-  if (!value) return '-';
-  const text = String(value).replace('T', ' ');
-  return text.length > 19 ? text.slice(0, 19) : text;
+  return formatTokyoDateTime(value);
 }
 </script>
 

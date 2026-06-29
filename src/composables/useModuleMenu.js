@@ -1,5 +1,5 @@
 import { computed, ref, watch } from 'vue';
-import { fetchCurrentUserCustomerPage } from '../api/module';
+import { fetchCurrentUserCustomerPage, fetchModuleOptions } from '../api/module';
 import { MODULE_GROUPS } from '../utils/module';
 import { MODULE_LAYOUT_CONFIG } from '../utils/module-ui';
 
@@ -12,6 +12,7 @@ const MODULE_KEY_ALIASES = {
   stockCustomer: 'stockCustomerGoods',
 };
 const REQUEST_CUSTOMER_PAGE_SIZE = 200;
+const STOCK_ORDER_CATEGORY_KEYS = ['A', 'B', 'C'];
 const REQUEST_CHILDREN = [
   { key: 'deliverySchedule', label: '発送予定表' },
   { key: 'requestItem', label: '請求書明細' },
@@ -37,6 +38,7 @@ export function useModuleMenu(options) {
   const nodeMap = ref(new Map());
   const allowedModules = ref(new Set([...HIDDEN_MODULES]));
   const requestCustomers = ref([]);
+  const warehouseMenus = ref([]);
   let menuInitSeq = 0;
 
   const hasMenus = computed(() => menuItems.value.length > 0);
@@ -185,6 +187,13 @@ export function useModuleMenu(options) {
       requestCustomers.value = [];
     }
 
+    if (hasStockOrderGroup(filtered)) {
+      warehouseMenus.value = await loadWarehouses();
+      if (seq !== menuInitSeq) return;
+    } else {
+      warehouseMenus.value = [];
+    }
+
     const menuSource = filtered.length > 0
       ? filtered
       : [{
@@ -202,10 +211,7 @@ export function useModuleMenu(options) {
       label: group.label,
       children: group.key === 'request'
         ? buildRequestCustomerMenu(group.children, scopeMap)
-        : group.children.map((item) => ({
-          key: item.key,
-          label: resolveMenuLabel(scopeMap.get(item.key), item),
-        })),
+        : group.children.flatMap((item) => buildGroupMenuChildren(item, scopeMap)),
     }));
 
     rebuildMap(menuItems.value);
@@ -286,6 +292,12 @@ export function useModuleMenu(options) {
     return (Array.isArray(groups) ? groups : []).some((group) => group.key === 'request');
   }
 
+  function hasStockOrderGroup(groups) {
+    return (Array.isArray(groups) ? groups : []).some((group) => (
+      (Array.isArray(group?.children) ? group.children : []).some((item) => item.key === 'stockOrder')
+    ));
+  }
+
   async function loadRequestCustomers() {
     try {
       const params = {
@@ -303,6 +315,28 @@ export function useModuleMenu(options) {
           name: String(item?.name ?? item?.customerName ?? item?.customerCode ?? '').trim(),
         }))
         .filter((item) => item.id !== undefined && item.id !== null && item.name);
+    } catch {
+      return [];
+    }
+  }
+
+  async function loadWarehouses() {
+    try {
+      const records = await fetchModuleOptions('warehouse');
+      const seen = new Set();
+      return (Array.isArray(records) ? records : [])
+        .map((item) => ({
+          id: item?.id ?? item?.warehouseId ?? item?.value,
+          name: String(item?.name ?? item?.warehouseName ?? item?.label ?? '').trim(),
+          code: String(item?.code ?? item?.warehouseCode ?? '').trim(),
+        }))
+        .filter((item) => item.id !== undefined && item.id !== null && item.name)
+        .filter((item) => {
+          const key = String(item.id);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
     } catch {
       return [];
     }
@@ -340,6 +374,47 @@ export function useModuleMenu(options) {
         })),
       };
     });
+  }
+
+  function buildGroupMenuChildren(item, scopeMap) {
+    if (item.key === 'stockOrder') {
+      return [buildStockOrderMenuItem(item, scopeMap)];
+    }
+    return [{
+      key: item.key,
+      label: resolveMenuLabel(scopeMap.get(item.key), item),
+    }];
+  }
+
+  function buildStockOrderMenuItem(item, scopeMap) {
+    const categories = STOCK_ORDER_CATEGORY_KEYS.map((category) => ({
+      key: `stockOrder/category/${category}/stockOrder`,
+      label: category,
+      meta: {
+        fixedQueryParams: {
+          stockCategory: category,
+        },
+        stockOrderMenuType: 'category',
+        stockOrderCategory: category,
+      },
+    }));
+    const warehouses = warehouseMenus.value.map((warehouse) => ({
+      key: `stockOrder/warehouse/${warehouse.id}/stockOrder`,
+      label: warehouse.name,
+      meta: {
+        fixedQueryParams: {
+          stockCategory: warehouse.code || warehouse.name || warehouse.id,
+        },
+        stockOrderMenuType: 'warehouse',
+        warehouseId: warehouse.id,
+        warehouseName: warehouse.name,
+      },
+    }));
+    return {
+      key: item.key,
+      label: resolveMenuLabel(scopeMap.get(item.key), item),
+      children: [...categories, ...warehouses],
+    };
   }
 
   function isVisibleScope(key, scopeItems) {

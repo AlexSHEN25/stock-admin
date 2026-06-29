@@ -49,18 +49,3 @@ export const STOCK_SCOPE = {
   SELF: 'self',
   GROUP: 'group',
 };
-
-export const SHEET_FLOW_MODE = {
-  INBOUND: 'inbound',
-  OUTBOUND: 'outbound',
-  DELIVERY: 'delivery',
-};
-
-export const CUSTOMER_OUTBOUND_MODE = {
-  CUSTOMER: 'CUSTOMER',
-  GROUP_CUSTOMER: 'GROUP_CUSTOMER',
-};
-
-export const STOCK_OUTBOUND_MODE = {
-  GROUP_ALLOCATE: 'GROUP_ALLOCATE',
-};
