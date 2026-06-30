@@ -1,6 +1,6 @@
 ﻿<template>
   <a-card
-    :class="['module-surface', { 'customer-matrix-surface': isCustomerGoodsSummary }]"
+    :class="['module-surface', { 'customer-matrix-surface': isCustomerGoodsSummary || isRequestItemMatrix }]"
     :title="null"
     :bordered="false"
   >
@@ -22,14 +22,14 @@
       :can-move-request-to-delivery="canMoveRequestToDelivery"
       :request-submitting="requestFlowSubmitting"
       :goods-import-loading="goodsImportLoading"
-      :selected-count="selectedRowKeys.length"
+      :selected-count="selectedRequestCount"
       :query-input-type="queryInputType"
       :query-options="queryOptions"
       :query-placeholder="queryPlaceholder"
       :has-active-filters="hasActiveFilters"
-      @search="doSearch"
-      @reload="reload"
-      @reset="resetQuery"
+      @search="searchCurrentModule"
+      @reload="reloadCurrentModule"
+      @reset="resetCurrentModuleQuery"
       @batch-delete="onBatchDelete"
       @create="openCreate"
       @sheet-inbound="openBatchStockDrawer('inbound')"
@@ -47,30 +47,168 @@
       @update-field="updateQueryField"
     />
 
-    <div :class="['table-stage', { 'customer-matrix-stage': isCustomerGoodsSummary, 'excel-table-stage': isExcelEditModule }]">
+    <div :class="['table-stage', { 'customer-matrix-stage': isCustomerGoodsSummary || isRequestItemMatrix, 'request-matrix-stage': isRequestItemMatrix, 'excel-table-stage': isExcelEditModule }]">
       <div
-        v-if="isExcelEditModule"
+        v-if="isExcelEditModule && !isRequestItemMatrix"
         class="excel-grid-hint"
       >
         <span class="excel-grid-hint-dot" />
         <span class="excel-grid-hint-text">セルをクリックして選択、ダブルクリックまたは Enter で編集できます。保存・追加・生成ボタンで一括反映します。</span>
       </div>
+      <div
+        v-if="isRequestItemMatrix"
+        class="request-template-workbook"
+      >
+        <div
+          v-if="activeRequestTemplateSheet"
+          :key="activeRequestTemplateSheet.key"
+          class="request-template-sheet"
+        >
+          <div class="request-template-sheet-title">
+            <span>{{ activeRequestTemplateSheet.groupCode }}</span>
+            <strong>{{ activeRequestTemplateSheet.customer.name }}</strong>
+          </div>
+          <div
+            class="request-template-grid"
+            :style="{ gridTemplateColumns: requestTemplateColumns(activeRequestTemplateSheet) }"
+          >
+            <div
+              v-for="cell in requestTemplateHeaderCells(activeRequestTemplateSheet)"
+              :key="cell.key"
+              :class="['request-template-cell', cell.className]"
+              :style="requestTemplateCellStyle(cell)"
+            >
+              {{ cell.value }}
+            </div>
+          </div>
+          <div
+            class="request-template-detail"
+            :style="{ gridTemplateColumns: requestTemplateDetailColumns(activeRequestTemplateSheet) }"
+          >
+            <div
+              v-for="header in activeRequestTemplateSheet.template.detailHeaders"
+              :key="header.key"
+              class="request-template-detail-header"
+            >
+              {{ header.label }}
+            </div>
+            <template
+              v-for="record in activeRequestTemplateSheet.rows"
+              :key="requestTemplateRecordKey(activeRequestTemplateSheet, record)"
+            >
+              <div
+                v-for="header in activeRequestTemplateSheet.template.detailHeaders"
+                :key="`${requestTemplateRecordKey(activeRequestTemplateSheet, record)}-${header.key}`"
+                :class="['request-template-detail-cell', { 'request-template-detail-cell-selected': isRequestTemplateRowSelected(activeRequestTemplateSheet, record) }]"
+              >
+                <button
+                  v-if="header.key === 'qty' && requestFlowSourceQty(record, 'requestItem') > 0"
+                  type="button"
+                  :class="['request-matrix-cell', { 'request-matrix-cell-selected': isRequestTemplateRowSelected(activeRequestTemplateSheet, record) }]"
+                  @click="toggleRequestTemplateRow(activeRequestTemplateSheet, record)"
+                >
+                  {{ formatQty(requestFlowSourceQty(record, 'requestItem')) }}
+                </button>
+                <span v-else>{{ requestTemplateDetailValue(record, header.key) }}</span>
+              </div>
+            </template>
+          </div>
+        </div>
+        <div
+          v-else
+          class="request-template-empty"
+        >
+          請求書明細がありません
+        </div>
+        <div
+          v-if="requestTemplateSheets.length > 0"
+          class="request-template-actionbar"
+        >
+          <div class="request-template-selection-summary">
+            <strong>{{ requestTemplateSheetTabLabel(activeRequestTemplateSheet) }}</strong>
+            <span>{{ activeRequestTemplateSelectedCount }} / {{ activeRequestTemplateRowCount }} 件選択</span>
+          </div>
+          <div class="request-template-actions">
+            <button
+              type="button"
+              class="request-template-action"
+              :disabled="activeRequestTemplateRowCount === 0"
+              @click="selectActiveRequestTemplateSheetRows"
+            >
+              現在シートを全選択
+            </button>
+            <button
+              type="button"
+              class="request-template-action"
+              :disabled="activeRequestTemplateSelectedCount === 0"
+              @click="clearActiveRequestTemplateSheetSelection"
+            >
+              選択解除
+            </button>
+            <button
+              type="button"
+              class="request-template-action request-template-action-primary"
+              :disabled="requestFlowSubmitting || activeRequestTemplateSelectedCount === 0"
+              @click="moveSelectedRequestToDelivery"
+            >
+              発送予定表へ戻す
+            </button>
+          </div>
+        </div>
+        <div
+          v-if="requestItemMonthTabs.length > 0"
+          class="request-template-tabs"
+        >
+          <button
+            v-for="month in requestItemMonthTabs"
+            :key="month.key"
+            type="button"
+            :class="['request-template-tab', { 'request-template-tab-active': month.key === activeRequestItemMonthKey }]"
+            @click="activateRequestItemMonth(month.key)"
+          >
+            {{ month.label }}
+            <span class="request-template-tab-count">{{ formatQty(month.qty) }}</span>
+          </button>
+        </div>
+      </div>
       <a-table
+        v-else
         :key="props.moduleKey"
-        :class="['module-table', { 'excel-edit-table': isExcelEditModule }]"
+        :class="['module-table', { 'excel-edit-table': isExcelEditModule, 'request-matrix-table': isRequestItemMatrix }]"
         :row-key="getRowKey"
         :row-class-name="rowClassName"
-        :columns="columns"
+        :columns="displayColumns"
         :data-source="tableRows"
-        :row-selection="tableRowSelection"
-        :loading="loading || goodsStockLoading"
+        :row-selection="displayRowSelection"
+        :loading="loading || goodsStockLoading || requestItemPreviewLoading"
         :pagination="tablePagination"
         :scroll="tableScroll"
         :sticky="tableSticky"
         @change="onChange"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="canRenderExcelInlineEditor(record, column.key)">
+          <template v-if="isRequestItemCustomerColumn(column.key)">
+            <button
+              v-if="requestItemMatrixQty(record, column.key) > 0"
+              type="button"
+              :class="['request-matrix-cell', { 'request-matrix-cell-selected': isRequestMatrixCellSelected(record, column.key) }]"
+              @click="toggleRequestMatrixCell(record, column.key)"
+            >
+              {{ formatQty(requestItemMatrixQty(record, column.key)) }}
+            </button>
+            <span
+              v-else
+              class="request-matrix-empty"
+            >
+              -
+            </span>
+          </template>
+          <template v-else-if="String(column.key) === 'requestItemMatrixTotal'">
+            <span class="request-matrix-total">
+              {{ formatQty(record.requestItemMatrixTotal) }}
+            </span>
+          </template>
+          <template v-else-if="canRenderExcelInlineEditor(record, column.key)">
             <module-inline-editor
               :field="column.key"
               :edit-state="editState"
@@ -422,6 +560,7 @@ import {
   fetchGoodsCascadeOptions,
   fetchDeliverySchedulePage,
   fetchRequestItemCartPage,
+  fetchRequestItemCartPreview,
   addRequestItemsToCart,
   removeRequestItemsFromCart,
   fetchCustomerStockGoodsTreePage,
@@ -480,6 +619,142 @@ import { formatTokyoDate, formatTokyoDateStart } from '../utils/timezone';
 const STOCK_EDIT_PAYLOAD_FIELDS = ['id', 'goodsId', 'goodsName', 'skuId', 'skuCode', 'warehouseId', 'price', 'currency', 'stockTypeId', 'status', 'version'];
 const GOODS_INBOUND_FIELDS = ['sourceType', 'warehouseId', 'stockTypeId', 'quantity', 'saleDeadline', 'remark'];
 const GOODS_OUTBOUND_FIELDS = ['outboundMode', 'stockScope', 'customerId', 'deptId', 'warehouseId', 'stockTypeId', 'quantity', 'remark'];
+const REQUEST_TEMPLATE_DETAIL_HEADERS = {
+  JP_WIDE: [
+    { key: 'description', label: '摘要', width: 'minmax(220px, 2fr)' },
+    { key: 'bizDate', label: '出庫日', width: '96px' },
+    { key: 'qty', label: '数量', width: '88px' },
+    { key: 'unitPrice', label: '単価', width: '110px' },
+    { key: 'amount', label: '金額', width: '110px' },
+    { key: 'remark', label: '備考欄', width: '140px' },
+  ],
+  EN: [
+    { key: 'no', label: 'No.', width: '64px' },
+    { key: 'brandName', label: 'Brand', width: '130px' },
+    { key: 'description', label: 'Item', width: 'minmax(220px, 2fr)' },
+    { key: 'bizDate', label: 'Ship Date', width: '104px' },
+    { key: 'qty', label: 'Qty', width: '88px' },
+    { key: 'unitPrice', label: 'Unit price', width: '110px' },
+    { key: 'amount', label: 'Price', width: '110px' },
+    { key: 'remark', label: 'Remark', width: '140px' },
+    { key: 'hsCode', label: 'HS Code', width: '120px' },
+  ],
+  JP_COMPACT: [
+    { key: 'description', label: '摘要', width: 'minmax(220px, 2fr)' },
+    { key: 'bizDate', label: '出庫日', width: '96px' },
+    { key: 'qty', label: '数量', width: '88px' },
+    { key: 'unitPrice', label: '単価', width: '110px' },
+    { key: 'amount', label: '金額', width: '110px' },
+    { key: 'remark', label: '備考欄', width: '140px' },
+  ],
+};
+const REQUEST_FORM_TEMPLATE_LAYOUTS = {
+  A: {
+    colCount: 13,
+    colWidths: ['70px', '70px', '78px', '78px', '78px', '78px', '78px', '78px', '78px', '84px', '88px', '104px', '104px'],
+    rowHeights: { 1: 48, 7: 28, 8: 34, 9: 34, 10: 34, 11: 54, 15: 36, 16: 32 },
+    detailHeaders: REQUEST_TEMPLATE_DETAIL_HEADERS.JP_WIDE,
+    cells: [
+      { r: 1, c: 1, cs: 13, v: '請　求　書', className: 'template-title' },
+      { r: 3, c: 1, v: '登録番号：' },
+      { r: 3, c: 12, cs: 2, v: 'T6120001175542' },
+      { r: 4, c: 1, cs: 6, dynamic: 'customerName' },
+      { r: 4, c: 8, v: '請求日：' },
+      { r: 5, c: 1, v: 'ご担当' },
+      { r: 5, c: 3, cs: 4, dynamic: 'contactName' },
+      { r: 7, c: 10, cs: 4, v: '株式会社 H&K' },
+      { r: 8, c: 3, cs: 7, dynamic: 'customerAddress' },
+      { r: 9, c: 3, cs: 5, v: '前払い' },
+      { r: 9, c: 8, cs: 6, v: '兵庫県尼崎市昭和通3丁目90-1　尼崎Ｋ．Ｒビルディング　6F' },
+      { r: 10, c: 1, v: '支払期限：' },
+      { r: 10, c: 3, cs: 7, v: 'TEL：06-6439-6361' },
+      { r: 11, c: 1, v: '振込先：' },
+      { r: 11, c: 3, cs: 7, v: 'みずほ銀行　尼崎支店（600）\n普通　1738095' },
+      { r: 11, c: 10, v: 'FAX：06-6439-6362' },
+      { r: 12, c: 1, v: 'E-Mail：' },
+      { r: 13, c: 1, v: '担当：' },
+      { r: 15, c: 1, cs: 2, v: '前回ご請求額' },
+      { r: 15, c: 3, cs: 3, v: '前回入金金額' },
+      { r: 15, c: 6, cs: 4, v: '調整金額' },
+      { r: 15, c: 10, cs: 2, v: '繰越金額' },
+      { r: 15, c: 12, v: '今回ご買上額' },
+      { r: 15, c: 13, v: '今回ご請求額' },
+      { r: 16, c: 1, cs: 13, v: '0' },
+    ],
+  },
+  B: {
+    colCount: 9,
+    colWidths: ['82px', '132px', '168px', '132px', '96px', '96px', '96px', '120px', '120px'],
+    rowHeights: { 1: 34, 2: 26, 3: 38, 5: 46, 6: 32, 7: 42, 8: 32, 9: 32, 21: 48 },
+    detailHeaders: REQUEST_TEMPLATE_DETAIL_HEADERS.EN,
+    cells: [
+      { r: 1, c: 1, cs: 9, v: 'H&K CO., ＬＴＤ.(カブシキガイシャ エイチアンドケー)', className: 'template-title' },
+      { r: 2, c: 1, cs: 9, v: 'TEL:(06)6439-6361     Email:cho@handk.co' },
+      { r: 3, c: 1, cs: 9, v: 'Amagasaki K.R Bld.1F, 3-90-1, Showadori, Amagasaki City, Hyogo Prefecture, 660-0881, Japan' },
+      { r: 5, c: 1, cs: 9, v: 'ＩＮＶＯＩＣＥ', className: 'template-title' },
+      { r: 6, c: 1, v: 'MESSRS：' },
+      { r: 6, c: 3, cs: 4, dynamic: 'customerName' },
+      { r: 6, c: 8, v: 'DATE:' },
+      { r: 7, c: 1, v: 'Address:' },
+      { r: 7, c: 3, cs: 3, dynamic: 'customerAddress' },
+      { r: 7, c: 8, v: 'FOB' },
+      { r: 8, c: 1, v: 'Tel：' },
+      { r: 8, c: 2, dynamic: 'customerPhone' },
+      { r: 8, c: 3, v: 'Country of Origin:' },
+      { r: 8, c: 8, v: 'Japan' },
+      { r: 9, c: 1, v: 'EMAIL：' },
+      { r: 9, c: 2, dynamic: 'customerEmail' },
+      { r: 9, c: 3, v: 'TRANSPORTED FROM:' },
+      { r: 9, c: 8, v: 'Osaka JAPAN' },
+      { r: 11, c: 1, cs: 9, v: '【Bank information】' },
+      { r: 12, c: 1, cs: 9, v: 'Bank Name: Resona Bank, Ltd.' },
+      { r: 13, c: 1, cs: 9, v: 'Bank Address: 1-5-25 KIBA KOTO TOKYO JAPAN' },
+      { r: 14, c: 1, cs: 9, v: 'Swift Code:  DIWAJPJT' },
+      { r: 15, c: 1, cs: 9, v: 'Account No.（IBAN）:1532589' },
+      { r: 16, c: 1, cs: 9, v: 'Account Type: Savings account(Futsuu)' },
+      { r: 17, c: 1, cs: 9, v: 'Branch No.：528' },
+      { r: 18, c: 1, cs: 9, v: 'Branch name：NISHINOMIYAKITAGUCHI Branch' },
+      { r: 19, c: 1, cs: 9, v: 'Beneficiary Name: H AND K CO.,LTD' },
+      { r: 20, c: 1, cs: 9, v: 'Beneficiary Address: Amagasaki K.R Bld.1F, 3-90-1, Showadori, Amagasaki City, Hyogo Prefecture, 660-0881, Japan' },
+      { r: 21, c: 1, cs: 9, v: '※When total amount of order is less than 1 million yen,the bank transfer fee will be borne by the customer.' },
+    ],
+  },
+  C: {
+    colCount: 7,
+    colWidths: ['92px', '86px', '122px', '150px', '110px', '110px', '126px'],
+    rowHeights: { 1: 48, 7: 34, 9: 46, 14: 36, 15: 32 },
+    detailHeaders: REQUEST_TEMPLATE_DETAIL_HEADERS.JP_COMPACT,
+    cells: [
+      { r: 1, c: 1, cs: 7, v: '請　求　書', className: 'template-title' },
+      { r: 3, c: 1, v: '登録番号：' },
+      { r: 3, c: 7, v: 'T6120001175542' },
+      { r: 4, c: 1, cs: 3, dynamic: 'customerName' },
+      { r: 4, c: 5, v: '請求日：' },
+      { r: 7, c: 1, cs: 7, v: '下記のとおり、御請求申し上げます。' },
+      { r: 8, c: 1, v: '締　日：' },
+      { r: 8, c: 3, v: '株式会社Ｈ＆Ｋ' },
+      { r: 9, c: 1, v: '支払期限：' },
+      { r: 9, c: 3, v: '-' },
+      { r: 9, c: 4, cs: 4, v: '〒660-0881  兵庫県尼崎市昭和通3丁目90-1\n尼崎Ｋ．Ｒビルディング　1F' },
+      { r: 10, c: 1, v: '振込先：' },
+      { r: 10, c: 3, v: 'みずほ銀行' },
+      { r: 10, c: 4, v: 'TEL：06-6439-6361' },
+      { r: 10, c: 7, v: 'FAX：06-6439-6362' },
+      { r: 11, c: 1, v: '尼崎支店（600）' },
+      { r: 11, c: 4, v: '担当：' },
+      { r: 12, c: 1, v: '普通　1738095' },
+      { r: 12, c: 4, v: 'E-Mail：' },
+      { r: 14, c: 1, v: '前回ご請求額' },
+      { r: 14, c: 3, v: '前回入金金額' },
+      { r: 14, c: 4, v: '調整金額' },
+      { r: 14, c: 5, v: '繰越金額' },
+      { r: 14, c: 6, v: '今回ご買上額' },
+      { r: 14, c: 7, v: '今回ご請求額' },
+      { r: 15, c: 1, v: '0' },
+      { r: 15, c: 5, v: '0' },
+    ],
+  },
+};
 const STOCK_ORDER_DEFAULT_SOURCE_TYPE = STOCK_ORDER_SOURCE_TYPE.SYSTEM;
 const STOCK_ORDER_DEFAULT_STATE = STOCK_ORDER_STATE.PENDING;
 const STOCK_ORDER_USER_SOURCE_TYPES = new Set([STOCK_ORDER_SOURCE_TYPE.INBOUND_REQUEST, STOCK_ORDER_SOURCE_TYPE.SYSTEM]);
@@ -488,6 +763,7 @@ const REQUEST_FORM_DEFAULT_STATE = REQUEST_FORM_STATE.PENDING;
 const REQUEST_FORM_COMPLETED_STATE = REQUEST_FORM_STATE.COMPLETED;
 const REQUEST_FORM_USER_STATES = new Set([REQUEST_FORM_STATE.PENDING, REQUEST_FORM_STATE.APPLYING]);
 const NORMAL_STOCK_TYPE_KEYWORDS = ['騾壼ｸｸ', 'normal'];
+const REQUEST_ITEM_UNKNOWN_MONTH_KEY = '__unknown_month__';
 
 const props = defineProps({
   moduleKey: { type: String, required: true },
@@ -513,9 +789,11 @@ const goodsInboundForm = reactive({});
 const goodsOutboundForm = reactive({});
 const requestItemQtyState = reactive({});
 const requestFlowCellDraftState = reactive({});
+const selectedRequestMatrixCells = ref([]);
 const selectedExcelCell = ref('');
 const activeExcelCell = ref('');
 const requestFlowSubmitting = ref(false);
+const requestItemPreviewLoading = ref(false);
 const sheetOutboundModalOpen = ref(false);
 const sheetOutboundSubmitting = ref(false);
 const sheetFlowMode = ref('outbound');
@@ -561,6 +839,10 @@ const batchStockSearchFields = computed(() => GOODS_TABLE_CONFIG.queryFields || 
 const goodsFlowByRowKey = reactive({});
 const goodsStockRows = ref([]);
 const customerGoodsMatrixColumns = ref([]);
+const requestItemCustomerColumns = ref([]);
+const requestItemPreviewRows = ref([]);
+const activeRequestItemMonthKey = ref('');
+const activeRequestTemplateSheetKey = ref('');
 const activeGoodsRowKey = ref('');
 const isGoodsManagement = computed(() => props.moduleKey === 'goods');
 const isSplitStockManagement = computed(() => (
@@ -582,8 +864,78 @@ const isGroupStockModule = computed(() => (
 const canUseGroupAllocation = computed(() => isAdminUser.value && isSelfStockModule.value);
 const isCustomerGoodsSummary = computed(() => props.moduleKey === 'stockCustomerGoods');
 const isRequestFlowModule = computed(() => props.moduleKey === 'deliverySchedule' || props.moduleKey === 'requestItem');
+const isRequestItemMatrix = computed(() => props.moduleKey === 'requestItem');
 const isRequestManagementModule = computed(() => props.moduleKey === 'requestForm' || isRequestFlowModule.value);
 const isExcelEditModule = computed(() => isRequestManagementModule.value);
+const requestItemMatrixColumns = computed(() => {
+  if (!isRequestItemMatrix.value) return [];
+  const staticColumns = [
+    {
+      title: '商品名',
+      dataIndex: 'goodsName',
+      key: 'goodsName',
+      fixed: 'left',
+      width: 220,
+      ellipsis: false,
+    },
+    {
+      title: '品番',
+      dataIndex: 'skuCode',
+      key: 'skuCode',
+      fixed: 'left',
+      width: 150,
+      ellipsis: false,
+    },
+    {
+      title: 'カテゴリ',
+      dataIndex: 'categoryName',
+      key: 'categoryName',
+      width: 150,
+      ellipsis: false,
+    },
+    {
+      title: '在庫分類',
+      dataIndex: 'stockTypeName',
+      key: 'stockTypeName',
+      width: 130,
+      ellipsis: false,
+    },
+  ];
+  const groupColumns = ['A', 'B', 'C'].map((groupCode) => {
+    const children = requestItemCustomerColumns.value
+      .filter((customer) => customer.groupCode === groupCode)
+      .map((customer) => ({
+        title: customer.name,
+        dataIndex: requestItemCustomerKey(customer.id),
+        key: requestItemCustomerKey(customer.id),
+        width: 132,
+        align: 'right',
+        ellipsis: false,
+        className: 'request-matrix-customer-cell',
+      }));
+    return children.length > 0
+      ? {
+        title: groupCode,
+        key: `requestItemGroup${groupCode}`,
+        align: 'center',
+        children,
+      }
+      : null;
+  }).filter(Boolean);
+  return [
+    ...staticColumns,
+    ...groupColumns,
+    {
+      title: '合計',
+      dataIndex: 'requestItemMatrixTotal',
+      key: 'requestItemMatrixTotal',
+      fixed: 'right',
+      width: 110,
+      align: 'right',
+      className: 'request-matrix-total-cell',
+    },
+  ];
+});
 const customerGoodsMatrixTableColumns = computed(() => {
   if (!isCustomerGoodsSummary.value) return [];
   const staticColumns = [
@@ -628,11 +980,17 @@ const customerGoodsMatrixTableColumns = computed(() => {
     staticColumns[2],
   ];
 });
+const displayColumns = computed(() => {
+  if (isRequestItemMatrix.value) return requestItemMatrixColumns.value;
+  if (isCustomerGoodsSummary.value) return customerGoodsMatrixTableColumns.value;
+  return columns.value;
+});
 const tableScroll = computed(() => {
-  if (!isCustomerGoodsSummary.value) {
+  if (!isCustomerGoodsSummary.value && !isRequestItemMatrix.value) {
     return { x: 'max-content' };
   }
-  const totalWidth = customerGoodsMatrixTableColumns.value.reduce((sum, column) => (
+  const sourceColumns = isRequestItemMatrix.value ? requestItemMatrixColumns.value : customerGoodsMatrixTableColumns.value;
+  const totalWidth = flattenTableColumns(sourceColumns).reduce((sum, column) => (
     sum + Number(column?.width || 120)
   ), 0);
   return {
@@ -640,12 +998,12 @@ const tableScroll = computed(() => {
   };
 });
 const tableSticky = computed(() => (
-  isCustomerGoodsSummary.value
+  isCustomerGoodsSummary.value || isRequestItemMatrix.value
     ? { offsetScroll: 0 }
     : false
 ));
 const tableRowSelection = computed(() => {
-  if (isCustomerGoodsSummary.value) return undefined;
+  if (isCustomerGoodsSummary.value || isRequestItemMatrix.value) return undefined;
   return {
     selectedRowKeys: selectedRowKeys.value,
     onChange: onSelectChange,
@@ -654,6 +1012,7 @@ const tableRowSelection = computed(() => {
     }),
   };
 });
+const displayRowSelection = computed(() => tableRowSelection.value);
 const modulePath = computed(() => {
   if (isSplitStockManagement.value) return 'stock';
   return props.moduleKey;
@@ -672,7 +1031,10 @@ const canWrite = computed(() => {
 const canGenerateRequestForm = computed(() => (
   props.moduleKey === 'requestItem'
   && canWrite.value
-  && selectedRowKeys.value.length > 0
+  && (
+    selectedRequestCount.value > 0
+    || Number(activeRequestTemplateSheet.value?.rows?.length || 0) > 0
+  )
 ));
 const canMoveDeliveryToRequest = computed(() => (
   props.moduleKey === 'deliverySchedule'
@@ -688,6 +1050,9 @@ const canUseGoodsInboundActions = computed(() => (
 ));
 const canUseGoodsOutboundActions = computed(() => (
   isSplitStockManagement.value
+));
+const selectedRequestCount = computed(() => (
+  isRequestItemMatrix.value ? selectedRequestMatrixCells.value.length : selectedRowKeys.value.length
 ));
 const isAdminUser = computed(() => isAdminByPermissionCodes(props.permissionCodes || []));
 const {
@@ -900,11 +1265,590 @@ const tableRows = computed(() => {
   if (isSplitStockManagement.value) {
     return rows.value;
   }
+  if (isRequestItemMatrix.value) {
+    return buildRequestItemMatrixRows(requestItemPreviewRows.value);
+  }
   if (isRequestFlowModule.value) {
     return aggregateRequestFlowRows(rows.value, props.moduleKey);
   }
   return rows.value;
 });
+
+function flattenTableColumns(sourceColumns = []) {
+  const output = [];
+  (Array.isArray(sourceColumns) ? sourceColumns : []).forEach((column) => {
+    if (Array.isArray(column?.children) && column.children.length > 0) {
+      output.push(...flattenTableColumns(column.children));
+      return;
+    }
+    output.push(column);
+  });
+  return output;
+}
+
+function requestItemCustomerKey(customerId) {
+  return `requestCustomer_${String(customerId ?? '')}`;
+}
+
+function isRequestItemCustomerColumn(key) {
+  return String(key || '').startsWith('requestCustomer_');
+}
+
+function requestItemMatrixQty(record, key) {
+  const qty = record?.__customerQtyMap?.[String(key || '')] ?? 0;
+  const value = Number(qty);
+  return Number.isNaN(value) ? 0 : value;
+}
+
+function requestMatrixCellKey(record, customerColumnKey) {
+  return `${getRowKey(record)}::${String(customerColumnKey || '')}`;
+}
+
+function isRequestMatrixCellSelected(record, customerColumnKey) {
+  return selectedRequestMatrixCells.value.includes(requestMatrixCellKey(record, customerColumnKey));
+}
+
+function toggleRequestMatrixCell(record, customerColumnKey) {
+  const key = requestMatrixCellKey(record, customerColumnKey);
+  const current = new Set(selectedRequestMatrixCells.value);
+  if (current.has(key)) {
+    current.delete(key);
+  } else {
+    current.add(key);
+  }
+  selectedRequestMatrixCells.value = [...current];
+}
+
+function buildRequestItemMatrixRows(sourceRows = []) {
+  const groups = new Map();
+  for (const record of Array.isArray(sourceRows) ? sourceRows : []) {
+    if (!record || typeof record !== 'object') continue;
+    const normalized = normalizeRequestFlowRecord(record, 'requestItem');
+    const rowKey = requestItemMatrixRowKey(normalized);
+    const customerId = normalized?.customerId ?? normalized?.customer_id;
+    const customerKey = requestItemCustomerKey(customerId);
+    const qty = requestFlowSourceQty(normalized, 'requestItem');
+    const existing = groups.get(rowKey);
+    if (!existing) {
+      groups.set(rowKey, {
+        ...normalized,
+        id: rowKey,
+        aggregateKey: rowKey,
+        __sources: [normalized],
+        __customerQtyMap: {
+          [customerKey]: qty,
+        },
+        __customerSourceMap: {
+          [customerKey]: [normalized],
+        },
+        requestItemMatrixTotal: qty,
+      });
+      continue;
+    }
+    existing.__sources.push(normalized);
+    existing.__customerQtyMap[customerKey] = Number(existing.__customerQtyMap[customerKey] || 0) + qty;
+    if (!Array.isArray(existing.__customerSourceMap[customerKey])) {
+      existing.__customerSourceMap[customerKey] = [];
+    }
+    existing.__customerSourceMap[customerKey].push(normalized);
+    existing.requestItemMatrixTotal = Number(existing.requestItemMatrixTotal || 0) + qty;
+  }
+  return [...groups.values()];
+}
+
+const requestTemplateSheets = computed(() => {
+  if (!isRequestItemMatrix.value) return [];
+  const grouped = new Map();
+  requestItemRowsForActiveMonth.value.forEach((record) => {
+    if (!record || typeof record !== 'object') return;
+    const normalized = normalizeRequestFlowRecord(record, 'requestItem');
+    const customer = resolveRequestTemplateCustomer(normalized);
+    const groupCode = normalizeRequestCustomerGroupCode(customer) || normalizeRequestCustomerGroupCode(normalized) || 'A';
+    const template = REQUEST_FORM_TEMPLATE_LAYOUTS[groupCode] || REQUEST_FORM_TEMPLATE_LAYOUTS.A;
+    const customerId = customer.id ?? normalized?.customerId ?? normalized?.customer_id ?? '';
+    const key = `${groupCode}::${String(customerId || customer.name || 'unknown')}`;
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        key,
+        groupCode,
+        template,
+        customer,
+        rows: [],
+      });
+    }
+    const sheet = grouped.get(key);
+    sheet.rows.push({
+      ...normalized,
+      customerId: customer.id ?? normalized.customerId,
+      customerName: customer.name || normalized.customerName,
+      customerGroupCode: groupCode,
+      groupCode,
+      __templateNo: sheet.rows.length + 1,
+    });
+  });
+  return [...grouped.values()].sort((left, right) => (
+    left.groupCode.localeCompare(right.groupCode)
+    || String(left.customer?.name || '').localeCompare(String(right.customer?.name || ''), 'ja')
+  ));
+});
+
+const requestItemMonthTabs = computed(() => {
+  if (!isRequestItemMatrix.value) return [];
+  const grouped = new Map();
+  (Array.isArray(requestItemPreviewRows.value) ? requestItemPreviewRows.value : []).forEach((record) => {
+    const normalized = normalizeRequestFlowRecord(record, 'requestItem');
+    const key = requestItemMonthKey(normalized);
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        key,
+        label: requestItemMonthLabel(key),
+        qty: 0,
+        count: 0,
+      });
+    }
+    const item = grouped.get(key);
+    item.qty += requestFlowSourceQty(normalized, 'requestItem');
+    item.count += 1;
+  });
+  return [...grouped.values()].sort((left, right) => {
+    if (left.key === REQUEST_ITEM_UNKNOWN_MONTH_KEY) return 1;
+    if (right.key === REQUEST_ITEM_UNKNOWN_MONTH_KEY) return -1;
+    return String(right.key).localeCompare(String(left.key));
+  });
+});
+
+const requestItemRowsForActiveMonth = computed(() => {
+  const source = Array.isArray(requestItemPreviewRows.value) ? requestItemPreviewRows.value : [];
+  const activeKey = activeRequestItemMonthKey.value;
+  if (!activeKey) return source;
+  return source.filter((record) => requestItemMonthKey(record) === activeKey);
+});
+
+const activeRequestTemplateSheet = computed(() => {
+  const sheets = requestTemplateSheets.value;
+  if (sheets.length === 0) return null;
+  return sheets.find((sheet) => sheet.key === activeRequestTemplateSheetKey.value) || sheets[0];
+});
+const activeRequestTemplateRowCount = computed(() => activeRequestTemplateSheet.value?.rows?.length || 0);
+const activeRequestTemplateSelectedCount = computed(() => {
+  const sheet = activeRequestTemplateSheet.value;
+  if (!sheet) return 0;
+  const selected = new Set(selectedRequestMatrixCells.value);
+  return sheet.rows.filter((record) => selected.has(requestTemplateRecordKey(sheet, record))).length;
+});
+
+watch(
+  requestItemMonthTabs,
+  (months) => {
+    if (!Array.isArray(months) || months.length === 0) {
+      activeRequestItemMonthKey.value = '';
+      selectedRequestMatrixCells.value = [];
+      return;
+    }
+    if (!months.some((month) => month.key === activeRequestItemMonthKey.value)) {
+      activeRequestItemMonthKey.value = months[0].key;
+      selectedRequestMatrixCells.value = [];
+    }
+  },
+  { immediate: true },
+);
+
+watch(
+  requestTemplateSheets,
+  (sheets) => {
+    if (!Array.isArray(sheets) || sheets.length === 0) {
+      activeRequestTemplateSheetKey.value = '';
+      selectedRequestMatrixCells.value = [];
+      return;
+    }
+    if (!sheets.some((sheet) => sheet.key === activeRequestTemplateSheetKey.value)) {
+      activeRequestTemplateSheetKey.value = sheets[0].key;
+      selectedRequestMatrixCells.value = [];
+    }
+  },
+  { immediate: true },
+);
+
+function activateRequestItemMonth(monthKey) {
+  if (activeRequestItemMonthKey.value === monthKey) return;
+  activeRequestItemMonthKey.value = monthKey;
+  activeRequestTemplateSheetKey.value = '';
+  selectedRequestMatrixCells.value = [];
+}
+
+function requestTemplateSheetTabLabel(sheet) {
+  const customerName = sheet?.customer?.name || '未設定';
+  return `${sheet?.groupCode || ''} ${customerName}`.trim();
+}
+
+function requestItemMonthKey(record) {
+  const dateText = resolveRequestItemGoodsOutboundDate(record);
+  const match = String(dateText || '').match(/^(\d{4})[-/](\d{1,2})/);
+  if (!match) return REQUEST_ITEM_UNKNOWN_MONTH_KEY;
+  return `${match[1]}-${String(match[2]).padStart(2, '0')}`;
+}
+
+function resolveRequestItemGoodsOutboundDate(record) {
+  return firstText(
+    record?.outboundDate,
+    record?.outbound_date,
+    record?.stockOutboundDate,
+    record?.stock_outbound_date,
+    record?.goodsOutboundDate,
+    record?.goods_outbound_date,
+    record?.stockRecordBizDate,
+    record?.stock_record_biz_date,
+    record?.stockBizDate,
+    record?.stock_biz_date,
+    record?.bizDate,
+    record?.biz_date,
+    record?.outDate,
+    record?.out_date,
+  );
+}
+
+function requestItemMonthLabel(key) {
+  if (key === REQUEST_ITEM_UNKNOWN_MONTH_KEY) return '年月未設定';
+  const [year, month] = String(key || '').split('-');
+  if (!year || !month) return '年月未設定';
+  return `${year}年${month}月`;
+}
+
+function selectActiveRequestTemplateSheetRows() {
+  const sheet = activeRequestTemplateSheet.value;
+  if (!sheet) return;
+  selectedRequestMatrixCells.value = sheet.rows
+    .filter((record) => requestFlowSourceQty(record, 'requestItem') > 0)
+    .map((record) => requestTemplateRecordKey(sheet, record));
+}
+
+function clearActiveRequestTemplateSheetSelection() {
+  const sheet = activeRequestTemplateSheet.value;
+  if (!sheet) {
+    selectedRequestMatrixCells.value = [];
+    return;
+  }
+  const currentSheetKeys = new Set(sheet.rows.map((record) => requestTemplateRecordKey(sheet, record)));
+  selectedRequestMatrixCells.value = selectedRequestMatrixCells.value.filter((key) => !currentSheetKeys.has(key));
+}
+
+function resolveRequestTemplateCustomer(record, groupCode) {
+  const id = record?.customerId ?? record?.customer_id;
+  const fromColumn = requestItemCustomerColumns.value.find((customer) => (
+    String(customer?.id) === String(id)
+    && (!groupCode || customer?.groupCode === groupCode)
+  )) || requestItemCustomerColumns.value.find((customer) => String(customer?.id) === String(id));
+  return {
+    id,
+    groupCode: normalizeRequestCustomerGroupCode(fromColumn) || normalizeRequestCustomerGroupCode(record),
+    name: firstText(
+      record?.customerName,
+      record?.customer_name,
+      fromColumn?.name,
+      record?.customerCode,
+      record?.customer_code,
+      id,
+    ),
+    englishName: firstText(
+      record?.customerEnglishName,
+      record?.customer_english_name,
+      record?.englishName,
+      record?.english_name,
+      fromColumn?.englishName,
+      fromColumn?.english_name,
+    ),
+    contactName: firstText(
+      record?.contactName,
+      record?.contact_name,
+      record?.customerContactName,
+      record?.customer_contact_name,
+      record?.contactPerson,
+      record?.contact_person,
+      fromColumn?.contactName,
+      fromColumn?.contact_name,
+      fromColumn?.contactPerson,
+      fromColumn?.contact_person,
+    ),
+    address: buildRequestTemplateCustomerAddress(record, fromColumn),
+    phone: firstText(
+      record?.customerPhone,
+      record?.customer_phone,
+      record?.phone,
+      record?.tel,
+      record?.telephone,
+      fromColumn?.phone,
+      fromColumn?.tel,
+      fromColumn?.telephone,
+    ),
+    email: firstText(
+      record?.customerEmail,
+      record?.customer_email,
+      record?.email,
+      fromColumn?.email,
+      fromColumn?.customerEmail,
+    ),
+    postalCode: firstText(
+      record?.postalCode,
+      record?.postal_code,
+      record?.zipCode,
+      record?.zip_code,
+      fromColumn?.postalCode,
+      fromColumn?.postal_code,
+      fromColumn?.zipCode,
+      fromColumn?.zip_code,
+    ),
+    country: firstText(record?.country, fromColumn?.country),
+    city: firstText(record?.city, fromColumn?.city),
+  };
+}
+
+function buildRequestTemplateCustomerAddress(...sources) {
+  const direct = firstText(...sources.flatMap((source) => [
+    source?.customerAddress,
+    source?.customer_address,
+    source?.billingAddress,
+    source?.billing_address,
+    source?.invoiceAddress,
+    source?.invoice_address,
+    source?.address,
+  ]));
+  if (direct) return direct;
+  const firstSourceWithAddressParts = sources.find((source) => firstText(
+    source?.postalCode,
+    source?.postal_code,
+    source?.zipCode,
+    source?.zip_code,
+    source?.country,
+    source?.city,
+  ));
+  if (!firstSourceWithAddressParts) return '';
+  const postalCode = firstText(
+    firstSourceWithAddressParts?.postalCode,
+    firstSourceWithAddressParts?.postal_code,
+    firstSourceWithAddressParts?.zipCode,
+    firstSourceWithAddressParts?.zip_code,
+  );
+  const area = [
+    firstSourceWithAddressParts?.country,
+    firstSourceWithAddressParts?.city,
+  ].filter((value) => value !== undefined && value !== null && String(value).trim() !== '').join(' ');
+  return [postalCode ? `〒${postalCode}` : '', area].filter(Boolean).join(' ');
+}
+
+function firstTemplateCustomerText(item, ...keys) {
+  for (const key of keys) {
+    const camel = key;
+    const snake = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+    const value = firstText(item?.[camel], item?.[snake]);
+    if (value) return value;
+  }
+  return '';
+}
+
+function resolveRequestTemplateCustomerAddress(item) {
+  return buildRequestTemplateCustomerAddress({
+    customerAddress: firstTemplateCustomerText(item, 'customerAddress'),
+    billingAddress: firstTemplateCustomerText(item, 'billingAddress'),
+    invoiceAddress: firstTemplateCustomerText(item, 'invoiceAddress'),
+    address: item?.address,
+    postalCode: firstTemplateCustomerText(item, 'postalCode'),
+    zipCode: firstTemplateCustomerText(item, 'zipCode'),
+    country: item?.country,
+    city: item?.city,
+  });
+}
+
+function firstText(...values) {
+  const hit = values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');
+  return hit === undefined ? '' : String(hit).trim();
+}
+
+function requestTemplateHeaderCells(sheet) {
+  const template = sheet?.template || REQUEST_FORM_TEMPLATE_LAYOUTS.A;
+  return (template.cells || []).map((cell) => ({
+    ...cell,
+    __groupCode: sheet?.groupCode || 'A',
+    key: `${sheet.key}-${cell.r}-${cell.c}-${cell.dynamic || cell.v || ''}`,
+    value: requestTemplateHeaderValue(sheet, cell),
+    className: requestTemplateCellClassName(sheet, cell),
+  }));
+}
+
+function requestTemplateCellClassName(sheet, cell) {
+  return [
+    cell.className || '',
+    `template-${String(sheet?.groupCode || 'A').toLowerCase()}`,
+    cell.dynamic ? 'template-dynamic' : '',
+    requestTemplateIsSummaryCell(cell) ? 'template-summary' : '',
+    requestTemplateShouldWrapCell(cell) ? 'template-wrap' : '',
+  ].filter(Boolean).join(' ');
+}
+
+function requestTemplateHeaderValue(sheet, cell) {
+  if (!cell?.dynamic) return cell?.v ?? '';
+  const customer = sheet?.customer || {};
+  if (cell.dynamic === 'customerName') {
+    const name = sheet?.groupCode === 'B' ? (customer.englishName || customer.name || '') : (customer.name || '');
+    return sheet?.groupCode === 'B' ? name : [name, '御中'].filter(Boolean).join(' ');
+  }
+  if (cell.dynamic === 'contactName') {
+    const name = customer.contactName || '';
+    return name ? `${name} 様` : '様';
+  }
+  if (cell.dynamic === 'customerAddress') return customer.address || '';
+  if (cell.dynamic === 'customerPhone') return customer.phone || '';
+  if (cell.dynamic === 'customerEmail') return customer.email || '';
+  return '';
+}
+
+function requestTemplateCellStyle(cell) {
+  const rowHeight = REQUEST_FORM_TEMPLATE_LAYOUTS[cell?.__groupCode]?.rowHeights?.[cell.r];
+  return {
+    gridColumn: `${cell.c} / span ${cell.cs || 1}`,
+    gridRow: `${cell.r} / span ${cell.rs || 1}`,
+    minHeight: `${requestTemplateCellHeight(cell, rowHeight)}px`,
+    justifyContent: requestTemplateCellJustify(cell),
+    alignItems: requestTemplateCellAlign(cell),
+    textAlign: requestTemplateCellTextAlign(cell),
+    fontWeight: requestTemplateCellFontWeight(cell),
+  };
+}
+
+function requestTemplateColumns(sheet) {
+  const widths = sheet?.template?.colWidths;
+  if (Array.isArray(widths) && widths.length > 0) {
+    return widths.map((width) => `minmax(${width}, 1fr)`).join(' ');
+  }
+  return `repeat(${sheet?.template?.colCount || 1}, minmax(86px, 1fr))`;
+}
+
+function requestTemplateCellHeight(cell, rowHeight) {
+  if (Number(rowHeight) > 0) return Number(rowHeight);
+  if (requestTemplateShouldWrapCell(cell)) return 42;
+  return cell?.className?.includes('template-title') ? 48 : 30;
+}
+
+function requestTemplateCellJustify(cell) {
+  if (cell?.className?.includes('template-title')) return 'center';
+  if (requestTemplateIsSummaryCell(cell)) return 'center';
+  if (cell?.align === 'right') return 'flex-end';
+  if (cell?.align === 'center') return 'center';
+  return 'flex-start';
+}
+
+function requestTemplateCellAlign(cell) {
+  if (cell?.valign === 'top' || requestTemplateShouldWrapCell(cell)) return 'flex-start';
+  if (cell?.valign === 'bottom') return 'flex-end';
+  return 'center';
+}
+
+function requestTemplateCellTextAlign(cell) {
+  if (cell?.className?.includes('template-title') || requestTemplateIsSummaryCell(cell)) return 'center';
+  return cell?.align || 'left';
+}
+
+function requestTemplateCellFontWeight(cell) {
+  if (cell?.className?.includes('template-title') || requestTemplateIsSummaryCell(cell)) return 800;
+  if (cell?.bold) return 700;
+  return 400;
+}
+
+function requestTemplateShouldWrapCell(cell) {
+  const value = String(cell?.v ?? '');
+  return value.includes('\n') || Number(cell?.cs || 1) >= 3;
+}
+
+function requestTemplateIsSummaryCell(cell) {
+  const groupCode = String(cell?.__groupCode || '').toUpperCase();
+  if (groupCode === 'A') return cell?.r === 15 || cell?.r === 16;
+  if (groupCode === 'C') return cell?.r === 14 || cell?.r === 15;
+  return false;
+}
+
+function requestTemplateDetailColumns(sheet) {
+  return (sheet?.template?.detailHeaders || REQUEST_TEMPLATE_DETAIL_HEADERS.JP_WIDE)
+    .map((header) => header.width || 'minmax(96px, 1fr)')
+    .join(' ');
+}
+
+function requestTemplateRecordKey(sheet, record) {
+  const id = firstText(
+    record?.stockRecordId,
+    record?.stock_record_id,
+    record?.stockOrderItemId,
+    record?.stock_order_item_id,
+    record?.id,
+    record?.aggregateKey,
+    record?.goodsId,
+    record?.skuId,
+    record?.skuCode,
+    record?.__templateNo,
+  );
+  return `${sheet?.key || 'sheet'}::${id}`;
+}
+
+function requestTemplateDetailValue(record, key) {
+  if (key === 'no') return record?.__templateNo ?? '';
+  if (key === 'brandName') return firstText(record?.brandName, record?.brand_name, record?.brand);
+  if (key === 'description') {
+    return firstText(record?.goodsName, record?.goods_name, record?.itemName, record?.item_name, record?.name, record?.skuCode);
+  }
+  if (key === 'bizDate') return resolveRequestItemGoodsOutboundDate(record);
+  if (key === 'qty') return formatQty(requestFlowSourceQty(record, 'requestItem'));
+  if (key === 'unitPrice') return formatRequestTemplateNumber(record?.unitPrice ?? record?.unit_price ?? record?.price);
+  if (key === 'amount') return formatRequestTemplateNumber(resolveRequestTemplateAmount(record));
+  if (key === 'remark') {
+    const outboundDate = resolveRequestItemGoodsOutboundDate(record);
+    return outboundDate ? `納品日:${outboundDate}` : '';
+  }
+  if (key === 'hsCode') return firstText(record?.hsCode, record?.hs_code);
+  return firstText(record?.[key]);
+}
+
+function resolveRequestTemplateAmount(record) {
+  const direct = record?.amount ?? record?.totalAmount ?? record?.total_amount ?? record?.priceAmount ?? record?.price_amount;
+  if (direct !== undefined && direct !== null && String(direct).trim() !== '') return direct;
+  const qty = Number(requestFlowSourceQty(record, 'requestItem') || 0);
+  const price = Number(record?.unitPrice ?? record?.unit_price ?? record?.price ?? 0);
+  if (!qty || Number.isNaN(price)) return '';
+  return qty * price;
+}
+
+function formatRequestTemplateNumber(value) {
+  if (value === undefined || value === null || String(value).trim() === '') return '';
+  const number = Number(value);
+  if (Number.isNaN(number)) return value;
+  return number.toLocaleString('ja-JP');
+}
+
+function isRequestTemplateRowSelected(sheet, record) {
+  return selectedRequestMatrixCells.value.includes(requestTemplateRecordKey(sheet, record));
+}
+
+function toggleRequestTemplateRow(sheet, record) {
+  const key = requestTemplateRecordKey(sheet, record);
+  const current = new Set(selectedRequestMatrixCells.value);
+  if (current.has(key)) {
+    current.delete(key);
+  } else {
+    current.add(key);
+  }
+  selectedRequestMatrixCells.value = [...current];
+}
+
+function requestItemMatrixRowKey(record) {
+  return [
+    record?.goodsId,
+    record?.skuId,
+    record?.skuCode,
+    record?.goodsName,
+    record?.categoryId,
+    record?.categoryName,
+    record?.stockTypeId,
+    record?.price,
+    record?.currency,
+  ].map((value) => String(value ?? '')).join('|');
+}
 
 function aggregateRequestFlowRows(sourceRows = [], moduleKey = props.moduleKey) {
   const groups = new Map();
@@ -937,8 +1881,19 @@ function aggregateRequestFlowRows(sourceRows = [], moduleKey = props.moduleKey) 
 
 function normalizeRequestFlowRecord(record, moduleKey = props.moduleKey) {
   const isRequestItem = moduleKey === 'requestItem';
+  const requestItemQuantity = firstNumericValue(
+    record?.requestQty,
+    record?.request_qty,
+    record?.sourceQty,
+    record?.source_qty,
+    record?.quantity,
+    record?.availableQty,
+    record?.available_qty,
+    record?.moveQty,
+    record?.move_qty,
+  );
   const quantity = Number(isRequestItem
-    ? record?.requestQty ?? record?.availableQty ?? 0
+    ? requestItemQuantity
     : record?.quantity ?? record?.availableQty ?? 0);
   const bizNo = record?.bizNo ?? record?.orderNo ?? record?.sourceOrderNo ?? '';
   const outboundDate = record?.outboundDate ?? record?.bizDate ?? record?.scheduledShipDate ?? '';
@@ -951,8 +1906,8 @@ function normalizeRequestFlowRecord(record, moduleKey = props.moduleKey) {
     stockRecordId,
     stockOrderItemId,
     quantity: moduleKey === 'deliverySchedule' ? safeWholeQty(quantity) : Number(record?.quantity ?? 0),
-    availableQty: safeWholeQty(record?.availableQty ?? quantity),
-    requestQty: safeWholeQty(record?.requestQty ?? quantity),
+    availableQty: safeWholeQty(record?.availableQty ?? record?.available_qty ?? quantity),
+    requestQty: safeWholeQty(record?.requestQty ?? record?.request_qty ?? quantity),
     sourceQty: safeWholeQty(quantity),
   };
 }
@@ -975,15 +1930,31 @@ function requestFlowAggregateKey(record) {
 
 function requestFlowSourceQty(record, moduleKey = props.moduleKey) {
   if (moduleKey === 'requestItem') {
-    return safeWholeQty(record?.requestQty ?? record?.availableQty ?? record?.sourceQty ?? 0);
+    return safeWholeQty(firstNumericValue(
+      record?.requestQty,
+      record?.request_qty,
+      record?.sourceQty,
+      record?.source_qty,
+      record?.quantity,
+      record?.availableQty,
+      record?.available_qty,
+      record?.moveQty,
+      record?.move_qty,
+      0,
+    ));
   }
-  return safeWholeQty(record?.quantity ?? record?.sourceQty ?? 0);
+  return safeWholeQty(record?.quantity ?? record?.sourceQty ?? record?.source_qty ?? 0);
 }
 
 function safeWholeQty(value) {
   const qty = Number(value);
   if (Number.isNaN(qty)) return 0;
   return Math.max(0, Math.floor(Math.abs(qty)));
+}
+
+function firstNumericValue(...values) {
+  const hit = values.find((value) => value !== undefined && value !== null && String(value).trim() !== '' && !Number.isNaN(Number(value)));
+  return hit ?? 0;
 }
 
 function stockViewQueryParams() {
@@ -1093,9 +2064,31 @@ watch(
     if (isGoodsManagement.value) {
       await loadGoodsStockRows();
     }
+    if (isRequestItemMatrix.value) {
+      await refreshRequestItemPreview();
+    } else {
+      requestItemCustomerColumns.value = [];
+      requestItemPreviewRows.value = [];
+      selectedRequestMatrixCells.value = [];
+    }
   },
   { immediate: true },
 );
+
+async function reloadCurrentModule() {
+  await reload();
+  await refreshRequestItemPreview();
+}
+
+async function searchCurrentModule() {
+  doSearch();
+  await refreshRequestItemPreview();
+}
+
+async function resetCurrentModuleQuery() {
+  resetQuery();
+  await refreshRequestItemPreview();
+}
 
 function normalizeQueryField(field) {
   const key = String(field || '');
@@ -1117,6 +2110,317 @@ function normalizeCustomerGoodsTreePage(page) {
   return {
     ...page,
     records: stripEmptyTreeChildren(records),
+  };
+}
+
+async function loadRequestItemCustomerColumns() {
+  const fromRows = extractRequestItemCustomers(requestItemPreviewRows.value);
+  try {
+    const params = {
+      pageNum: 1,
+      pageSize: 300,
+    };
+    if (props.currentUserId && !isAdminUser.value) {
+      params.ownerUserId = Number(props.currentUserId);
+    }
+    const page = await fetchCurrentUserCustomerPage(params);
+    requestItemCustomerColumns.value = mergeRequestItemCustomers(
+      normalizeRequestItemCustomers(page?.records || []),
+      fromRows,
+    );
+  } catch (_error) {
+    requestItemCustomerColumns.value = fromRows;
+  }
+}
+
+async function refreshRequestItemPreview() {
+  if (!isRequestItemMatrix.value) return;
+  requestItemPreviewLoading.value = true;
+  selectedRequestMatrixCells.value = [];
+  try {
+    requestItemPreviewRows.value = await fetchRequestItemPreviewRows();
+    await loadRequestItemCustomerColumns();
+  } catch (error) {
+    requestItemPreviewRows.value = [];
+    requestItemCustomerColumns.value = [];
+    message.error(error?.message || TABLE_TEXT.fetchFail);
+  } finally {
+    requestItemPreviewLoading.value = false;
+  }
+}
+
+async function fetchRequestItemPreviewRows() {
+  const customerId = resolveRequestItemPreviewCustomerId();
+  const groups = ['A', 'B', 'C'];
+  const pages = await Promise.all(groups.map(async (groupCode) => {
+    const payload = await fetchRequestItemCartPreview({
+      ...buildRequestItemPreviewParams(),
+      ...(customerId ? { customerId } : {}),
+      groupCode,
+    });
+    return normalizeRequestItemPreviewPayload(payload, groupCode);
+  }));
+  return mergeRequestItemPreviewRows(pages.flat(), rows.value || []);
+}
+
+function mergeRequestItemPreviewRows(previewRows = [], cartRows = []) {
+  const merged = new Map();
+  const previewSourceKeys = new Set();
+  (Array.isArray(previewRows) ? previewRows : []).forEach((record) => {
+    const key = requestItemPreviewRecordKey(record);
+    if (!key) return;
+    merged.set(key, record);
+    const sourceKey = requestItemPreviewSourceKey(record);
+    if (sourceKey) previewSourceKeys.add(sourceKey);
+  });
+  (Array.isArray(cartRows) ? cartRows : []).forEach((record) => {
+    const normalized = normalizeRequestItemCartFallbackRecord(record);
+    const sourceKey = requestItemPreviewSourceKey(normalized);
+    if (!hasRequestItemCustomerInfo(normalized) && sourceKey && previewSourceKeys.has(sourceKey)) return;
+    const key = requestItemPreviewRecordKey(normalized);
+    if (!key || merged.has(key)) return;
+    merged.set(key, normalized);
+  });
+  return [...merged.values()];
+}
+
+function normalizeRequestItemCartFallbackRecord(record) {
+  return {
+    ...record,
+    groupCode: record?.groupCode ?? record?.group_code ?? record?.customerGroupCode ?? record?.customer_group_code,
+    customerId: record?.customerId ?? record?.customer_id,
+    customerName: record?.customerName ?? record?.customer_name,
+    requestQty: firstNumericValue(
+      record?.requestQty,
+      record?.request_qty,
+      record?.sourceQty,
+      record?.source_qty,
+      record?.quantity,
+      record?.availableQty,
+      record?.available_qty,
+      0,
+    ),
+  };
+}
+
+function requestItemPreviewRecordKey(record) {
+  const sourceKey = requestItemPreviewSourceKey(record);
+  const customerId = record?.customerId ?? record?.customer_id;
+  if (sourceKey) {
+    return hasRequestItemCustomerInfo(record)
+      ? `customer:${String(customerId ?? record?.customerName ?? record?.customer_name ?? '')}|${sourceKey}`
+      : `source:${sourceKey}`;
+  }
+  const id = record?.cartItemId ?? record?.cart_item_id ?? record?.id;
+  if (id !== undefined && id !== null && String(id).trim() !== '') return `id:${id}`;
+  return '';
+}
+
+function requestItemPreviewSourceKey(record) {
+  const stockRecordId = record?.stockRecordId ?? record?.stock_record_id ?? record?.recordId ?? record?.record_id;
+  const stockOrderItemId = record?.stockOrderItemId ?? record?.stock_order_item_id ?? record?.orderItemId ?? record?.order_item_id;
+  const strongKey = [stockRecordId, stockOrderItemId]
+    .map((value) => String(value ?? '').trim())
+    .filter(Boolean)
+    .join('|');
+  if (strongKey) return `stock:${strongKey}`;
+  const weakParts = [
+    record?.goodsId ?? record?.goods_id,
+    record?.skuId ?? record?.sku_id,
+    record?.skuCode ?? record?.sku_code,
+    record?.stockTypeId ?? record?.stock_type_id,
+    record?.price,
+    record?.currency,
+  ].map((value) => String(value ?? '').trim());
+  if (!weakParts.some(Boolean)) return '';
+  return weakParts.join('|');
+}
+
+function hasRequestItemCustomerInfo(record) {
+  return [
+    record?.customerId,
+    record?.customer_id,
+    record?.customerName,
+    record?.customer_name,
+  ].some((value) => value !== undefined && value !== null && String(value).trim() !== '');
+}
+
+function buildRequestItemPreviewParams() {
+  const params = {};
+  (queryFields.value || []).forEach((field) => {
+    const value = queryState[field];
+    if (value === undefined || value === null || String(value).trim() === '') return;
+    params[normalizeQueryField(field)] = value;
+  });
+  return {
+    ...params,
+    ...(props.fixedQueryParams || {}),
+  };
+}
+
+function resolveRequestItemPreviewCustomerId() {
+  const fixed = props.fixedQueryParams?.customerId;
+  if (fixed !== undefined && fixed !== null && String(fixed).trim() !== '') return fixed;
+  const queried = queryState.customerId;
+  if (queried !== undefined && queried !== null && String(queried).trim() !== '') return queried;
+  return null;
+}
+
+function normalizeRequestItemPreviewPayload(payload, groupCode) {
+  const records = Array.isArray(payload)
+    ? payload
+    : payload?.records || payload?.list || payload?.rows || payload?.items || payload?.data || [];
+  return (Array.isArray(records) ? records : []).map((record) => ({
+    ...record,
+    groupCode: record?.groupCode ?? record?.group_code ?? groupCode,
+    customerId: record?.customerId ?? record?.customer_id ?? payload?.customerId ?? payload?.customer_id,
+    customerName: record?.customerName ?? record?.customer_name ?? payload?.customerName ?? payload?.customer_name,
+    customerEnglishName: record?.customerEnglishName ?? record?.customer_english_name ?? record?.englishName ?? record?.english_name ?? payload?.customerEnglishName ?? payload?.customer_english_name ?? payload?.englishName ?? payload?.english_name,
+    customerAddress: record?.customerAddress ?? record?.customer_address ?? payload?.customerAddress ?? payload?.customer_address,
+    billingAddress: record?.billingAddress ?? record?.billing_address ?? payload?.billingAddress ?? payload?.billing_address,
+    invoiceAddress: record?.invoiceAddress ?? record?.invoice_address ?? payload?.invoiceAddress ?? payload?.invoice_address,
+    postalCode: record?.postalCode ?? record?.postal_code ?? payload?.postalCode ?? payload?.postal_code,
+    zipCode: record?.zipCode ?? record?.zip_code ?? payload?.zipCode ?? payload?.zip_code,
+    country: record?.country ?? payload?.country,
+    city: record?.city ?? payload?.city,
+    customerPhone: record?.customerPhone ?? record?.customer_phone ?? payload?.customerPhone ?? payload?.customer_phone,
+    customerEmail: record?.customerEmail ?? record?.customer_email ?? payload?.customerEmail ?? payload?.customer_email,
+    contactName: record?.contactName ?? record?.contact_name ?? record?.contactPerson ?? record?.contact_person ?? payload?.contactName ?? payload?.contact_name ?? payload?.contactPerson ?? payload?.contact_person,
+  }));
+}
+
+function extractRequestItemCustomers(sourceRows = []) {
+  return normalizeRequestItemCustomers((Array.isArray(sourceRows) ? sourceRows : []).map((record) => ({
+    id: record?.customerId ?? record?.customer_id,
+    name: record?.customerName ?? record?.customer_name,
+    englishName: record?.customerEnglishName ?? record?.customer_english_name ?? record?.englishName ?? record?.english_name,
+    groupCode: record?.customerGroupCode ?? record?.customer_group_code ?? record?.groupCode ?? record?.group_code,
+    deptCode: record?.deptCode ?? record?.dept_code,
+    deptName: record?.deptName ?? record?.dept_name,
+    ownerUserGroupCode: record?.ownerUserGroupCode ?? record?.owner_user_group_code,
+    ownerUserDeptCode: record?.ownerUserDeptCode ?? record?.owner_user_dept_code,
+    chargeGroupCode: record?.chargeGroupCode ?? record?.charge_group_code,
+    managerGroupCode: record?.managerGroupCode ?? record?.manager_group_code,
+    salesGroupCode: record?.salesGroupCode ?? record?.sales_group_code,
+    customerAddress: record?.customerAddress ?? record?.customer_address,
+    billingAddress: record?.billingAddress ?? record?.billing_address,
+    invoiceAddress: record?.invoiceAddress ?? record?.invoice_address,
+    address: record?.address,
+    postalCode: record?.postalCode ?? record?.postal_code,
+    zipCode: record?.zipCode ?? record?.zip_code,
+    country: record?.country,
+    city: record?.city,
+    phone: record?.customerPhone ?? record?.customer_phone ?? record?.phone ?? record?.tel ?? record?.telephone,
+    email: record?.customerEmail ?? record?.customer_email ?? record?.email,
+    contactName: record?.contactName ?? record?.contact_name ?? record?.customerContactName ?? record?.customer_contact_name ?? record?.contactPerson ?? record?.contact_person,
+  })));
+}
+
+function normalizeRequestItemCustomers(source = []) {
+  const seen = new Set();
+  return (Array.isArray(source) ? source : [])
+    .map((item) => {
+      const id = item?.id ?? item?.customerId ?? item?.customer_id;
+      const name = String(item?.name ?? item?.customerName ?? item?.customer_name ?? item?.customerCode ?? item?.customer_code ?? id ?? '').trim();
+      const groupCode = normalizeRequestCustomerGroupCode(item);
+      return {
+        id,
+        name,
+        englishName: firstText(item?.englishName, item?.english_name, item?.customerEnglishName, item?.customer_english_name),
+        groupCode,
+        ownerUserGroupCode: item?.ownerUserGroupCode ?? item?.owner_user_group_code,
+        ownerUserDeptCode: item?.ownerUserDeptCode ?? item?.owner_user_dept_code,
+        chargeGroupCode: item?.chargeGroupCode ?? item?.charge_group_code,
+        managerGroupCode: item?.managerGroupCode ?? item?.manager_group_code,
+        salesGroupCode: item?.salesGroupCode ?? item?.sales_group_code,
+        deptCode: item?.deptCode ?? item?.dept_code,
+        deptName: item?.deptName ?? item?.dept_name,
+        address: resolveRequestTemplateCustomerAddress(item),
+        postalCode: firstText(item?.postalCode, item?.postal_code, item?.zipCode, item?.zip_code),
+        country: firstText(item?.country),
+        city: firstText(item?.city),
+        phone: firstText(item?.phone, item?.tel, item?.telephone, item?.customerPhone, item?.customer_phone),
+        email: firstText(item?.email, item?.customerEmail, item?.customer_email),
+        contactName: firstText(item?.contactName, item?.contact_name, item?.customerContactName, item?.customer_contact_name, item?.contactPerson, item?.contact_person),
+      };
+    })
+    .filter((item) => item.id !== undefined && item.id !== null && item.name)
+    .filter((item) => {
+      const key = String(item.id);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((left, right) => (
+      left.groupCode.localeCompare(right.groupCode)
+      || String(left.name).localeCompare(String(right.name), 'ja')
+    ));
+}
+
+function normalizeRequestCustomerGroupCode(item) {
+  const raw = String(
+    item?.groupCode
+      ?? item?.group_code
+      ?? item?.customerGroupCode
+      ?? item?.customer_group_code
+      ?? item?.ownerUserGroupCode
+      ?? item?.owner_user_group_code
+      ?? item?.ownerUserDeptCode
+      ?? item?.owner_user_dept_code
+      ?? item?.chargeGroupCode
+      ?? item?.charge_group_code
+      ?? item?.managerGroupCode
+      ?? item?.manager_group_code
+      ?? item?.salesGroupCode
+      ?? item?.sales_group_code
+      ?? item?.userGroupCode
+      ?? item?.user_group_code
+      ?? item?.staffGroupCode
+      ?? item?.staff_group_code
+      ?? item?.deptCode
+      ?? item?.dept_code
+      ?? item?.ownerDeptCode
+      ?? item?.owner_dept_code
+      ?? item?.groupName
+      ?? item?.group_name
+      ?? item?.deptName
+      ?? item?.dept_name
+      ?? item?.ownerDeptName
+      ?? item?.owner_dept_name
+      ?? '',
+  ).trim().toUpperCase();
+  const hit = raw.match(/[ABC]/);
+  return hit ? hit[0] : '';
+}
+
+function mergeRequestItemCustomers(...sources) {
+  const map = new Map();
+  sources.flat().forEach((item) => {
+    if (!item?.id) return;
+    const key = String(item.id);
+    if (!map.has(key)) {
+      map.set(key, item);
+      return;
+    }
+    const existing = map.get(key);
+    map.set(key, mergeRequestItemCustomer(existing, item));
+  });
+  return [...map.values()].sort((left, right) => (
+    String(left.groupCode || '').localeCompare(String(right.groupCode || ''))
+    || String(left.name).localeCompare(String(right.name), 'ja')
+  ));
+}
+
+function mergeRequestItemCustomer(existing = {}, incoming = {}) {
+  const merged = { ...existing };
+  Object.entries(incoming).forEach(([key, value]) => {
+    if (value === undefined || value === null || String(value).trim() === '') return;
+    merged[key] = value;
+  });
+  return {
+    ...merged,
+    name: existing.name || incoming.name || merged.name,
+    groupCode: existing.groupCode || incoming.groupCode || merged.groupCode || '',
   };
 }
 
@@ -1819,6 +3123,7 @@ function clearTransientUiState() {
   clearObjectState(goodsOutboundForm);
   clearObjectState(requestItemQtyState);
   clearObjectState(requestFlowCellDraftState);
+  selectedRequestMatrixCells.value = [];
   clearObjectState(sheetOutboundDrafts);
   clearObjectState(batchStockDrafts);
   clearObjectState(goodsFlowByRowKey);
@@ -2719,6 +4024,11 @@ async function generateRequestForm() {
     message.warning(TABLE_TEXT.selectRequestItems);
     return;
   }
+  const selectedCustomerIds = uniqueRequestItemCustomerIds(items);
+  if (selectedCustomerIds.length > 1) {
+    message.warning('同一顧客の明細のみ選択してください');
+    return;
+  }
   const customerId = resolveRequestItemCustomerId(items);
   if (!customerId) {
     message.warning(TABLE_TEXT.selectRequestForm);
@@ -2742,19 +4052,89 @@ async function generateRequestForm() {
       message.warning('請求数量は1以上、生成可能数量以下で入力してください');
       return;
     }
-    await createRequestFormWithSelectedItems({
+    const createdRequestForm = await createRequestFormWithSelectedItems({
       customerId,
+      templateCode: resolveRequestTemplateCode(items),
+      groupCode: resolveRequestTemplateCode(items),
       items: payloadItems,
     });
     message.success(TABLE_TEXT.requestFormGenerated);
+    showGeneratedRequestFormSaveDialog(createdRequestForm);
     selectedRowKeys.value = [];
+    selectedRequestMatrixCells.value = [];
     Object.keys(requestItemQtyState).forEach((key) => delete requestItemQtyState[key]);
-    await reload();
+    await reloadCurrentModule();
   } catch (error) {
     message.error(error?.message || TABLE_TEXT.saveFail);
   } finally {
     requestFlowSubmitting.value = false;
   }
+}
+
+function showGeneratedRequestFormSaveDialog(createdRequestForm) {
+  const ids = resolveCreatedRequestFormIds(createdRequestForm);
+  if (ids.length === 0) return;
+  Modal.confirm({
+    title: '請求書PDFを保存しますか',
+    content: '保存先を選択して、生成した請求書PDFを保存できます。',
+    okText: 'PDFを保存',
+    cancelText: '閉じる',
+    async onOk() {
+      await downloadGeneratedRequestFormPdf(ids);
+    },
+  });
+}
+
+async function downloadGeneratedRequestFormPdf(createdRequestForm) {
+  const ids = Array.isArray(createdRequestForm)
+    ? createdRequestForm
+    : resolveCreatedRequestFormIds(createdRequestForm);
+  if (ids.length === 0) return;
+  for (const id of ids) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await downloadRequestFormPdf(id, TABLE_TEXT.downloadFail, {
+        promptSavePath: true,
+        suggestedFileName: `request_${id}.pdf`,
+      });
+    } catch (error) {
+      message.warning(error?.message || TABLE_TEXT.downloadFail);
+    }
+  }
+}
+
+function resolveCreatedRequestFormIds(payload) {
+  const ids = [];
+  collectRequestFormIds(payload, ids);
+  return [...new Set(ids.map((id) => String(id)).filter((id) => id.trim() !== ''))];
+}
+
+function collectRequestFormIds(value, output) {
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectRequestFormIds(item, output));
+    return;
+  }
+  if (!value || typeof value !== 'object') return;
+  const id = value.requestFormId ?? value.request_form_id ?? value.requestId ?? value.request_id ?? value.id;
+  if (id !== undefined && id !== null && String(id).trim() !== '') {
+    output.push(id);
+  }
+  ['data', 'record', 'requestForm', 'form', 'items', 'records', 'list'].forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(value, key)) {
+      collectRequestFormIds(value[key], output);
+    }
+  });
+}
+
+function resolveRequestTemplateCode(items = []) {
+  const hit = (Array.isArray(items) ? items : []).find((record) => (
+    normalizeRequestCustomerGroupCode(record)
+    || record?.customerGroupCode
+    || record?.customer_group_code
+    || record?.groupCode
+    || record?.group_code
+  ));
+  return normalizeRequestCustomerGroupCode(hit) || 'A';
 }
 
 async function moveSelectedDeliveryToRequest() {
@@ -2770,7 +4150,7 @@ async function moveSelectedDeliveryToRequest() {
 async function moveSelectedRequestToDelivery() {
   if (props.moduleKey !== 'requestItem') return;
   await submitRequestFlowMove({
-    rowsToSubmit: selectedRequestFlowRows(),
+    rowsToSubmit: selectedRequestFlowRows({ requireSelection: true }),
     submitter: removeRequestItemsFromCart,
     emptyMessage: '発送予定表へ戻す明細を選択してください',
     successMessage: '発送予定表へ戻しました',
@@ -2812,8 +4192,9 @@ async function submitRequestFlowMove({ rowsToSubmit, submitter, emptyMessage, su
     });
     message.success(successMessage);
     selectedRowKeys.value = [];
+    selectedRequestMatrixCells.value = [];
     Object.keys(requestItemQtyState).forEach((key) => delete requestItemQtyState[key]);
-    await reload();
+    await reloadCurrentModule();
   } catch (error) {
     message.error(error?.message || TABLE_TEXT.saveFail);
   } finally {
@@ -2824,8 +4205,8 @@ async function submitRequestFlowMove({ rowsToSubmit, submitter, emptyMessage, su
 function buildRequestFlowPayloadItem(record) {
   const requestQty = Math.max(0, Math.floor(Number(requestFlowQtyValue(record) || 0)));
   const sources = Array.isArray(record?.__sources) && record.__sources.length > 0 ? record.__sources : [record];
-  const stockRecordIds = uniquePositiveIds(sources.map((source) => source?.stockRecordId ?? source?.stock_record_id ?? source?.recordId ?? source?.record_id));
-  const stockOrderItemIds = uniquePositiveIds(sources.map((source) => source?.stockOrderItemId ?? source?.stock_order_item_id ?? source?.orderItemId ?? source?.order_item_id));
+  const stockRecordIds = uniquePositiveIds(sources.flatMap((source) => requestFlowStockRecordIds(source)));
+  const stockOrderItemIds = uniquePositiveIds(sources.flatMap((source) => requestFlowStockOrderItemIds(source)));
   if (stockRecordIds.length > 1 || stockOrderItemIds.length > 1) {
     return {
       stockRecordIds,
@@ -2838,6 +4219,32 @@ function buildRequestFlowPayloadItem(record) {
     stockOrderItemId: stockOrderItemIds[0] || undefined,
     requestQty,
   };
+}
+
+function requestFlowStockRecordIds(record) {
+  return [
+    record?.stockRecordId,
+    record?.stock_record_id,
+    record?.recordId,
+    record?.record_id,
+    ...arrayValue(record?.stockRecordIds),
+    ...arrayValue(record?.stock_record_ids),
+  ];
+}
+
+function requestFlowStockOrderItemIds(record) {
+  return [
+    record?.stockOrderItemId,
+    record?.stock_order_item_id,
+    record?.orderItemId,
+    record?.order_item_id,
+    ...arrayValue(record?.stockOrderItemIds),
+    ...arrayValue(record?.stock_order_item_ids),
+  ];
+}
+
+function arrayValue(value) {
+  return Array.isArray(value) ? value : [];
 }
 
 function uniquePositiveIds(values = []) {
@@ -2861,10 +4268,38 @@ function resolveRequestItemCustomerId(items = []) {
   return hit?.customerId ?? null;
 }
 
-function selectedRequestFlowRows() {
+function uniqueRequestItemCustomerIds(items = []) {
+  return [...new Set((Array.isArray(items) ? items : [])
+    .map((record) => record?.customerId ?? record?.customer_id)
+    .filter((value) => value !== undefined && value !== null && String(value).trim() !== '')
+    .map((value) => String(value)))];
+}
+
+function selectedRequestFlowRows(options = {}) {
   if (!isRequestFlowModule.value) return [];
+  if (isRequestItemMatrix.value) {
+    return selectedRequestMatrixSourceRows(options);
+  }
   const selected = new Set((selectedRowKeys.value || []).map((key) => String(key)));
   return (tableRows.value || []).filter((record) => selected.has(String(getRowKey(record))));
+}
+
+function selectedRequestMatrixSourceRows(options = {}) {
+  const selected = new Set(selectedRequestMatrixCells.value);
+  if (selected.size === 0) {
+    if (options.requireSelection) return [];
+    return activeRequestTemplateSheet.value?.rows || [];
+  }
+  const templateRows = requestTemplateSheets.value.flatMap((sheet) => (
+    sheet.rows.filter((record) => selected.has(requestTemplateRecordKey(sheet, record)))
+  ));
+  if (templateRows.length > 0) return templateRows;
+  return (tableRows.value || []).flatMap((record) => {
+    const rowKey = getRowKey(record);
+    return Object.entries(record?.__customerSourceMap || {})
+      .filter(([customerColumnKey]) => selected.has(`${rowKey}::${customerColumnKey}`))
+      .flatMap(([, sourceRows]) => (Array.isArray(sourceRows) ? sourceRows : []));
+  });
 }
 
 function fillSelectedRequestFlowQty() {
@@ -3201,6 +4636,7 @@ function isFormFieldDisabled(field) {
 }
 
 .table-stage {
+  width: 100%;
   min-width: 0;
 }
 
@@ -3530,6 +4966,392 @@ function isFormFieldDisabled(field) {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
+.request-template-workbook {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  min-height: min(720px, calc(100vh - 220px));
+  max-height: calc(100vh - 180px);
+  padding: 12px 12px 0;
+  background:
+    linear-gradient(90deg, rgba(148, 163, 184, 0.14) 1px, transparent 1px),
+    linear-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px),
+    #eef2f7;
+  background-size: 24px 24px;
+  overflow: auto;
+}
+
+.request-template-sheet {
+  flex: 1 0 auto;
+  width: 100%;
+  min-width: min(1080px, 100%);
+  border: 1px solid #aab7c8;
+  background: #ffffff;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+  font-family: "Yu Gothic", "Yu Mincho", "MS PGothic", serif;
+}
+
+.request-template-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 260px;
+  border: 1px dashed #aab7c8;
+  background: rgba(255, 255, 255, 0.72);
+  color: #64748b;
+  font-weight: 700;
+}
+
+.request-template-tabs {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  width: 100%;
+  min-width: max-content;
+  margin-top: 0;
+  padding: 8px 10px 0;
+  border-top: 1px solid #b7c3d1;
+  background: #e7edf5;
+}
+
+.request-template-actionbar {
+  position: sticky;
+  bottom: 34px;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-width: max-content;
+  padding: 8px 10px;
+  border-top: 1px solid #b7c3d1;
+  background: rgba(248, 250, 252, 0.96);
+  box-shadow: 0 -8px 20px rgba(15, 23, 42, 0.06);
+}
+
+.request-template-selection-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #334155;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.request-template-selection-summary strong {
+  color: #1d4ed8;
+}
+
+.request-template-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.request-template-action {
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid #aab7c8;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.request-template-action:hover:not(:disabled) {
+  border-color: #2563eb;
+  color: #1d4ed8;
+}
+
+.request-template-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.request-template-action-primary {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.request-template-action-primary:hover:not(:disabled) {
+  background: #1d4ed8;
+  color: #ffffff;
+}
+
+.request-template-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 96px;
+  max-width: 220px;
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid #aab7c8;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: #dbe3ee;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.request-template-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.request-template-tab-active {
+  position: relative;
+  z-index: 1;
+  height: 34px;
+  background: #ffffff;
+  color: #1d4ed8;
+  box-shadow: 0 -1px 0 #ffffff inset;
+}
+
+.request-template-sheet-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #b7c3d1;
+  background: linear-gradient(180deg, #f8fafc 0%, #e8eef6 100%);
+  color: #1f2937;
+}
+
+.request-template-sheet-title span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 24px;
+  border: 1px solid #8ea3bd;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-weight: 800;
+}
+
+.request-template-sheet-title strong {
+  font-size: 14px;
+}
+
+.request-template-grid {
+  display: grid;
+  grid-auto-rows: minmax(28px, auto);
+  border-left: 1px solid #c6d0dc;
+  border-top: 1px solid #c6d0dc;
+  background: #ffffff;
+}
+
+.request-template-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 4px 7px;
+  border-right: 1px solid #c6d0dc;
+  border-bottom: 1px solid #c6d0dc;
+  color: #111827;
+  font-size: 12px;
+  line-height: 1.28;
+  white-space: break-spaces;
+  overflow-wrap: anywhere;
+}
+
+.request-template-cell.template-title {
+  justify-content: center;
+  min-height: 42px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  white-space: pre-wrap;
+}
+
+.request-template-cell.template-b.template-title {
+  letter-spacing: 0.05em;
+}
+
+.request-template-cell.template-summary {
+  background: #f8fafc;
+}
+
+.request-template-cell.template-dynamic {
+  background: #fffef8;
+}
+
+.request-template-cell.template-wrap {
+  line-height: 1.35;
+}
+
+.request-template-detail {
+  display: grid;
+  border-left: 1px solid #c6d0dc;
+  background: #ffffff;
+}
+
+.request-template-detail-header,
+.request-template-detail-cell {
+  min-height: 34px;
+  padding: 5px 8px;
+  border-right: 1px solid #c6d0dc;
+  border-bottom: 1px solid #c6d0dc;
+  color: #111827;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.request-template-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eaf0f7;
+  font-weight: 800;
+}
+
+.request-template-detail-cell {
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+  white-space: break-spaces;
+  overflow-wrap: anywhere;
+}
+
+.request-template-detail-cell-selected {
+  background: #eff6ff;
+}
+
+.request-matrix-cell,
+.request-matrix-total {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+  min-width: 48px;
+  min-height: 28px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.request-matrix-cell {
+  color: #0f172a;
+}
+
+.request-matrix-cell:hover,
+.request-matrix-cell-selected {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: inset 0 0 0 1px #2563eb;
+}
+
+.request-matrix-total {
+  color: #075985;
+}
+
+.request-matrix-empty {
+  color: #94a3b8;
+}
+
+:deep(.request-matrix-customer-cell) {
+  background: #fffdf2;
+}
+
+:deep(.request-matrix-total-cell) {
+  background: #eef6ff;
+}
+
+.request-matrix-stage {
+  width: 100%;
+  padding: 0;
+  border-color: #b8c2cf;
+  border-radius: 4px;
+  background: #eef2f7;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+:deep(.request-matrix-table .ant-table) {
+  border-radius: 0;
+  background: #ffffff;
+  font-size: 13px;
+}
+
+:deep(.request-matrix-table .ant-table-container) {
+  border-radius: 0;
+}
+
+:deep(.request-matrix-table .ant-table-thead > tr > th) {
+  height: 30px;
+  padding: 5px 8px;
+  border-color: #b8c2cf !important;
+  background: #e7edf5 !important;
+  color: #1f2937;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+:deep(.request-matrix-table .ant-table-thead > tr:first-child > th) {
+  background: #dce6f2 !important;
+  text-align: center;
+}
+
+:deep(.request-matrix-table .ant-table-tbody > tr > td) {
+  height: 32px;
+  padding: 1px 6px;
+  border-color: #c7d1dd !important;
+  background: #ffffff;
+  color: #111827;
+  white-space: nowrap;
+}
+
+:deep(.request-matrix-table .ant-table-tbody > tr:hover > td) {
+  background: #f5faff !important;
+}
+
+:deep(.request-matrix-table .ant-table-cell-fix-left),
+:deep(.request-matrix-table .ant-table-cell-fix-right) {
+  background: #f8fafc !important;
+}
+
+:deep(.request-matrix-table .request-matrix-customer-cell) {
+  background: #fffef7;
+}
+
+:deep(.request-matrix-table .request-matrix-total-cell) {
+  background: #eef6ff !important;
+}
+
+:deep(.request-matrix-table .ant-table-pagination) {
+  margin: 8px 10px;
+}
+
 :global(html[data-theme-mode='dark']) :deep(.customer-matrix-surface) {
   background: #101010;
   border-color: #2f2f2f;
@@ -3547,6 +5369,180 @@ function isFormFieldDisabled(field) {
 
 :global(html[data-theme-mode='dark']) .customer-matrix-stage :deep(.ant-table) {
   background: #0f0f0f;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-workbook {
+  background:
+    linear-gradient(90deg, rgba(82, 82, 91, 0.4) 1px, transparent 1px),
+    linear-gradient(rgba(82, 82, 91, 0.34) 1px, transparent 1px),
+    #18181b;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-sheet {
+  border-color: #3f3f46;
+  background: #111111;
+  box-shadow: none;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-empty {
+  border-color: #3f3f46;
+  background: rgba(17, 17, 17, 0.72);
+  color: #a1a1aa;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-tabs {
+  border-top-color: #3f3f46;
+  background: #18181b;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-actionbar {
+  border-top-color: #3f3f46;
+  background: rgba(24, 24, 27, 0.96);
+  box-shadow: none;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-selection-summary {
+  color: #d4d4d8;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-selection-summary strong {
+  color: #93c5fd;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-action {
+  border-color: #3f3f46;
+  background: #111111;
+  color: #d4d4d8;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-action:hover:not(:disabled) {
+  border-color: #60a5fa;
+  color: #93c5fd;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-action-primary {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-tab {
+  border-color: #3f3f46;
+  background: #27272a;
+  color: #d4d4d8;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-tab-active {
+  background: #111111;
+  color: #93c5fd;
+  box-shadow: 0 -1px 0 #111111 inset;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-tab-count {
+  background: rgba(96, 165, 250, 0.18);
+  color: #bfdbfe;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-sheet-title {
+  border-color: #3f3f46;
+  background: linear-gradient(180deg, #27272a 0%, #1f1f23 100%);
+  color: #f4f4f5;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-sheet-title span {
+  border-color: #2563eb;
+  background: #172033;
+  color: #93c5fd;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-grid,
+:global(html[data-theme-mode='dark']) .request-template-detail {
+  border-color: #3f3f46;
+  background: #111111;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-cell,
+:global(html[data-theme-mode='dark']) .request-template-detail-header,
+:global(html[data-theme-mode='dark']) .request-template-detail-cell {
+  border-color: #333333;
+  color: #f4f4f5;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-detail-header {
+  background: #27272a;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-detail-cell-selected {
+  background: #172033;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-cell.template-summary {
+  background: #18181b;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-cell.template-dynamic {
+  background: #171712;
+}
+
+:global(html[data-theme-mode='dark']) .request-matrix-cell {
+  color: #f8fafc;
+}
+
+:global(html[data-theme-mode='dark']) .request-matrix-cell:hover,
+:global(html[data-theme-mode='dark']) .request-matrix-cell-selected {
+  border-color: #60a5fa;
+  background: #172033;
+  box-shadow: inset 0 0 0 1px #60a5fa;
+}
+
+:global(html[data-theme-mode='dark']) .request-matrix-total {
+  color: #7dd3fc;
+}
+
+:global(html[data-theme-mode='dark']) .request-matrix-empty {
+  color: #71717a;
+}
+
+:global(html[data-theme-mode='dark']) .request-matrix-stage {
+  border-color: #3f3f46;
+  background: #18181b;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.request-matrix-table .ant-table) {
+  background: #111111;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.request-matrix-table .ant-table-thead > tr > th) {
+  border-color: #3f3f46 !important;
+  background: #27272a !important;
+  color: #f4f4f5;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.request-matrix-table .ant-table-thead > tr:first-child > th) {
+  background: #303036 !important;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.request-matrix-table .ant-table-tbody > tr > td) {
+  border-color: #333333 !important;
+  background: #161616;
+  color: #f4f4f5;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.request-matrix-table .ant-table-tbody > tr:hover > td) {
+  background: #1f2937 !important;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.request-matrix-table .ant-table-cell-fix-left),
+:global(html[data-theme-mode='dark']) :deep(.request-matrix-table .ant-table-cell-fix-right) {
+  background: #18181b !important;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.request-matrix-table .request-matrix-customer-cell) {
+  background: #1b1a14;
+}
+
+:global(html[data-theme-mode='dark']) :deep(.request-matrix-table .request-matrix-total-cell) {
+  background: #152033 !important;
 }
 
 :deep(.row-highlight-new > td) {

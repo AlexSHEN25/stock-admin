@@ -122,6 +122,10 @@ export async function fetchRequestItemCartPage(params) {
   return fetchPageByUrl('/api/requestForm/items/cart/page', params);
 }
 
+export async function fetchRequestItemCartPreview(params) {
+  return http.get('/api/requestForm/items/cart/preview', { params: normalizePageParams(params) });
+}
+
 export async function addRequestItemsToCart(payload) {
   return http.post('/api/requestForm/items/cart/add', payload || {});
 }

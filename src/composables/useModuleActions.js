@@ -103,7 +103,10 @@ export function useModuleActions(options) {
     const id = getRecordId(record);
     if (!id) return;
     try {
-      await downloadRequestFormFile(id, TABLE_TEXT.downloadFail);
+      await downloadRequestFormFile(id, TABLE_TEXT.downloadFail, 'excel', {
+        promptSavePath: true,
+        suggestedFileName: `request_${id}.xlsx`,
+      });
     } catch (error) {
       message.error(error?.message || TABLE_TEXT.downloadFail);
     }
@@ -113,7 +116,10 @@ export function useModuleActions(options) {
     const id = getRecordId(record);
     if (!id) return;
     try {
-      await downloadRequestFormPdf(id, TABLE_TEXT.downloadFail);
+      await downloadRequestFormPdf(id, TABLE_TEXT.downloadFail, {
+        promptSavePath: true,
+        suggestedFileName: `request_${id}.pdf`,
+      });
     } catch (error) {
       message.error(error?.message || TABLE_TEXT.downloadFail);
     }
