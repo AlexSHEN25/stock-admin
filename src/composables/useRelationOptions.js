@@ -11,6 +11,7 @@ export function useRelationOptions(options) {
     inlineField,
     mapNameFieldToIdField,
     currentUserId,
+    isAdminUser,
   } = options;
 
   const queryRelationOptions = reactive({});
@@ -100,11 +101,12 @@ export function useRelationOptions(options) {
 
   function relationOptionCacheKey(targetModule) {
     if (targetModule !== 'customer') return targetModule;
+    if (isAdminUser?.value) return 'customer:all';
     return `customer:owner:${Number(currentUserId?.value) || 0}`;
   }
 
   function buildCustomerQueryParams() {
-    if (currentUserId?.value) {
+    if (!isAdminUser?.value && currentUserId?.value) {
       return {
         ownerUserId: Number(currentUserId.value),
       };

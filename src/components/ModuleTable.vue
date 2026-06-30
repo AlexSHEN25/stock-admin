@@ -64,8 +64,34 @@
           :key="activeRequestTemplateSheet.key"
           class="request-template-sheet"
         >
+          <div class="request-template-toolbar">
+            <div class="request-template-switch-group">
+              <span>抬头</span>
+              <button
+                v-for="option in REQUEST_TEMPLATE_HEADER_OPTIONS"
+                :key="option.value"
+                type="button"
+                :class="['request-template-switch', { 'request-template-switch-active': option.value === activeRequestHeaderTemplateCode }]"
+                @click="requestTemplateHeaderCode = option.value"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+            <div class="request-template-switch-group">
+              <span>条目</span>
+              <button
+                v-for="option in REQUEST_TEMPLATE_DETAIL_OPTIONS"
+                :key="option.value"
+                type="button"
+                :class="['request-template-switch', { 'request-template-switch-active': option.value === activeRequestDetailTemplateCode }]"
+                @click="requestTemplateDetailCode = option.value"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
           <div class="request-template-sheet-title">
-            <span>{{ activeRequestTemplateSheet.groupCode }}</span>
+            <span>{{ activeRequestTemplateSheet.headerTemplateCode }}/{{ activeRequestTemplateSheet.detailTemplateCode }}</span>
             <strong>{{ activeRequestTemplateSheet.customer.name }}</strong>
           </div>
           <div
@@ -86,7 +112,7 @@
             :style="{ gridTemplateColumns: requestTemplateDetailColumns(activeRequestTemplateSheet) }"
           >
             <div
-              v-for="header in activeRequestTemplateSheet.template.detailHeaders"
+              v-for="header in activeRequestTemplateSheet.detailHeaders"
               :key="header.key"
               class="request-template-detail-header"
             >
@@ -97,15 +123,19 @@
               :key="requestTemplateRecordKey(activeRequestTemplateSheet, record)"
             >
               <div
-                v-for="header in activeRequestTemplateSheet.template.detailHeaders"
+                v-for="header in activeRequestTemplateSheet.detailHeaders"
                 :key="`${requestTemplateRecordKey(activeRequestTemplateSheet, record)}-${header.key}`"
                 :class="['request-template-detail-cell', { 'request-template-detail-cell-selected': isRequestTemplateRowSelected(activeRequestTemplateSheet, record) }]"
+                role="button"
+                tabindex="0"
+                @click="toggleRequestTemplateRow(activeRequestTemplateSheet, record)"
+                @keydown.enter.prevent="toggleRequestTemplateRow(activeRequestTemplateSheet, record)"
               >
                 <button
                   v-if="header.key === 'qty' && requestFlowSourceQty(record, 'requestItem') > 0"
                   type="button"
                   :class="['request-matrix-cell', { 'request-matrix-cell-selected': isRequestTemplateRowSelected(activeRequestTemplateSheet, record) }]"
-                  @click="toggleRequestTemplateRow(activeRequestTemplateSheet, record)"
+                  @click.stop="toggleRequestTemplateRow(activeRequestTemplateSheet, record)"
                 >
                   {{ formatQty(requestFlowSourceQty(record, 'requestItem')) }}
                 </button>
@@ -648,6 +678,14 @@ const REQUEST_TEMPLATE_DETAIL_HEADERS = {
     { key: 'remark', label: '備考欄', width: '140px' },
   ],
 };
+const REQUEST_TEMPLATE_HEADER_OPTIONS = [
+  { value: 'B', label: '英語 B' },
+  { value: 'C', label: '日本語 C' },
+];
+const REQUEST_TEMPLATE_DETAIL_OPTIONS = [
+  { value: 'B', label: '英語 B' },
+  { value: 'C', label: '日本語 C' },
+];
 const REQUEST_FORM_TEMPLATE_LAYOUTS = {
   A: {
     colCount: 13,
@@ -843,6 +881,8 @@ const requestItemCustomerColumns = ref([]);
 const requestItemPreviewRows = ref([]);
 const activeRequestItemMonthKey = ref('');
 const activeRequestTemplateSheetKey = ref('');
+const requestTemplateHeaderCode = ref('');
+const requestTemplateDetailCode = ref('');
 const activeGoodsRowKey = ref('');
 const isGoodsManagement = computed(() => props.moduleKey === 'goods');
 const isSplitStockManagement = computed(() => (
@@ -1182,6 +1222,7 @@ const {
   currentDeptName: props.currentDeptName,
   currentUser: props.currentUser,
   currentUserId: toRef(props, 'currentUserId'),
+  isAdminUser,
 });
 const {
   loadDynamicEnumOptions,
@@ -1364,14 +1405,20 @@ const requestTemplateSheets = computed(() => {
     const normalized = normalizeRequestFlowRecord(record, 'requestItem');
     const customer = resolveRequestTemplateCustomer(normalized);
     const groupCode = normalizeRequestCustomerGroupCode(customer) || normalizeRequestCustomerGroupCode(normalized) || 'A';
-    const template = REQUEST_FORM_TEMPLATE_LAYOUTS[groupCode] || REQUEST_FORM_TEMPLATE_LAYOUTS.A;
+    const headerTemplateCode = resolveRequestTemplateCodeByChoice(requestTemplateHeaderCode.value, groupCode);
+    const detailTemplateCode = resolveRequestTemplateCodeByChoice(requestTemplateDetailCode.value, groupCode);
+    const template = REQUEST_FORM_TEMPLATE_LAYOUTS[headerTemplateCode] || REQUEST_FORM_TEMPLATE_LAYOUTS.C;
+    const detailTemplate = REQUEST_FORM_TEMPLATE_LAYOUTS[detailTemplateCode] || REQUEST_FORM_TEMPLATE_LAYOUTS.C;
     const customerId = customer.id ?? normalized?.customerId ?? normalized?.customer_id ?? '';
-    const key = `${groupCode}::${String(customerId || customer.name || 'unknown')}`;
+    const key = `${headerTemplateCode}:${detailTemplateCode}::${groupCode}::${String(customerId || customer.name || 'unknown')}`;
     if (!grouped.has(key)) {
       grouped.set(key, {
         key,
         groupCode,
+        headerTemplateCode,
+        detailTemplateCode,
         template,
+        detailHeaders: detailTemplate.detailHeaders || REQUEST_TEMPLATE_DETAIL_HEADERS.JP_COMPACT,
         customer,
         rows: [],
       });
@@ -1429,6 +1476,14 @@ const activeRequestTemplateSheet = computed(() => {
   if (sheets.length === 0) return null;
   return sheets.find((sheet) => sheet.key === activeRequestTemplateSheetKey.value) || sheets[0];
 });
+const activeRequestHeaderTemplateCode = computed(() => (
+  activeRequestTemplateSheet.value?.headerTemplateCode
+  || resolveRequestTemplateCodeByChoice(requestTemplateHeaderCode.value, activeRequestTemplateSheet.value?.groupCode)
+));
+const activeRequestDetailTemplateCode = computed(() => (
+  activeRequestTemplateSheet.value?.detailTemplateCode
+  || resolveRequestTemplateCodeByChoice(requestTemplateDetailCode.value, activeRequestTemplateSheet.value?.groupCode)
+));
 const activeRequestTemplateRowCount = computed(() => activeRequestTemplateSheet.value?.rows?.length || 0);
 const activeRequestTemplateSelectedCount = computed(() => {
   const sheet = activeRequestTemplateSheet.value;
@@ -1478,7 +1533,15 @@ function activateRequestItemMonth(monthKey) {
 
 function requestTemplateSheetTabLabel(sheet) {
   const customerName = sheet?.customer?.name || '未設定';
-  return `${sheet?.groupCode || ''} ${customerName}`.trim();
+  const templateLabel = `${sheet?.headerTemplateCode || ''}/${sheet?.detailTemplateCode || ''}`.replace(/^\/|\/$/g, '');
+  return `${templateLabel} ${customerName}`.trim();
+}
+
+function resolveRequestTemplateCodeByChoice(choice, fallbackGroupCode = 'C') {
+  const selected = String(choice || '').trim().toUpperCase();
+  if (selected === 'B' || selected === 'C') return selected;
+  const fallback = String(fallbackGroupCode || '').trim().toUpperCase();
+  return fallback === 'B' ? 'B' : 'C';
 }
 
 function requestItemMonthKey(record) {
@@ -1667,7 +1730,7 @@ function requestTemplateHeaderCells(sheet) {
   const template = sheet?.template || REQUEST_FORM_TEMPLATE_LAYOUTS.A;
   return (template.cells || []).map((cell) => ({
     ...cell,
-    __groupCode: sheet?.groupCode || 'A',
+    __groupCode: sheet?.headerTemplateCode || sheet?.groupCode || 'C',
     key: `${sheet.key}-${cell.r}-${cell.c}-${cell.dynamic || cell.v || ''}`,
     value: requestTemplateHeaderValue(sheet, cell),
     className: requestTemplateCellClassName(sheet, cell),
@@ -1677,7 +1740,7 @@ function requestTemplateHeaderCells(sheet) {
 function requestTemplateCellClassName(sheet, cell) {
   return [
     cell.className || '',
-    `template-${String(sheet?.groupCode || 'A').toLowerCase()}`,
+    `template-${String(sheet?.headerTemplateCode || sheet?.groupCode || 'C').toLowerCase()}`,
     cell.dynamic ? 'template-dynamic' : '',
     requestTemplateIsSummaryCell(cell) ? 'template-summary' : '',
     requestTemplateShouldWrapCell(cell) ? 'template-wrap' : '',
@@ -1688,8 +1751,9 @@ function requestTemplateHeaderValue(sheet, cell) {
   if (!cell?.dynamic) return cell?.v ?? '';
   const customer = sheet?.customer || {};
   if (cell.dynamic === 'customerName') {
-    const name = sheet?.groupCode === 'B' ? (customer.englishName || customer.name || '') : (customer.name || '');
-    return sheet?.groupCode === 'B' ? name : [name, '御中'].filter(Boolean).join(' ');
+    const isEnglishHeader = sheet?.headerTemplateCode === 'B';
+    const name = isEnglishHeader ? (customer.englishName || customer.name || '') : (customer.name || '');
+    return isEnglishHeader ? name : [name, '御中'].filter(Boolean).join(' ');
   }
   if (cell.dynamic === 'contactName') {
     const name = customer.contactName || '';
@@ -1766,7 +1830,7 @@ function requestTemplateIsSummaryCell(cell) {
 }
 
 function requestTemplateDetailColumns(sheet) {
-  return (sheet?.template?.detailHeaders || REQUEST_TEMPLATE_DETAIL_HEADERS.JP_WIDE)
+  return (sheet?.detailHeaders || REQUEST_TEMPLATE_DETAIL_HEADERS.JP_COMPACT)
     .map((header) => header.width || 'minmax(96px, 1fr)')
     .join(' ');
 }
@@ -1905,7 +1969,7 @@ function normalizeRequestFlowRecord(record, moduleKey = props.moduleKey) {
     outboundDate,
     stockRecordId,
     stockOrderItemId,
-    quantity: moduleKey === 'deliverySchedule' ? safeWholeQty(quantity) : Number(record?.quantity ?? 0),
+    quantity: (moduleKey === 'deliverySchedule' || moduleKey === 'requestItem') ? safeWholeQty(quantity) : Number(record?.quantity ?? 0),
     availableQty: safeWholeQty(record?.availableQty ?? record?.available_qty ?? quantity),
     requestQty: safeWholeQty(record?.requestQty ?? record?.request_qty ?? quantity),
     sourceQty: safeWholeQty(quantity),
@@ -1958,7 +2022,10 @@ function firstNumericValue(...values) {
 }
 
 function stockViewQueryParams() {
-  if (props.moduleKey === 'stockSelf' || props.moduleKey === 'stockSummary' || props.moduleKey === 'stock') {
+  if (props.moduleKey === 'stockSelf' || props.moduleKey === 'stockSummary') {
+    return { stockScope: 'self' };
+  }
+  if (props.moduleKey === 'stock') {
     return {};
   }
   if (props.moduleKey === 'stockGroup') {
@@ -4992,6 +5059,54 @@ function isFormFieldDisabled(field) {
   font-family: "Yu Gothic", "Yu Mincho", "MS PGothic", serif;
 }
 
+.request-template-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #b7c3d1;
+  background: linear-gradient(180deg, #fffdf7 0%, #eef4fb 100%);
+}
+
+.request-template-switch-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.request-template-switch {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid #aab7c8;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.request-template-switch:hover {
+  border-color: #2563eb;
+  color: #1d4ed8;
+}
+
+.request-template-switch-active {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.22);
+}
+
+.request-template-switch-active:hover {
+  color: #ffffff;
+}
+
 .request-template-empty {
   flex: 1;
   display: flex;
@@ -5237,6 +5352,11 @@ function isFormFieldDisabled(field) {
   min-width: 0;
   white-space: break-spaces;
   overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.request-template-detail-cell:hover {
+  background: #f8fbff;
 }
 
 .request-template-detail-cell-selected {
@@ -5382,6 +5502,32 @@ function isFormFieldDisabled(field) {
   border-color: #3f3f46;
   background: #111111;
   box-shadow: none;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-toolbar {
+  border-color: #3f3f46;
+  background: linear-gradient(180deg, #18181b 0%, #111111 100%);
+}
+
+:global(html[data-theme-mode='dark']) .request-template-switch-group {
+  color: #d4d4d8;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-switch {
+  border-color: #3f3f46;
+  background: #111111;
+  color: #e4e4e7;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-switch:hover {
+  border-color: #60a5fa;
+  color: #bfdbfe;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-switch-active {
+  border-color: #60a5fa;
+  background: #2563eb;
+  color: #ffffff;
 }
 
 :global(html[data-theme-mode='dark']) .request-template-empty {
