@@ -1945,17 +1945,7 @@ function aggregateRequestFlowRows(sourceRows = [], moduleKey = props.moduleKey) 
 
 function normalizeRequestFlowRecord(record, moduleKey = props.moduleKey) {
   const isRequestItem = moduleKey === 'requestItem';
-  const requestItemQuantity = firstNumericValue(
-    record?.requestQty,
-    record?.request_qty,
-    record?.sourceQty,
-    record?.source_qty,
-    record?.quantity,
-    record?.availableQty,
-    record?.available_qty,
-    record?.moveQty,
-    record?.move_qty,
-  );
+  const requestItemQuantity = requestItemCartQty(record);
   const quantity = Number(isRequestItem
     ? requestItemQuantity
     : record?.quantity ?? record?.availableQty ?? 0);
@@ -1963,12 +1953,30 @@ function normalizeRequestFlowRecord(record, moduleKey = props.moduleKey) {
   const outboundDate = record?.outboundDate ?? record?.bizDate ?? record?.scheduledShipDate ?? '';
   const stockRecordId = record?.stockRecordId ?? record?.stock_record_id ?? record?.recordId ?? record?.record_id ?? null;
   const stockOrderItemId = record?.stockOrderItemId ?? record?.stock_order_item_id ?? record?.orderItemId ?? record?.order_item_id ?? null;
+  const goodsId = record?.goodsId ?? record?.goods_id ?? null;
+  const skuId = record?.skuId ?? record?.sku_id ?? null;
+  const stockTypeId = record?.stockTypeId ?? record?.stock_type_id ?? null;
+  const categoryId = record?.categoryId ?? record?.category_id ?? null;
   return {
     ...record,
     bizNo,
     outboundDate,
     stockRecordId,
     stockOrderItemId,
+    goodsId,
+    goodsName: firstText(record?.goodsName, record?.goods_name, record?.itemName, record?.item_name, record?.name),
+    skuId,
+    skuCode: firstText(record?.skuCode, record?.sku_code),
+    brandId: record?.brandId ?? record?.brand_id ?? null,
+    brandName: firstText(record?.brandName, record?.brand_name, record?.brand),
+    seriesId: record?.seriesId ?? record?.series_id ?? null,
+    seriesName: firstText(record?.seriesName, record?.series_name, record?.series),
+    makerId: record?.makerId ?? record?.maker_id ?? null,
+    makerName: firstText(record?.makerName, record?.maker_name, record?.maker),
+    categoryId,
+    categoryName: firstText(record?.categoryName, record?.category_name, record?.category),
+    stockTypeId,
+    stockTypeName: firstText(record?.stockTypeName, record?.stock_type_name, record?.stockType, record?.stock_type),
     quantity: (moduleKey === 'deliverySchedule' || moduleKey === 'requestItem') ? safeWholeQty(quantity) : Number(record?.quantity ?? 0),
     availableQty: safeWholeQty(record?.availableQty ?? record?.available_qty ?? quantity),
     requestQty: safeWholeQty(record?.requestQty ?? record?.request_qty ?? quantity),
@@ -1978,15 +1986,18 @@ function normalizeRequestFlowRecord(record, moduleKey = props.moduleKey) {
 
 function requestFlowAggregateKey(record) {
   return [
-    record?.customerId,
-    record?.customerName,
+    record?.customerId ?? record?.customer_id,
+    record?.customerName ?? record?.customer_name,
     record?.country,
-    record?.groupCode,
-    record?.outboundDate,
-    record?.goodsId,
-    record?.skuId,
-    record?.skuCode,
-    record?.stockTypeId,
+    record?.groupCode ?? record?.group_code,
+    record?.outboundDate ?? record?.outbound_date,
+    record?.goodsId ?? record?.goods_id,
+    record?.skuId ?? record?.sku_id,
+    record?.skuCode ?? record?.sku_code,
+    record?.categoryId ?? record?.category_id,
+    record?.categoryName ?? record?.category_name,
+    record?.stockTypeId ?? record?.stock_type_id,
+    record?.stockTypeName ?? record?.stock_type_name,
     record?.price,
     record?.currency,
   ].map((value) => String(value ?? '')).join('|');
@@ -1994,20 +2005,34 @@ function requestFlowAggregateKey(record) {
 
 function requestFlowSourceQty(record, moduleKey = props.moduleKey) {
   if (moduleKey === 'requestItem') {
-    return safeWholeQty(firstNumericValue(
-      record?.requestQty,
-      record?.request_qty,
-      record?.sourceQty,
-      record?.source_qty,
-      record?.quantity,
-      record?.availableQty,
-      record?.available_qty,
-      record?.moveQty,
-      record?.move_qty,
-      0,
-    ));
+    return safeWholeQty(requestItemCartQty(record));
   }
   return safeWholeQty(record?.quantity ?? record?.sourceQty ?? record?.source_qty ?? 0);
+}
+
+function requestItemCartQty(record) {
+  return firstNumericValue(
+    record?.requestQty,
+    record?.request_qty,
+    record?.cartQty,
+    record?.cart_qty,
+    record?.addedQty,
+    record?.added_qty,
+    record?.selectedQty,
+    record?.selected_qty,
+    record?.invoiceQty,
+    record?.invoice_qty,
+    record?.targetQty,
+    record?.target_qty,
+    record?.moveQty,
+    record?.move_qty,
+    record?.sourceQty,
+    record?.source_qty,
+    record?.quantity,
+    record?.availableQty,
+    record?.available_qty,
+    0,
+  );
 }
 
 function safeWholeQty(value) {
@@ -2236,7 +2261,10 @@ function mergeRequestItemPreviewRows(previewRows = [], cartRows = []) {
   (Array.isArray(previewRows) ? previewRows : []).forEach((record) => {
     const key = requestItemPreviewRecordKey(record);
     if (!key) return;
-    merged.set(key, record);
+    const existing = merged.get(key);
+    if (!existing || (!hasRequestItemCustomerInfo(existing) && hasRequestItemCustomerInfo(record))) {
+      merged.set(key, record);
+    }
     const sourceKey = requestItemPreviewSourceKey(record);
     if (sourceKey) previewSourceKeys.add(sourceKey);
   });
@@ -2260,6 +2288,14 @@ function normalizeRequestItemCartFallbackRecord(record) {
     requestQty: firstNumericValue(
       record?.requestQty,
       record?.request_qty,
+      record?.cartQty,
+      record?.cart_qty,
+      record?.addedQty,
+      record?.added_qty,
+      record?.selectedQty,
+      record?.selected_qty,
+      record?.invoiceQty,
+      record?.invoice_qty,
       record?.sourceQty,
       record?.source_qty,
       record?.quantity,
@@ -2337,23 +2373,27 @@ function normalizeRequestItemPreviewPayload(payload, groupCode) {
   const records = Array.isArray(payload)
     ? payload
     : payload?.records || payload?.list || payload?.rows || payload?.items || payload?.data || [];
-  return (Array.isArray(records) ? records : []).map((record) => ({
-    ...record,
-    groupCode: record?.groupCode ?? record?.group_code ?? groupCode,
-    customerId: record?.customerId ?? record?.customer_id ?? payload?.customerId ?? payload?.customer_id,
-    customerName: record?.customerName ?? record?.customer_name ?? payload?.customerName ?? payload?.customer_name,
-    customerEnglishName: record?.customerEnglishName ?? record?.customer_english_name ?? record?.englishName ?? record?.english_name ?? payload?.customerEnglishName ?? payload?.customer_english_name ?? payload?.englishName ?? payload?.english_name,
-    customerAddress: record?.customerAddress ?? record?.customer_address ?? payload?.customerAddress ?? payload?.customer_address,
-    billingAddress: record?.billingAddress ?? record?.billing_address ?? payload?.billingAddress ?? payload?.billing_address,
-    invoiceAddress: record?.invoiceAddress ?? record?.invoice_address ?? payload?.invoiceAddress ?? payload?.invoice_address,
-    postalCode: record?.postalCode ?? record?.postal_code ?? payload?.postalCode ?? payload?.postal_code,
-    zipCode: record?.zipCode ?? record?.zip_code ?? payload?.zipCode ?? payload?.zip_code,
-    country: record?.country ?? payload?.country,
-    city: record?.city ?? payload?.city,
-    customerPhone: record?.customerPhone ?? record?.customer_phone ?? payload?.customerPhone ?? payload?.customer_phone,
-    customerEmail: record?.customerEmail ?? record?.customer_email ?? payload?.customerEmail ?? payload?.customer_email,
-    contactName: record?.contactName ?? record?.contact_name ?? record?.contactPerson ?? record?.contact_person ?? payload?.contactName ?? payload?.contact_name ?? payload?.contactPerson ?? payload?.contact_person,
-  }));
+  return (Array.isArray(records) ? records : []).map((record) => {
+    const requestQty = requestItemCartQty(record);
+    return {
+      ...record,
+      groupCode: record?.groupCode ?? record?.group_code ?? groupCode,
+      customerId: record?.customerId ?? record?.customer_id ?? payload?.customerId ?? payload?.customer_id,
+      customerName: record?.customerName ?? record?.customer_name ?? payload?.customerName ?? payload?.customer_name,
+      customerEnglishName: record?.customerEnglishName ?? record?.customer_english_name ?? record?.englishName ?? record?.english_name ?? payload?.customerEnglishName ?? payload?.customer_english_name ?? payload?.englishName ?? payload?.english_name,
+      customerAddress: record?.customerAddress ?? record?.customer_address ?? payload?.customerAddress ?? payload?.customer_address,
+      billingAddress: record?.billingAddress ?? record?.billing_address ?? payload?.billingAddress ?? payload?.billing_address,
+      invoiceAddress: record?.invoiceAddress ?? record?.invoice_address ?? payload?.invoiceAddress ?? payload?.invoice_address,
+      postalCode: record?.postalCode ?? record?.postal_code ?? payload?.postalCode ?? payload?.postal_code,
+      zipCode: record?.zipCode ?? record?.zip_code ?? payload?.zipCode ?? payload?.zip_code,
+      country: record?.country ?? payload?.country,
+      city: record?.city ?? payload?.city,
+      customerPhone: record?.customerPhone ?? record?.customer_phone ?? payload?.customerPhone ?? payload?.customer_phone,
+      customerEmail: record?.customerEmail ?? record?.customer_email ?? payload?.customerEmail ?? payload?.customer_email,
+      contactName: record?.contactName ?? record?.contact_name ?? record?.contactPerson ?? record?.contact_person ?? payload?.contactName ?? payload?.contact_name ?? payload?.contactPerson ?? payload?.contact_person,
+      requestQty,
+    };
+  });
 }
 
 function extractRequestItemCustomers(sourceRows = []) {
@@ -4274,18 +4314,54 @@ function buildRequestFlowPayloadItem(record) {
   const sources = Array.isArray(record?.__sources) && record.__sources.length > 0 ? record.__sources : [record];
   const stockRecordIds = uniquePositiveIds(sources.flatMap((source) => requestFlowStockRecordIds(source)));
   const stockOrderItemIds = uniquePositiveIds(sources.flatMap((source) => requestFlowStockOrderItemIds(source)));
+  const context = requestFlowPayloadContext(record, sources);
   if (stockRecordIds.length > 1 || stockOrderItemIds.length > 1) {
     return {
       stockRecordIds,
       stockOrderItemIds,
       requestQty,
+      ...context,
     };
   }
   return {
     stockRecordId: stockRecordIds[0] || 0,
     stockOrderItemId: stockOrderItemIds[0] || undefined,
     requestQty,
+    ...context,
   };
+}
+
+function requestFlowPayloadContext(record, sources = []) {
+  const pool = [record, ...(Array.isArray(sources) ? sources : [])];
+  return {
+    goodsId: firstPositiveNumberFromRecords(pool, 'goodsId', 'goods_id'),
+    skuId: firstPositiveNumberFromRecords(pool, 'skuId', 'sku_id'),
+    skuCode: firstTextFromRecords(pool, 'skuCode', 'sku_code'),
+    categoryId: firstPositiveNumberFromRecords(pool, 'categoryId', 'category_id'),
+    categoryName: firstTextFromRecords(pool, 'categoryName', 'category_name', 'category'),
+    stockTypeId: firstPositiveNumberFromRecords(pool, 'stockTypeId', 'stock_type_id'),
+    stockTypeName: firstTextFromRecords(pool, 'stockTypeName', 'stock_type_name', 'stockType', 'stock_type'),
+  };
+}
+
+function firstPositiveNumberFromRecords(records = [], ...keys) {
+  for (const record of records) {
+    for (const key of keys) {
+      const value = Number(record?.[key]);
+      if (Number.isFinite(value) && value > 0) return value;
+    }
+  }
+  return undefined;
+}
+
+function firstTextFromRecords(records = [], ...keys) {
+  for (const record of records) {
+    for (const key of keys) {
+      const value = firstText(record?.[key]);
+      if (value) return value;
+    }
+  }
+  return undefined;
 }
 
 function requestFlowStockRecordIds(record) {
@@ -4487,7 +4563,9 @@ function requestFlowQtyValue(record) {
   if (Object.prototype.hasOwnProperty.call(requestItemQtyState, key)) {
     return requestItemQtyState[key];
   }
-  const qty = Number(record?.sourceQty ?? record?.requestQty ?? record?.quantity ?? record?.availableQty ?? 1);
+  const qty = Number(props.moduleKey === 'requestItem'
+    ? requestItemCartQty(record)
+    : (record?.sourceQty ?? record?.requestQty ?? record?.quantity ?? record?.availableQty ?? 1));
   return Math.max(1, Math.abs(Number.isNaN(qty) ? 1 : Math.floor(qty || 1)));
 }
 
@@ -4499,7 +4577,9 @@ function updateRequestFlowQty(record, value) {
 }
 
 function requestFlowMaxQty(record) {
-  const qty = Number(record?.sourceQty ?? record?.requestQty ?? record?.quantity ?? record?.availableQty ?? record?.requestableQty ?? record?.remainQty ?? 0);
+  const qty = Number(props.moduleKey === 'requestItem'
+    ? requestItemCartQty(record)
+    : (record?.sourceQty ?? record?.requestQty ?? record?.quantity ?? record?.availableQty ?? record?.requestableQty ?? record?.remainQty ?? 0));
   return Number.isNaN(qty) ? 0 : Math.max(0, Math.floor(Math.abs(qty)));
 }
 
