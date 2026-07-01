@@ -313,8 +313,8 @@ function columnAlign(key, moduleKey) {
   return undefined;
 }
 
-function isRequestManagementModule(moduleKey) {
-  return moduleKey === 'requestForm' || moduleKey === 'deliverySchedule' || moduleKey === 'requestItem';
+function isRequestManagementModule() {
+  return false;
 }
 
 function isEditableExcelCell(key, moduleKey) {

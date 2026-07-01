@@ -78,7 +78,7 @@ export function normalizePermissionMenuKey(rawKey, rawPath = '') {
   return DIRECT_KEY_ALIASES[last] || PATH_KEY_ALIASES[last] || last || '';
 }
 
-export function normalizePermissionPathKey(rawPath) {
+function normalizePermissionPathKey(rawPath) {
   const path = String(rawPath || '').trim();
   if (!path) return '';
 
@@ -107,15 +107,4 @@ export function normalizePermissionPathKey(rawPath) {
 
   const last = parts[parts.length - 1];
   return PATH_KEY_ALIASES[last] || DIRECT_KEY_ALIASES[last] || last;
-}
-
-export function flattenPermissionMenus(source, output = []) {
-  (Array.isArray(source) ? source : []).forEach((item) => {
-    if (!item || typeof item !== 'object') return;
-    output.push(item);
-    if (Array.isArray(item.children) && item.children.length > 0) {
-      flattenPermissionMenus(item.children, output);
-    }
-  });
-  return output;
 }

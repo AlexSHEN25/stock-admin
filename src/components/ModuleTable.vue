@@ -62,86 +62,95 @@
         <div
           v-if="activeRequestTemplateSheet"
           :key="activeRequestTemplateSheet.key"
-          class="request-template-sheet"
+          class="request-template-sheet-scroll"
         >
-          <div class="request-template-toolbar">
-            <div class="request-template-switch-group">
-              <span>抬头</span>
-              <button
-                v-for="option in REQUEST_TEMPLATE_HEADER_OPTIONS"
-                :key="option.value"
-                type="button"
-                :class="['request-template-switch', { 'request-template-switch-active': option.value === activeRequestHeaderTemplateCode }]"
-                @click="requestTemplateHeaderCode = option.value"
-              >
-                {{ option.label }}
-              </button>
+          <div class="request-template-sheet">
+            <div class="request-template-toolbar">
+              <div class="request-template-switch-group">
+                <span>抬头</span>
+                <button
+                  v-for="option in REQUEST_TEMPLATE_HEADER_OPTIONS"
+                  :key="option.value"
+                  type="button"
+                  :class="['request-template-switch', { 'request-template-switch-active': option.value === activeRequestHeaderTemplateCode }]"
+                  @click="requestTemplateHeaderCode = option.value"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
+              <div class="request-template-switch-group">
+                <span>条目</span>
+                <button
+                  v-for="option in REQUEST_TEMPLATE_DETAIL_OPTIONS"
+                  :key="option.value"
+                  type="button"
+                  :class="['request-template-switch', { 'request-template-switch-active': option.value === activeRequestDetailTemplateCode }]"
+                  @click="requestTemplateDetailCode = option.value"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
             </div>
-            <div class="request-template-switch-group">
-              <span>条目</span>
-              <button
-                v-for="option in REQUEST_TEMPLATE_DETAIL_OPTIONS"
-                :key="option.value"
-                type="button"
-                :class="['request-template-switch', { 'request-template-switch-active': option.value === activeRequestDetailTemplateCode }]"
-                @click="requestTemplateDetailCode = option.value"
-              >
-                {{ option.label }}
-              </button>
+            <div class="request-template-sheet-title">
+              <span>{{ activeRequestTemplateSheet.headerTemplateCode }}/{{ activeRequestTemplateSheet.detailTemplateCode }}</span>
+              <strong>{{ activeRequestTemplateSheet.customer.name }}</strong>
             </div>
-          </div>
-          <div class="request-template-sheet-title">
-            <span>{{ activeRequestTemplateSheet.headerTemplateCode }}/{{ activeRequestTemplateSheet.detailTemplateCode }}</span>
-            <strong>{{ activeRequestTemplateSheet.customer.name }}</strong>
-          </div>
-          <div
-            class="request-template-grid"
-            :style="{ gridTemplateColumns: requestTemplateColumns(activeRequestTemplateSheet) }"
-          >
             <div
-              v-for="cell in requestTemplateHeaderCells(activeRequestTemplateSheet)"
-              :key="cell.key"
-              :class="['request-template-cell', cell.className]"
-              :style="requestTemplateCellStyle(cell)"
+              class="request-template-grid"
+              :style="{ gridTemplateColumns: requestTemplateColumns(activeRequestTemplateSheet) }"
             >
-              {{ cell.value }}
+              <div
+                v-for="cell in requestTemplateHeaderCells(activeRequestTemplateSheet)"
+                :key="cell.key"
+                :class="['request-template-cell', cell.className]"
+                :style="requestTemplateCellStyle(cell)"
+              >
+                {{ cell.value }}
+              </div>
             </div>
-          </div>
-          <div
-            class="request-template-detail"
-            :style="{ gridTemplateColumns: requestTemplateDetailColumns(activeRequestTemplateSheet) }"
-          >
             <div
-              v-for="header in activeRequestTemplateSheet.detailHeaders"
-              :key="header.key"
-              class="request-template-detail-header"
-            >
-              {{ header.label }}
-            </div>
-            <template
-              v-for="record in activeRequestTemplateSheet.rows"
-              :key="requestTemplateRecordKey(activeRequestTemplateSheet, record)"
+              class="request-template-detail"
+              :style="{ gridTemplateColumns: requestTemplateDetailColumns(activeRequestTemplateSheet) }"
             >
               <div
                 v-for="header in activeRequestTemplateSheet.detailHeaders"
-                :key="`${requestTemplateRecordKey(activeRequestTemplateSheet, record)}-${header.key}`"
-                :class="['request-template-detail-cell', { 'request-template-detail-cell-selected': isRequestTemplateRowSelected(activeRequestTemplateSheet, record) }]"
-                role="button"
-                tabindex="0"
-                @click="toggleRequestTemplateRow(activeRequestTemplateSheet, record)"
-                @keydown.enter.prevent="toggleRequestTemplateRow(activeRequestTemplateSheet, record)"
+                :key="header.key"
+                class="request-template-detail-header"
               >
-                <button
-                  v-if="header.key === 'qty' && requestFlowSourceQty(record, 'requestItem') > 0"
-                  type="button"
-                  :class="['request-matrix-cell', { 'request-matrix-cell-selected': isRequestTemplateRowSelected(activeRequestTemplateSheet, record) }]"
-                  @click.stop="toggleRequestTemplateRow(activeRequestTemplateSheet, record)"
-                >
-                  {{ formatQty(requestFlowSourceQty(record, 'requestItem')) }}
-                </button>
-                <span v-else>{{ requestTemplateDetailValue(record, header.key) }}</span>
+                {{ header.label }}
               </div>
-            </template>
+              <template
+                v-for="record in activeRequestTemplateSheet.rows"
+                :key="requestTemplateRecordKey(activeRequestTemplateSheet, record)"
+              >
+                <div
+                  v-for="header in activeRequestTemplateSheet.detailHeaders"
+                  :key="`${requestTemplateRecordKey(activeRequestTemplateSheet, record)}-${header.key}`"
+                  :class="['request-template-detail-cell', { 'request-template-detail-cell-selected': isRequestTemplateRowSelected(activeRequestTemplateSheet, record) }]"
+                  role="button"
+                  tabindex="0"
+                  @click="toggleRequestTemplateRow(activeRequestTemplateSheet, record)"
+                  @keydown.enter.prevent="toggleRequestTemplateRow(activeRequestTemplateSheet, record)"
+                >
+                  <button
+                    v-if="header.key === 'qty' && requestFlowSourceQty(record, 'requestItem') > 0"
+                    type="button"
+                    :class="['request-matrix-cell', { 'request-matrix-cell-selected': isRequestTemplateRowSelected(activeRequestTemplateSheet, record) }]"
+                    @click.stop="toggleRequestTemplateRow(activeRequestTemplateSheet, record)"
+                  >
+                    {{ formatQty(requestFlowSourceQty(record, 'requestItem')) }}
+                  </button>
+                  <span v-else>{{ requestTemplateDetailValue(record, header.key) }}</span>
+                </div>
+              </template>
+              <div
+                v-for="header in activeRequestTemplateSheet.detailHeaders"
+                :key="`summary-${header.key}`"
+                :class="['request-template-detail-cell', 'request-template-detail-summary', requestTemplateSummaryCellClass(header)]"
+              >
+                {{ requestTemplateSummaryValue(activeRequestTemplateSheet, header.key) }}
+              </div>
+            </div>
           </div>
         </div>
         <div
@@ -211,7 +220,7 @@
         :data-source="tableRows"
         :row-selection="displayRowSelection"
         :loading="loading || goodsStockLoading || requestItemPreviewLoading"
-        :pagination="tablePagination"
+        :pagination="displayTablePagination"
         :scroll="tableScroll"
         :sticky="tableSticky"
         @change="onChange"
@@ -318,7 +327,21 @@
           </template>
           <template v-else-if="isRequestFlowModule && String(column.key) === 'moveQty'">
             <div
-              v-if="!isActiveExcelCell(record, column.key)"
+              v-if="props.moduleKey === 'deliverySchedule'"
+              class="request-flow-qty-cell"
+            >
+              <a-input-number
+                :value="requestFlowQtyValue(record)"
+                :min="1"
+                :max="requestFlowMaxQty(record) || undefined"
+                :precision="0"
+                class="request-flow-qty-input"
+                @update:value="(value) => updateRequestFlowQty(record, value)"
+              />
+              <span class="request-flow-qty-limit">/ {{ requestFlowMaxQty(record) || '-' }}</span>
+            </div>
+            <div
+              v-else-if="!isActiveExcelCell(record, column.key)"
               :class="['excel-display-cell', { 'excel-display-cell-selected': isSelectedExcelCell(record, column.key) }]"
               role="button"
               tabindex="0"
@@ -442,6 +465,7 @@
       :fields="visibleFormKeys"
       :form-state="formState"
       :relation-options="relationOptions"
+      :batch-options="sheetOutboundBatchOptions"
       :table-text="TABLE_TEXT"
       :is-required="isFormFieldRequired"
       :normalize-title="normalizeTitle"
@@ -535,6 +559,7 @@
       :drafts="batchStockDrafts"
       :settings="batchStockSettings"
       :row-key="goodsRowKey"
+      :batch-options="batchStockBatchOptions"
       :source-type-options="stockSourceTypeOptions"
       :warehouse-options="relationOptions.warehouseId || []"
       :stock-type-options="relationOptions.stockTypeId || []"
@@ -620,7 +645,7 @@ import { useModuleTablePresentation } from '../composables/useModuleTablePresent
 import { useRelationOptions } from '../composables/useRelationOptions';
 import { useModuleTableSchema } from '../composables/useModuleTableSchema';
 import { useModuleTableState } from '../composables/useModuleTableState';
-import { approveStockOrder, fetchCurrentUserCustomerPage } from '../api/module';
+import { approveStockOrder, fetchCurrentUserCustomerPage, fetchStockBatchOptions } from '../api/module';
 import { downloadFileByUrl, downloadRequestFormFile, downloadRequestFormPdf } from '../utils/download';
 import { markAllMessageListRead, markAllMessagesRead, markMessageListRead, markMessageRead } from '../utils/message';
 import { submitDeliveryAllocationFlow, submitGoodsStockOutboundFlow, submitSheetStockInboundFlow, submitSheetStockOutboundFlow, submitStockInboundFlow, submitStockOrderItemReturnFlow, submitStockQuantityAdjustment } from '../utils/stock';
@@ -644,10 +669,10 @@ import {
 } from '../utils/constants';
 import { clearNavigationState, getNavigationState, setNavigationState } from '../utils/navigation-state';
 import { hasActiveFilters } from '../utils/table';
-import { formatTokyoDate, formatTokyoDateStart } from '../utils/timezone';
+import { formatTokyoDate } from '../utils/timezone';
 
 const STOCK_EDIT_PAYLOAD_FIELDS = ['id', 'goodsId', 'goodsName', 'skuId', 'skuCode', 'warehouseId', 'price', 'currency', 'stockTypeId', 'status', 'version'];
-const GOODS_INBOUND_FIELDS = ['sourceType', 'warehouseId', 'stockTypeId', 'quantity', 'saleDeadline', 'remark'];
+const GOODS_INBOUND_FIELDS = ['sourceType', 'warehouseId', 'stockTypeId', 'quantity', 'bizDate', 'saleDeadline', 'remark'];
 const GOODS_OUTBOUND_FIELDS = ['outboundMode', 'stockScope', 'customerId', 'deptId', 'warehouseId', 'stockTypeId', 'quantity', 'remark'];
 const REQUEST_TEMPLATE_DETAIL_HEADERS = {
   JP_WIDE: [
@@ -800,7 +825,7 @@ const STOCK_ORDER_USER_STATES = new Set([STOCK_ORDER_STATE.PENDING, STOCK_ORDER_
 const REQUEST_FORM_DEFAULT_STATE = REQUEST_FORM_STATE.PENDING;
 const REQUEST_FORM_COMPLETED_STATE = REQUEST_FORM_STATE.COMPLETED;
 const REQUEST_FORM_USER_STATES = new Set([REQUEST_FORM_STATE.PENDING, REQUEST_FORM_STATE.APPLYING]);
-const NORMAL_STOCK_TYPE_KEYWORDS = ['騾壼ｸｸ', 'normal'];
+const NORMAL_STOCK_TYPE_KEYWORDS = ['通常', 'normal'];
 const REQUEST_ITEM_UNKNOWN_MONTH_KEY = '__unknown_month__';
 
 const props = defineProps({
@@ -838,6 +863,7 @@ const sheetFlowMode = ref('outbound');
 const sheetOutboundRows = ref([]);
 const sheetOutboundActiveRowKey = ref('');
 const sheetOutboundDrafts = reactive({});
+const sheetOutboundBatchOptions = reactive({});
 const sheetOutboundSettings = reactive({
   allocationMode: 'customer',
   outboundMode: 'CUSTOMER',
@@ -859,6 +885,7 @@ const batchStockModeSwitchable = ref(false);
 const batchStockRows = ref([]);
 const batchStockSelectedKeys = ref([]);
 const batchStockDrafts = reactive({});
+const batchStockBatchOptions = reactive({});
 const batchStockQueryState = reactive({});
 const batchStockSettings = reactive({
   sourceType: STOCK_SOURCE_TYPE.SELF_INBOUND,
@@ -903,9 +930,10 @@ const isGroupStockModule = computed(() => (
 ));
 const canUseGroupAllocation = computed(() => isAdminUser.value && isSelfStockModule.value);
 const isCustomerGoodsSummary = computed(() => props.moduleKey === 'stockCustomerGoods');
-const isRequestFlowModule = computed(() => props.moduleKey === 'deliverySchedule' || props.moduleKey === 'requestItem');
-const isRequestItemMatrix = computed(() => props.moduleKey === 'requestItem');
-const isRequestManagementModule = computed(() => props.moduleKey === 'requestForm' || isRequestFlowModule.value);
+const isDeliveryScheduleModule = computed(() => props.moduleKey === 'deliverySchedule');
+const isRequestFlowModule = computed(() => isDeliveryScheduleModule.value || props.moduleKey === 'requestItem');
+const isRequestItemMatrix = computed(() => false);
+const isRequestManagementModule = computed(() => false);
 const isExcelEditModule = computed(() => isRequestManagementModule.value);
 const requestItemMatrixColumns = computed(() => {
   if (!isRequestItemMatrix.value) return [];
@@ -1035,8 +1063,12 @@ const tableScroll = computed(() => {
   ), 0);
   return {
     x: Math.max(totalWidth, 960),
+    ...(isRequestItemMatrix.value ? { y: 'calc(100vh - 360px)' } : {}),
   };
 });
+const displayTablePagination = computed(() => (
+  isRequestItemMatrix.value ? false : tablePagination.value
+));
 const tableSticky = computed(() => (
   isCustomerGoodsSummary.value || isRequestItemMatrix.value
     ? { offsetScroll: 0 }
@@ -1307,7 +1339,7 @@ const tableRows = computed(() => {
     return rows.value;
   }
   if (isRequestItemMatrix.value) {
-    return buildRequestItemMatrixRows(requestItemPreviewRows.value);
+    return buildRequestItemMatrixRows(requestItemRowsForActiveMonth.value);
   }
   if (isRequestFlowModule.value) {
     return aggregateRequestFlowRows(rows.value, props.moduleKey);
@@ -1449,15 +1481,24 @@ const requestItemMonthTabs = computed(() => {
       grouped.set(key, {
         key,
         label: requestItemMonthLabel(key),
+        rows: [],
         qty: 0,
         count: 0,
       });
     }
     const item = grouped.get(key);
-    item.qty += requestFlowSourceQty(normalized, 'requestItem');
+    item.rows.push(normalized);
     item.count += 1;
   });
-  return [...grouped.values()].sort((left, right) => {
+  return [...grouped.values()].map((item) => {
+    const matrixRows = buildRequestItemMatrixRows(item.rows);
+    return {
+      ...item,
+      qty: matrixRows.reduce((sum, record) => sum + Number(record.requestItemMatrixTotal || 0), 0),
+      count: matrixRows.length,
+      rows: undefined,
+    };
+  }).sort((left, right) => {
     if (left.key === REQUEST_ITEM_UNKNOWN_MONTH_KEY) return 1;
     if (right.key === REQUEST_ITEM_UNKNOWN_MONTH_KEY) return -1;
     return String(right.key).localeCompare(String(left.key));
@@ -1859,7 +1900,7 @@ function requestTemplateDetailValue(record, key) {
   }
   if (key === 'bizDate') return resolveRequestItemGoodsOutboundDate(record);
   if (key === 'qty') return formatQty(requestFlowSourceQty(record, 'requestItem'));
-  if (key === 'unitPrice') return formatRequestTemplateNumber(record?.unitPrice ?? record?.unit_price ?? record?.price);
+  if (key === 'unitPrice') return formatRequestTemplateNumber(resolveRequestTemplateUnitPrice(record));
   if (key === 'amount') return formatRequestTemplateNumber(resolveRequestTemplateAmount(record));
   if (key === 'remark') {
     const outboundDate = resolveRequestItemGoodsOutboundDate(record);
@@ -1869,13 +1910,50 @@ function requestTemplateDetailValue(record, key) {
   return firstText(record?.[key]);
 }
 
+function requestTemplateSummaryValue(sheet, key) {
+  if (!sheet) return '';
+  if (key === 'description' || key === 'brandName') {
+    return sheet.detailTemplateCode === 'B' ? 'Total' : '合計';
+  }
+  if (key === 'qty') return formatQty(requestTemplateTotalQty(sheet));
+  if (key === 'amount') return formatRequestTemplateNumber(requestTemplateTotalAmount(sheet));
+  return '';
+}
+
+function requestTemplateSummaryCellClass(header) {
+  if (header?.key === 'description' || header?.key === 'brandName') return 'request-template-detail-summary-label';
+  if (header?.key === 'qty' || header?.key === 'amount') return 'request-template-detail-summary-number';
+  return '';
+}
+
+function requestTemplateTotalQty(sheet) {
+  return (sheet?.rows || []).reduce((sum, record) => sum + Number(requestFlowSourceQty(record, 'requestItem') || 0), 0);
+}
+
+function requestTemplateTotalAmount(sheet) {
+  return (sheet?.rows || []).reduce((sum, record) => {
+    const amount = Number(resolveRequestTemplateAmount(record) || 0);
+    return sum + (Number.isNaN(amount) ? 0 : amount);
+  }, 0);
+}
+
 function resolveRequestTemplateAmount(record) {
-  const direct = record?.amount ?? record?.totalAmount ?? record?.total_amount ?? record?.priceAmount ?? record?.price_amount;
+  const direct = record?.amount ?? record?.totalAmount ?? record?.total_amount ?? record?.priceAmount ?? record?.price_amount
+    ?? (hasRequestTemplateUnitPrice(record) ? record?.price : undefined);
   if (direct !== undefined && direct !== null && String(direct).trim() !== '') return direct;
   const qty = Number(requestFlowSourceQty(record, 'requestItem') || 0);
-  const price = Number(record?.unitPrice ?? record?.unit_price ?? record?.price ?? 0);
+  const price = Number(resolveRequestTemplateUnitPrice(record) ?? 0);
   if (!qty || Number.isNaN(price)) return '';
   return qty * price;
+}
+
+function resolveRequestTemplateUnitPrice(record) {
+  return record?.unitPrice ?? record?.unit_price ?? record?.price;
+}
+
+function hasRequestTemplateUnitPrice(record) {
+  const value = record?.unitPrice ?? record?.unit_price;
+  return value !== undefined && value !== null && String(value).trim() !== '';
 }
 
 function formatRequestTemplateNumber(value) {
@@ -2012,8 +2090,11 @@ function requestFlowSourceQty(record, moduleKey = props.moduleKey) {
 
 function requestItemCartQty(record) {
   return firstNumericValue(
+    record?.qty,
     record?.requestQty,
     record?.request_qty,
+    record?.changeQty,
+    record?.change_qty,
     record?.cartQty,
     record?.cart_qty,
     record?.addedQty,
@@ -2124,7 +2205,6 @@ const stockSourceTypeOptions = computed(() => (
     .filter((option) => Number(option?.value) !== STOCK_SOURCE_TYPE.PURCHASE_INBOUND)
 ));
 const batchStockPaginationConfig = computed(() => {
-  if (batchStockMode.value !== 'inbound') return false;
   return {
     current: batchStockPagination.current,
     pageSize: batchStockPagination.pageSize,
@@ -2285,24 +2365,7 @@ function normalizeRequestItemCartFallbackRecord(record) {
     groupCode: record?.groupCode ?? record?.group_code ?? record?.customerGroupCode ?? record?.customer_group_code,
     customerId: record?.customerId ?? record?.customer_id,
     customerName: record?.customerName ?? record?.customer_name,
-    requestQty: firstNumericValue(
-      record?.requestQty,
-      record?.request_qty,
-      record?.cartQty,
-      record?.cart_qty,
-      record?.addedQty,
-      record?.added_qty,
-      record?.selectedQty,
-      record?.selected_qty,
-      record?.invoiceQty,
-      record?.invoice_qty,
-      record?.sourceQty,
-      record?.source_qty,
-      record?.quantity,
-      record?.availableQty,
-      record?.available_qty,
-      0,
-    ),
+    requestQty: requestItemCartQty(record),
   };
 }
 
@@ -2616,6 +2679,7 @@ async function openGoodsInboundModal(record) {
   goodsInboundForm.warehouseId = null;
   goodsInboundForm.stockTypeId = null;
   goodsInboundForm.quantity = null;
+  goodsInboundForm.bizDate = formatTokyoDate();
   goodsInboundForm.saleDeadline = null;
   goodsInboundForm.remark = null;
   await loadRelationOptions(['warehouseId', 'stockTypeId', 'customerId'], keys.value);
@@ -2632,6 +2696,7 @@ function goodsInboundInputType(field) {
   if (field === 'sourceType') return 'select';
   if (field === 'warehouseId' || field === 'stockTypeId') return 'relation';
   if (field === 'quantity') return 'number';
+  if (field === 'bizDate') return 'datetime';
   if (field === 'saleDeadline') return 'datetime';
   return 'textarea';
 }
@@ -2642,7 +2707,7 @@ function goodsInboundSelectOptions(field) {
 }
 
 function isGoodsInboundFieldRequired(field) {
-  return ['sourceType', 'warehouseId', 'stockTypeId', 'quantity', 'saleDeadline'].includes(field);
+  return ['sourceType', 'warehouseId', 'stockTypeId', 'quantity', 'bizDate'].includes(field);
 }
 
 function goodsInboundNumberMin(field) {
@@ -3009,6 +3074,7 @@ async function prepareSheetOutboundModal(selected) {
   sheetFlowMode.value = isSplitStockManagement.value ? 'outbound' : 'delivery';
   sheetOutboundRows.value = selected;
   Object.keys(sheetOutboundDrafts).forEach((key) => delete sheetOutboundDrafts[key]);
+  Object.keys(sheetOutboundBatchOptions).forEach((key) => delete sheetOutboundBatchOptions[key]);
   selected.forEach((record) => {
     sheetOutboundDrafts[goodsRowKey(record)] = isSplitStockManagement.value
       ? {
@@ -3040,11 +3106,50 @@ async function prepareSheetOutboundModal(selected) {
   sheetOutboundSettings.remark = '';
   invalidateRelationModuleOptions('customer');
   await loadRelationOptions(['warehouseId', 'stockTypeId', 'customerId'], keys.value);
+  await loadSheetOutboundBatchOptions(selected);
   sheetOutboundModalOpen.value = true;
 }
 
+async function loadSheetOutboundBatchOptions(records) {
+  const rows = Array.isArray(records) ? records : [];
+  await Promise.all(rows.map(async (record) => {
+    const key = goodsRowKey(record);
+    const stockId = Number(record?.stockId ?? record?.id ?? 0) || null;
+    if (!stockId) {
+      sheetOutboundBatchOptions[key] = [];
+      return;
+    }
+    try {
+      sheetOutboundBatchOptions[key] = await fetchStockBatchOptions(stockId, {
+        deptId: record?.deptId || props.currentDeptId || undefined,
+      });
+    } catch (_error) {
+      sheetOutboundBatchOptions[key] = [];
+    }
+  }));
+}
+
+async function loadBatchStockBatchOptions(records) {
+  const rows = Array.isArray(records) ? records : [];
+  await Promise.all(rows.map(async (record) => {
+    const key = goodsRowKey(record);
+    const stockId = Number(record?.stockId ?? record?.id ?? 0) || null;
+    if (!stockId) {
+      batchStockBatchOptions[key] = [];
+      return;
+    }
+    try {
+      batchStockBatchOptions[key] = await fetchStockBatchOptions(stockId, {
+        deptId: record?.deptId || props.currentDeptId || undefined,
+      });
+    } catch (_error) {
+      batchStockBatchOptions[key] = [];
+    }
+  }));
+}
+
 async function openBatchStockDrawer(mode, options = {}) {
-  const normalizedMode = mode === 'outbound' ? 'outbound' : 'inbound';
+  const normalizedMode = mode === 'outbound' ? 'outbound' : (mode === 'inout' ? 'inout' : 'inbound');
   const preservedBizDate = options.preserveSettings ? batchStockSettings.bizDate : null;
   const preservedRemark = options.preserveSettings ? batchStockSettings.remark : '';
   if (!options.preserveSettings) {
@@ -3054,15 +3159,16 @@ async function openBatchStockDrawer(mode, options = {}) {
   batchStockModeSwitchable.value = Boolean(options.allowModeSwitch);
   batchStockSelectedKeys.value = [];
   Object.keys(batchStockDrafts).forEach((key) => delete batchStockDrafts[key]);
+  Object.keys(batchStockBatchOptions).forEach((key) => delete batchStockBatchOptions[key]);
   batchStockSettings.sourceType = STOCK_SOURCE_TYPE.SELF_INBOUND;
   batchStockSettings.warehouseId = null;
   batchStockSettings.stockTypeId = null;
   batchStockSettings.quantity = 1;
   batchStockSettings.bizDate = preservedBizDate || formatTokyoDate();
-  batchStockSettings.remark = preservedRemark || (normalizedMode === 'inbound' ? '一括入庫' : '一括出庫');
+  batchStockSettings.remark = preservedRemark || (normalizedMode === 'inout' ? '\u4e00\u62ec\u5165\u51fa\u5eab' : (normalizedMode === 'inbound' ? '一括入庫' : '一括出庫'));
   batchStockDrawerOpen.value = true;
 
-  if (normalizedMode === 'inbound') {
+  if (normalizedMode === 'inbound' || normalizedMode === 'inout') {
     await loadQueryRelationOptions(batchStockSearchFields.value);
     await loadRelationOptions(['warehouseId', 'stockTypeId'], []);
     batchStockSettings.warehouseId = findOptionByMinId(relationOptions.warehouseId || [])?.value ?? relationOptions.warehouseId?.[0]?.value ?? null;
@@ -3071,15 +3177,7 @@ async function openBatchStockDrawer(mode, options = {}) {
     return;
   }
 
-  const rowsForDrawer = (tableRows.value || []).filter((record) => canGoodsOutbound(record));
-  if (rowsForDrawer.length === 0) {
-    batchStockDrawerOpen.value = false;
-    message.warning(TABLE_TEXT.selectDeliveryGoods);
-    return;
-  }
-
-  batchStockRows.value = rowsForDrawer;
-  seedBatchStockDrafts(rowsForDrawer);
+  await loadBatchStockGoodsPage({ pageNum: 1, pageSize: batchStockPagination.pageSize });
 }
 
 async function switchBatchStockMode(mode) {
@@ -3090,7 +3188,7 @@ async function switchBatchStockMode(mode) {
 }
 
 async function openBatchStockFlow() {
-  await openBatchStockDrawer('inbound', { allowModeSwitch: true });
+  await openBatchStockDrawer('inout', { allowModeSwitch: false });
 }
 
 async function loadBatchStockGoodsPage({ pageNum = 1, pageSize = 10 } = {}) {
@@ -3106,6 +3204,25 @@ async function loadBatchStockGoodsPage({ pageNum = 1, pageSize = 10 } = {}) {
         sortBy: 'updateTime',
         sortOrder: 'desc',
         stockScope: 'self',
+      });
+      const rowsForDrawer = Array.isArray(page.records) ? page.records : [];
+      batchStockRows.value = rowsForDrawer;
+      batchStockPagination.current = Number(page.pageNum || pageNum);
+      batchStockPagination.pageSize = Number(page.pageSize || pageSize);
+      batchStockPagination.total = Number(page.total || rowsForDrawer.length);
+      Object.keys(batchStockDrafts).forEach((key) => delete batchStockDrafts[key]);
+      seedBatchStockDrafts(rowsForDrawer);
+      await loadBatchStockBatchOptions(rowsForDrawer);
+      return;
+    }
+    if (batchStockMode.value === 'outbound') {
+      const page = await fetchPage('stock', {
+        ...stockViewQueryParams(),
+        ...searchParams,
+        pageNum,
+        pageSize,
+        sortBy: 'updateTime',
+        sortOrder: 'desc',
       });
       const rowsForDrawer = Array.isArray(page.records) ? page.records : [];
       batchStockRows.value = rowsForDrawer;
@@ -3152,7 +3269,7 @@ function buildBatchStockSearchParams() {
   (batchStockSearchFields.value || []).forEach((field) => {
     const value = batchStockQueryState[field];
     if (value === undefined || value === null || String(value).trim() === '') return;
-    const targetField = isGroupBatchInbound.value && field === 'name' ? 'goodsName' : field;
+    const targetField = (isGroupBatchInbound.value || batchStockMode.value === 'outbound') && field === 'name' ? 'goodsName' : field;
     params[targetField] = value;
   });
   return params;
@@ -3178,7 +3295,7 @@ async function resetBatchStockGoodsSearch() {
 
 function seedBatchStockDrafts(records) {
   (records || []).forEach((record) => {
-    const inboundMode = batchStockMode.value === 'inbound';
+    const inboundMode = batchStockMode.value === 'inbound' || batchStockMode.value === 'inout';
     batchStockDrafts[goodsRowKey(record)] = {
       sourceType: inboundMode
         ? Number(batchStockSettings.sourceType || STOCK_SOURCE_TYPE.SELF_INBOUND)
@@ -3232,7 +3349,9 @@ function clearTransientUiState() {
   clearObjectState(requestFlowCellDraftState);
   selectedRequestMatrixCells.value = [];
   clearObjectState(sheetOutboundDrafts);
+  clearObjectState(sheetOutboundBatchOptions);
   clearObjectState(batchStockDrafts);
+  clearObjectState(batchStockBatchOptions);
   clearObjectState(goodsFlowByRowKey);
   resetBatchStockQueryState();
   closeGoodsDrawer();
@@ -3251,15 +3370,16 @@ async function submitBatchStockFlow() {
       return {
         record,
         stockId: Number(record?.stockId ?? record?.id ?? 0) || null,
+        batchId: Number(draft.batchId || 0) || null,
         goodsId: Number(record?.goodsId ?? record?.id ?? 0) || null,
         skuId: record?.skuId ? Number(record.skuId) : null,
-        warehouseId: batchStockMode.value === 'inbound'
+        warehouseId: (batchStockMode.value === 'inbound' || batchStockMode.value === 'inout')
           ? Number(draft.warehouseId ?? batchStockSettings.warehouseId ?? record?.warehouseId ?? 0) || null
           : Number(record?.warehouseId ?? batchStockSettings.warehouseId ?? 0) || null,
-        stockTypeId: batchStockMode.value === 'inbound'
+        stockTypeId: (batchStockMode.value === 'inbound' || batchStockMode.value === 'inout')
           ? Number(draft.stockTypeId ?? batchStockSettings.stockTypeId ?? record?.stockTypeId ?? 0) || null
           : Number(record?.stockTypeId ?? batchStockSettings.stockTypeId ?? 0) || null,
-        sourceType: batchStockMode.value === 'inbound'
+        sourceType: (batchStockMode.value === 'inbound' || batchStockMode.value === 'inout')
           ? Number(draft.sourceType ?? batchStockSettings.sourceType ?? STOCK_SOURCE_TYPE.SELF_INBOUND)
           : null,
         quantity: Number(draft.quantity || 0),
@@ -3271,9 +3391,9 @@ async function submitBatchStockFlow() {
   const invalid = items.some((item) => (
     item.quantity <= 0
     || !item.bizDate
-    || (batchStockMode.value === 'outbound' && (!item.stockId || item.quantity > availableGoodsOutboundQty(goodsRowKey(item.record))))
+    || (batchStockMode.value === 'outbound' && (!item.stockId || item.quantity > batchStockMaxQty(item)))
     || (isGroupBatchInbound.value && (!item.stockId || item.quantity > stockCurrentQty(item.record)))
-    || (batchStockMode.value === 'inbound'
+    || ((batchStockMode.value === 'inbound' || batchStockMode.value === 'inout')
       && !item.stockId
       && !(item.goodsId && item.sourceType && item.warehouseId && item.stockTypeId))
   ));
@@ -3300,26 +3420,28 @@ async function submitBatchStockFlow() {
       return;
     }
     const payload = {
-      ...(batchStockMode.value === 'inbound' ? { sourceType: Number(batchStockSettings.sourceType || STOCK_SOURCE_TYPE.SELF_INBOUND) } : {}),
+      ...((batchStockMode.value === 'inbound' || batchStockMode.value === 'inout') ? { sourceType: Number(batchStockSettings.sourceType || STOCK_SOURCE_TYPE.SELF_INBOUND) } : {}),
       bizDate: batchStockSettings.bizDate || items[0]?.bizDate || null,
-      remark: batchStockSettings.remark || (batchStockMode.value === 'inbound' ? '一括入庫' : '一括出庫'),
+      remark: batchStockSettings.remark || (batchStockMode.value === 'inout' ? '\u4e00\u62ec\u5165\u51fa\u5eab' : (batchStockMode.value === 'inbound' ? '一括入庫' : '一括出庫')),
       items: items.map((item) => removeEmptyBatchStockItem({
         stockId: batchStockMode.value === 'outbound' ? item.stockId : null,
-        goodsId: batchStockMode.value === 'inbound' ? item.goodsId : null,
-        skuId: batchStockMode.value === 'inbound' ? item.skuId : null,
-        warehouseId: batchStockMode.value === 'inbound' ? item.warehouseId : null,
-        stockTypeId: batchStockMode.value === 'inbound' ? item.stockTypeId : null,
+        batchId: batchStockMode.value === 'outbound' ? item.batchId : null,
+        goodsId: (batchStockMode.value === 'inbound' || batchStockMode.value === 'inout') ? item.goodsId : null,
+        skuId: (batchStockMode.value === 'inbound' || batchStockMode.value === 'inout') ? item.skuId : null,
+        warehouseId: (batchStockMode.value === 'inbound' || batchStockMode.value === 'inout') ? item.warehouseId : null,
+        stockTypeId: (batchStockMode.value === 'inbound' || batchStockMode.value === 'inout') ? item.stockTypeId : null,
         quantity: item.quantity,
         bizDate: item.bizDate,
       })),
     };
     await createItemByUrl(
-      batchStockMode.value === 'inbound' ? '/api/stock/inbound/batch' : '/api/stock/outbound/batch',
+      batchStockMode.value === 'inout' ? '/api/stock/inout/batch' : (batchStockMode.value === 'inbound' ? '/api/stock/inbound/batch' : '/api/stock/outbound/batch'),
       payload,
     );
-    message.success(batchStockMode.value === 'inbound' ? TABLE_TEXT.stockFlowSuccess : TABLE_TEXT.stockOutboundSuccess);
+    message.success(batchStockMode.value === 'outbound' ? TABLE_TEXT.stockOutboundSuccess : TABLE_TEXT.stockFlowSuccess);
     batchStockDrawerOpen.value = false;
     batchStockSelectedKeys.value = [];
+    Object.keys(batchStockBatchOptions).forEach((key) => delete batchStockBatchOptions[key]);
     selectedRowKeys.value = [];
     await reload();
     await loadGoodsStockRows();
@@ -3444,7 +3566,7 @@ async function submitSheetFlow() {
       const total = useCustomerAllocation
         ? validCustomerAllocations.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
         : Number(draft.aQty || 0) + Number(draft.bQty || 0) + Number(draft.cQty || 0);
-      return total > availableGoodsOutboundQty(goodsRowKey(record));
+      return total > sheetOutboundMaxQty(record);
     });
     if (invalid) {
       message.warning(TABLE_TEXT.outboundBelowCurrentQty);
@@ -3455,7 +3577,7 @@ async function submitSheetFlow() {
     const invalid = sheetOutboundRows.value.some((record) => {
       const draft = sheetOutboundDrafts[goodsRowKey(record)] || {};
       const groupTotal = Number(draft.aQty || 0) + Number(draft.bQty || 0) + Number(draft.cQty || 0);
-      return groupTotal > availableGoodsOutboundQty(goodsRowKey(record));
+      return groupTotal > sheetOutboundMaxQty(record);
     });
     if (invalid) {
       message.warning(TABLE_TEXT.abcTotalBelowCurrentQty);
@@ -3489,6 +3611,7 @@ async function submitSheetFlow() {
       sheetOutboundModalOpen.value = false;
       selectedRowKeys.value = [];
       sheetOutboundActiveRowKey.value = '';
+      Object.keys(sheetOutboundBatchOptions).forEach((key) => delete sheetOutboundBatchOptions[key]);
       await reload();
       await loadGoodsStockRows();
     }
@@ -3540,6 +3663,33 @@ function availableGoodsOutboundQty(rowKey) {
   }
   const record = tableRows.value.find((item) => goodsRowKey(item) === rowKey);
   return Math.max(0, Number(record?.outboundMaxQty ?? record?.currentQty ?? 0));
+}
+
+function sheetOutboundMaxQty(record) {
+  const key = goodsRowKey(record);
+  const draft = sheetOutboundDrafts[key] || {};
+  const selectedBatchId = draft.batchId;
+  if (selectedBatchId) {
+    const option = (sheetOutboundBatchOptions[key] || [])
+      .find((item) => String(item.batchId) === String(selectedBatchId));
+    if (option) {
+      return Math.max(0, Number(option.availableQty || 0));
+    }
+  }
+  return availableGoodsOutboundQty(key);
+}
+
+function batchStockMaxQty(item) {
+  const record = item?.record || {};
+  const key = goodsRowKey(record);
+  if (item?.batchId) {
+    const option = (batchStockBatchOptions[key] || [])
+      .find((row) => String(row.batchId) === String(item.batchId));
+    if (option) {
+      return Math.max(0, Number(option.availableQty || 0));
+    }
+  }
+  return stockCurrentQty(record);
 }
 
 function goodsRowKey(record) {
@@ -4027,7 +4177,7 @@ function normalizeModulePayload(payload) {
 
 function applyStockOrderCreateDefaults() {
   if (props.moduleKey !== 'stockOrder' || editing.value) return;
-  formState.bizDate = formatTokyoDateStart();
+  formState.bizDate = formatTokyoDate();
   formState.sourceType = STOCK_ORDER_DEFAULT_SOURCE_TYPE;
   formState.state = STOCK_ORDER_DEFAULT_STATE;
 }
@@ -5104,6 +5254,27 @@ function isFormFieldDisabled(field) {
   color: #a1a1aa;
 }
 
+.request-flow-qty-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 132px;
+}
+
+.request-flow-qty-input {
+  width: 86px;
+}
+
+.request-flow-qty-limit {
+  color: #64748b;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+:global(html[data-theme-mode='dark']) .request-flow-qty-limit {
+  color: #a1a1aa;
+}
+
 .customer-matrix-stage {
   margin-top: 8px;
   padding: 12px;
@@ -5118,19 +5289,28 @@ function isFormFieldDisabled(field) {
   flex-direction: column;
   gap: 0;
   width: 100%;
-  min-height: min(720px, calc(100vh - 220px));
-  max-height: calc(100vh - 180px);
+  height: min(720px, calc(100vh - 240px));
+  min-height: 420px;
+  max-height: calc(100vh - 240px);
   padding: 12px 12px 0;
   background:
     linear-gradient(90deg, rgba(148, 163, 184, 0.14) 1px, transparent 1px),
     linear-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px),
     #eef2f7;
   background-size: 24px 24px;
-  overflow: auto;
+  overflow: hidden;
+}
+
+.request-template-sheet-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: auto;
+  padding-bottom: 12px;
 }
 
 .request-template-sheet {
-  flex: 1 0 auto;
   width: 100%;
   min-width: min(1080px, 100%);
   border: 1px solid #aab7c8;
@@ -5200,9 +5380,7 @@ function isFormFieldDisabled(field) {
 }
 
 .request-template-tabs {
-  position: sticky;
-  bottom: 0;
-  left: 0;
+  flex: 0 0 auto;
   display: flex;
   align-items: flex-end;
   gap: 2px;
@@ -5215,9 +5393,7 @@ function isFormFieldDisabled(field) {
 }
 
 .request-template-actionbar {
-  position: sticky;
-  bottom: 34px;
-  left: 0;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -5443,6 +5619,31 @@ function isFormFieldDisabled(field) {
   background: #eff6ff;
 }
 
+.request-template-detail-summary {
+  align-items: center;
+  background: #f8fafc;
+  font-weight: 800;
+  cursor: default;
+}
+
+.request-template-detail-summary-label {
+  justify-content: center;
+}
+
+.request-template-detail-summary-number {
+  justify-content: flex-end;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-height: 720px) {
+  .request-template-workbook {
+    height: calc(100vh - 180px);
+    min-height: 360px;
+    max-height: calc(100vh - 180px);
+  }
+}
+
 .request-matrix-cell,
 .request-matrix-total {
   display: inline-flex;
@@ -5494,7 +5695,7 @@ function isFormFieldDisabled(field) {
   border-radius: 4px;
   background: #eef2f7;
   box-shadow: none;
-  overflow: hidden;
+  overflow: visible;
 }
 
 :deep(.request-matrix-table .ant-table) {
@@ -5700,6 +5901,14 @@ function isFormFieldDisabled(field) {
 
 :global(html[data-theme-mode='dark']) .request-template-detail-cell-selected {
   background: #172033;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-detail-summary {
+  background: #18181b;
+}
+
+:global(html[data-theme-mode='dark']) .request-template-detail-summary-number {
+  color: #f8fafc;
 }
 
 :global(html[data-theme-mode='dark']) .request-template-cell.template-summary {

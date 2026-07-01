@@ -8,14 +8,15 @@ const REQUEST_FORM_FIELDS = ['id', 'bizNo', 'sourceOrderId', 'sourceOrderNo', 'u
 const REQUEST_ITEM_QUERY_FIELDS = ['customerId', 'customerName', 'goodsId', 'goodsName', 'skuId', 'skuCode', 'stockTypeId', 'startDate', 'endDate'];
 const REQUEST_FLOW_TABLE_FIELDS = ['bizNo', 'country', 'customerName', 'groupCode', 'outboundDate', 'goodsName', 'skuCode', 'brandName', 'seriesName', 'categoryName', 'makerName', 'stockTypeName', 'sourceQty', 'moveQty', 'price', 'currency', 'operatorName'];
 const STOCK_PRESET = {
-  queryFields: ['id', 'goodsId', 'goodsName', 'skuCode', 'skuId', 'stockTypeId', 'currentQty', 'groupAQty', 'groupBQty', 'groupCQty', 'price', 'priceUpdateTime', 'currency', 'warehouseId', 'status'],
-  formFields: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity', 'remark', 'status'],
+  queryFields: ['id', 'goodsId', 'goodsName', 'skuCode', 'skuId', 'stockTypeId', 'currentQty', 'bizDateSummary', 'groupAQty', 'groupBQty', 'groupCQty', 'price', 'priceUpdateTime', 'currency', 'warehouseId', 'status'],
+  formFields: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity', 'bizDate', 'remark', 'status'],
   fieldTypes: {
     goodsId: 'relation',
     sourceType: 'select',
     warehouseId: 'relation',
     stockTypeId: 'relation',
     quantity: 'number',
+    bizDate: 'datetime',
     remark: 'textarea',
     status: 'select',
   },
@@ -358,7 +359,7 @@ export const REQUIRED_FORM_FIELDS = {
   user: ['username', 'password', 'deptId', 'status'],
   dept: ['name', 'code', 'status'],
   goods: ['name', 'englishName', 'brandId', 'seriesId', 'categoryId', 'makerId', 'skuCode'],
-  stock: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity'],
+  stock: ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity', 'bizDate'],
   stockOrder: ['orderType', 'bizDate', 'warehouseId', 'sourceType', 'stockTypeId', 'state'],
   stockOrderItem: ['orderId', 'goodsId', 'skuId', 'goodsName', 'changeQty'],
   stockRecord: ['bizNo', 'orderId', 'orderItemId', 'stockId', 'goodsId', 'skuId', 'goodsName', 'changeQty', 'orderType', 'sourceType'],

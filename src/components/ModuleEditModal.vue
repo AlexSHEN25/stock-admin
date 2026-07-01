@@ -128,15 +128,22 @@ function isHourOnlyDateTimeField(field) {
   return field === 'saleDeadline';
 }
 
+function isDateOnlyField(field) {
+  return String(field || '').toLowerCase() === 'bizdate';
+}
+
 function dateFormatByField(field) {
+  if (isDateOnlyField(field)) return 'YYYY-MM-DD';
   return isHourOnlyDateTimeField(field) ? 'MM-DD HH時' : 'YYYY-MM-DD HH:mm:ss';
 }
 
 function dateValueFormatByField(field) {
+  if (isDateOnlyField(field)) return 'YYYY-MM-DD';
   return isHourOnlyDateTimeField(field) ? 'YYYY-MM-DD HH:00:00' : 'YYYY-MM-DD HH:mm:ss';
 }
 
 function dateShowTimeByField(field) {
+  if (isDateOnlyField(field)) return false;
   return isHourOnlyDateTimeField(field) ? { format: 'HH' } : true;
 }
 </script>

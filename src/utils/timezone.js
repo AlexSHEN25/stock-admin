@@ -1,4 +1,4 @@
-export const TOKYO_TIME_ZONE = 'Asia/Tokyo';
+const TOKYO_TIME_ZONE = 'Asia/Tokyo';
 
 const TOKYO_DATE_TIME_FORMATTER = new Intl.DateTimeFormat('en-CA', {
   timeZone: TOKYO_TIME_ZONE,

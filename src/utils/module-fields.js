@@ -242,6 +242,7 @@ export const FIELD_LABELS = {
   version: 'バージョン',
   bizNo: '業務番号',
   bizDate: '納品日/出荷日',
+  bizDateSummary: '納品日別数量',
 };
 
 export function normalizeTitle(key) {

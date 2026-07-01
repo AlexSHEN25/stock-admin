@@ -117,7 +117,7 @@ const TABLE_TEXT = {
   selectInboundGoods: '入庫する商品を選択してください',
   selectOutboundGoods: '出庫する商品を選択してください',
   outboundBelowCurrentQty: '出庫数量は現在庫以下で入力してください',
-  abcTotalBelowCurrentQty: 'A/B/C組配分合計は現在数量以下で入力してください',
+  abcTotalBelowCurrentQty: 'A/B/C組の合計は現在数量以下で入力してください',
   selectRequestForm: '請求書を選択してください',
   selectRequestItems: '生成する請求書明細を選択してください',
   requestFormGenerated: '請求書を生成しました',
@@ -133,7 +133,7 @@ export const PASSWORD_MESSAGES = {
   empty: '新しいパスワードを入力してください',
   mismatch: '確認用パスワードが一致しません',
   success: 'パスワードを更新しました',
-  fail: 'パスワード更新に失敗しました',
+  fail: 'パスワード変更に失敗しました',
 };
 
 export const GOODS_TABLE_CONFIG = {
@@ -156,7 +156,7 @@ export const GOODS_TABLE_CONFIG = {
   ],
 };
 
-export const ENUM_OPTIONS = {
+const ENUM_OPTIONS = {
   stockSourceType: [
     { label: '自社入庫', value: STOCK_SOURCE_TYPE.SELF_INBOUND },
   ],
@@ -205,7 +205,7 @@ export const MODULE_DETAIL_NAVIGATIONS = {
   requestForm: { storageKey: 'jump_request_form_id', targetModule: 'requestItem' },
 };
 
-export const MODULE_ROW_EXTRA_ACTIONS = {
+const MODULE_ROW_EXTRA_ACTIONS = {
   stockOrder: [
     { key: 'approve', label: '承認' },
     { key: 'reject', label: '却下' },
@@ -220,7 +220,7 @@ export const MODULE_ROW_EXTRA_ACTIONS = {
   message: [{ key: 'read', label: TABLE_TEXT.read }],
 };
 
-export const MODULE_ENUM_FIELD_OPTIONS = {
+const MODULE_ENUM_FIELD_OPTIONS = {
   message: {
     isRead: ENUM_OPTIONS.messageRead,
   },
@@ -246,7 +246,7 @@ export const MODULE_ENUM_FIELD_OPTIONS = {
   },
 };
 
-export const ADMIN_PERMISSION_MARKERS = [
+const ADMIN_PERMISSION_MARKERS = [
   'ROLE_SUPER_ADMIN',
   'ROLE_ADMIN',
   'SUPER_ADMIN',

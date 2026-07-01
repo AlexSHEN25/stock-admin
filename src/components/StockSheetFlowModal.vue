@@ -52,6 +52,18 @@
                 <template v-else-if="column.key === 'currentQty'">
                   {{ maxQty(record) }}
                 </template>
+                <template v-else-if="column.key === 'batchId'">
+                  <a-select
+                    :value="draftValue(record, 'batchId') || null"
+                    :options="batchSelectOptions(record)"
+                    class="sheet-flow-batch-select"
+                    placeholder="納品日を選択"
+                    allow-clear
+                    show-search
+                    option-filter-prop="label"
+                    @update:value="(value) => $emit('update-draft', rowKey(record), 'batchId', value || null)"
+                  />
+                </template>
                 <template v-if="column.key === 'aQty' || column.key === 'bQty' || column.key === 'cQty'">
                   <a-input-number
                     :value="draftValue(record, column.key)"
@@ -124,6 +136,18 @@
                 </template>
                 <template v-else-if="column.key === 'currentQty'">
                   {{ maxQty(record) }}
+                </template>
+                <template v-else-if="column.key === 'batchId'">
+                  <a-select
+                    :value="draftValue(record, 'batchId') || null"
+                    :options="batchSelectOptions(record)"
+                    class="sheet-flow-batch-select"
+                    placeholder="納品日を選択"
+                    allow-clear
+                    show-search
+                    option-filter-prop="label"
+                    @update:value="(value) => $emit('update-draft', rowKey(record), 'batchId', value || null)"
+                  />
                 </template>
                 <template v-else-if="column.key === 'remainQty'">
                   <a-tag :color="remainQty(record) < 0 ? 'red' : 'default'">
@@ -244,6 +268,7 @@ const props = defineProps({
   drafts: { type: Object, default: () => ({}) },
   settings: { type: Object, default: () => ({}) },
   relationOptions: { type: Object, default: () => ({}) },
+  batchOptions: { type: Object, default: () => ({}) },
   submitting: { type: Boolean, default: false },
   rowKey: { type: Function, required: true },
 });
@@ -327,10 +352,13 @@ const baseColumns = [
   { title: '現在数量', dataIndex: 'currentQty', key: 'currentQty', width: 96 },
 ];
 
+const outboundBatchColumn = { title: '出庫元納品日', dataIndex: 'batchId', key: 'batchId', width: 220 };
+
 const groupColumns = computed(() => {
   if (isInbound.value) {
     return [
       ...baseColumns,
+      ...(isInbound.value ? [] : [outboundBatchColumn]),
       { title: '入庫数量', dataIndex: 'quantity', key: 'quantity', width: 120 },
       { title: '入庫後数量', dataIndex: 'afterQty', key: 'afterQty', width: 100 },
       { title: '販売期限', dataIndex: 'saleDeadline', key: 'saleDeadline', width: 190 },
@@ -340,6 +368,7 @@ const groupColumns = computed(() => {
   if (isDelivery.value) {
     return [
       ...baseColumns,
+      ...(isInbound.value ? [] : [outboundBatchColumn]),
       { title: 'A組', dataIndex: 'aQty', key: 'aQty', width: 110 },
       { title: 'B組', dataIndex: 'bQty', key: 'bQty', width: 110 },
       { title: 'C組', dataIndex: 'cQty', key: 'cQty', width: 110 },
@@ -351,6 +380,7 @@ const groupColumns = computed(() => {
   }
   return [
     ...baseColumns,
+    ...(isInbound.value ? [] : [outboundBatchColumn]),
     { title: 'A組', dataIndex: 'aQty', key: 'aQty', width: 110 },
     { title: 'B組', dataIndex: 'bQty', key: 'bQty', width: 110 },
     { title: 'C組', dataIndex: 'cQty', key: 'cQty', width: 110 },
@@ -365,6 +395,7 @@ const customerColumns = computed(() => {
   if (isDelivery.value) {
     return [
       ...baseColumns,
+      ...(isInbound.value ? [] : [outboundBatchColumn]),
       { title: '合計', dataIndex: 'rowTotal', key: 'rowTotal', width: 110 },
       { title: '残数', dataIndex: 'remainQty', key: 'remainQty', width: 110 },
       { title: '販売期限', dataIndex: 'saleDeadline', key: 'saleDeadline', width: 190 },
@@ -373,6 +404,7 @@ const customerColumns = computed(() => {
   }
   return [
     ...baseColumns,
+    ...(isInbound.value ? [] : [outboundBatchColumn]),
     { title: '備考', dataIndex: 'remark', key: 'remark', width: 240 },
   ];
 });
@@ -388,6 +420,27 @@ function draftValue(record, field) {
   return draft(record)[field] ?? (field === 'remark' || field === 'saleDeadline' ? '' : 0);
 }
 
+function batchSelectOptions(record) {
+  return [
+    { label: '自社在庫合計から出庫', value: '' },
+    ...batchOptionsFor(record).map((item) => ({
+      label: `${item.bizDate || '未設定'} / 出庫可能 ${Number(item.availableQty || 0)}`,
+      value: item.batchId,
+    })),
+  ];
+}
+
+function batchOptionsFor(record) {
+  const key = props.rowKey(record);
+  return Array.isArray(props.batchOptions?.[key]) ? props.batchOptions[key] : [];
+}
+
+function selectedBatchOption(record) {
+  const selected = draftValue(record, 'batchId');
+  if (!selected) return null;
+  return batchOptionsFor(record).find((item) => String(item.batchId) === String(selected)) || null;
+}
+
 function rowTotal(record) {
   if (isCustomerMode.value) {
     return customerAllocations.value.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
@@ -400,6 +453,10 @@ function remainQty(record) {
 }
 
 function maxQty(record) {
+  const selectedBatch = selectedBatchOption(record);
+  if (selectedBatch) {
+    return Math.max(0, Number(selectedBatch.availableQty || 0));
+  }
   const outboundMaxQty = Number(record?.outboundMaxQty);
   const currentQty = Number(record?.currentQty ?? 0);
   return Math.max(0, outboundMaxQty > 0 ? outboundMaxQty : currentQty);
@@ -489,7 +546,8 @@ function maxQty(record) {
 }
 
 .sheet-flow-number,
-.sheet-flow-date {
+.sheet-flow-date,
+.sheet-flow-batch-select {
   width: 100%;
 }
 

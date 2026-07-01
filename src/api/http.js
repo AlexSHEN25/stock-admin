@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-export const TOKEN_KEY = 'stock_admin_token';
-export const TOKEN_EXPIRES_AT_KEY = 'stock_admin_token_expires_at';
-export const LOGIN_TTL_MS = 24 * 60 * 60 * 1000;
+const TOKEN_KEY = 'stock_admin_token';
+const TOKEN_EXPIRES_AT_KEY = 'stock_admin_token_expires_at';
+const LOGIN_TTL_MS = 24 * 60 * 60 * 1000;
 
 const http = axios.create({
   baseURL: '/',
@@ -19,7 +19,7 @@ export function clearAuthToken() {
   localStorage.removeItem(TOKEN_EXPIRES_AT_KEY);
 }
 
-export function isAuthTokenExpired() {
+function isAuthTokenExpired() {
   const expiresAt = Number(localStorage.getItem(TOKEN_EXPIRES_AT_KEY));
   return Boolean(expiresAt && Date.now() >= expiresAt);
 }

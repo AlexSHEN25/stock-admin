@@ -1,11 +1,10 @@
 import { createItem, createItemByUrl, fetchItem, fetchModuleOptions } from '../api/module';
 import TABLE_TEXT from './module-ui';
 import { STOCK_SOURCE_TYPE } from './constants';
+import { formatTokyoDate } from './timezone';
 
-const STOCK_REQUIRED_FIELDS = ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity'];
+const STOCK_REQUIRED_FIELDS = ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity', 'bizDate'];
 const RETURN_INBOUND_SOURCE_TYPE = 1;
-const DELIVERY_SCHEDULE_INBOUND_SOURCE_TYPE = 1;
-const STOCK_OUTBOUND_REQUIRED_FIELDS = ['goodsId', 'sourceType', 'warehouseId', 'stockTypeId', 'quantity'];
 
 
 export async function submitStockInboundFlow({ formState, closeModal, reload, notify }) {
@@ -33,101 +32,12 @@ export async function submitStockInboundFlow({ formState, closeModal, reload, no
       warehouseId,
       stockTypeId,
       quantity,
+      bizDate: formState.bizDate || null,
       saleDeadline: formState.saleDeadline || null,
       remark: formState.remark || null,
     });
     closeModal();
     notify.success(TABLE_TEXT.stockFlowSuccess);
-    await reload();
-    return true;
-  } catch (error) {
-    notify.error(error.message || TABLE_TEXT.saveFail);
-    return false;
-  }
-}
-
-export async function triggerStockOutboundFromRecord({ record, quantity, remark, reload, notify }) {
-  const goodsId = Number(record?.goodsId);
-  const skuId = await resolveSkuId(record?.skuId, goodsId);
-  const sourceType = Number(record?.sourceType || STOCK_SOURCE_TYPE.SELF_INBOUND);
-  const warehouseId = Number(record?.warehouseId);
-  const stockTypeId = Number(record?.stockTypeId);
-  const outboundQty = Number(quantity);
-
-  if (!goodsId || !warehouseId || !stockTypeId || !outboundQty) {
-    notify.warning(TABLE_TEXT.requiredField);
-    return;
-  }
-
-  if (outboundQty <= 0) {
-    notify.warning(TABLE_TEXT.outboundQuantityInvalid);
-    return;
-  }
-
-  try {
-    await createItem('stock/outbound', {
-      goodsId,
-      skuId,
-      sourceType,
-      warehouseId,
-      stockTypeId,
-      quantity: outboundQty,
-      remark: remark,
-    });
-
-    notify.success(TABLE_TEXT.stockOutboundSuccess);
-    await reload();
-    return true;
-  } catch (error) {
-    notify.error(error.message || TABLE_TEXT.saveFail);
-    return false;
-  }
-}
-
-
-
-
-export async function submitStockOutboundFlow({ formState, closeModal, reload, notify }) {
-  const missing = STOCK_OUTBOUND_REQUIRED_FIELDS.some((field) => {
-    const value = formState[field];
-    return value === undefined || value === null || String(value).trim() === '';
-  });
-
-  if (missing) {
-    notify.warning(TABLE_TEXT.requiredField);
-    return false;
-  }
-
-  const goodsId = Number(formState.goodsId);
-  const sourceType = Number(formState.sourceType);
-  const warehouseId = Number(formState.warehouseId);
-  const stockTypeId = Number(formState.stockTypeId);
-  const quantity = Number(formState.quantity);
-  const skuId = await resolveSkuId(formState.skuId, goodsId);
-
-  if (!goodsId || !warehouseId || !stockTypeId || !quantity) {
-    notify.warning(TABLE_TEXT.requiredField);
-    return false;
-  }
-
-  if (quantity <= 0) {
-    notify.warning(TABLE_TEXT.outboundQuantityInvalid);
-    return false;
-  }
-
-  try {
-    await createItem('stock/outbound', {
-      goodsId,
-      skuId,
-      sourceType,
-      warehouseId,
-      stockTypeId,
-      quantity,
-      remark: formState.remark || null,
-    });
-
-    closeModal();
-    notify.success(TABLE_TEXT.stockOutboundSuccess);
     await reload();
     return true;
   } catch (error) {
@@ -211,6 +121,7 @@ export async function submitSheetStockInboundFlow({ items, settings, notify }) {
 
   await createItemByUrl('/api/stock/inbound/batch', {
     sourceType: Number(settings?.sourceType || STOCK_SOURCE_TYPE.SELF_INBOUND),
+    bizDate: settings?.bizDate || formatTokyoDate(),
     remark: settings?.remark || '\u4e00\u62ec\u5165\u5eab',
     items: payloads,
   });
@@ -275,6 +186,7 @@ function buildSheetOutboundPayloads(items, settings) {
       if (!quantity || quantity <= 0 || !customerId) return;
       payloads.push(removeEmptyPayloadFields({
         stockId: Number(record?.stockId ?? record?.id ?? 0) || null,
+        batchId: Number(draft?.batchId || 0) || null,
         goodsId: Number(record?.goodsId ?? record?.id) || null,
         skuId: record?.skuId ? Number(record.skuId) : null,
         warehouseId: Number(record?.warehouseId ?? settings?.warehouseId),
@@ -318,6 +230,7 @@ function buildSheetInboundPayloads(items, settings) {
     warehouseId: Number(record?.warehouseId ?? settings?.warehouseId ?? 0) || null,
     stockTypeId: Number(record?.stockTypeId ?? settings?.stockTypeId ?? 0) || null,
     quantity: Number(draft?.quantity || 0),
+    bizDate: settings?.bizDate || draft?.bizDate || formatTokyoDate(),
     saleDeadline: settings?.saleDeadline || draft?.saleDeadline || null,
     remark: [settings?.remark, draft?.remark].filter(Boolean).join(' / ') || null,
   })).filter((payload) => (
@@ -369,6 +282,7 @@ export async function submitStockQuantityAdjustment({ beforeQty, afterQty, recor
     warehouseId,
     stockTypeId,
     quantity: Math.abs(changeQty),
+    bizDate: formatTokyoDate(),
     remark: '在庫管理画面からの数量調整',
   });
   return true;
@@ -395,58 +309,13 @@ export async function submitStockOrderItemReturnFlow({ record, reload, notify })
       warehouseId,
       stockTypeId,
       quantity,
+      bizDate: formatTokyoDate(),
       remark: buildReturnRemark(record),
     });
     notify.success('返却入庫を申請しました');
     await reload();
   } catch (error) {
     notify.error(error.message || TABLE_TEXT.saveFail);
-  }
-}
-
-export async function submitDeliveryScheduleInboundFlow({
-  record,
-  quantity,
-  reload,
-  notify,
-}) {
-  const order = await resolveStockOrder(record);
-  const goodsId = Number(record?.goodsId);
-  const skuId = await resolveSkuId(record?.skuId, goodsId);
-  const warehouseId = Number(record?.warehouseId ?? order?.warehouseId);
-  const stockTypeId = Number(record?.stockTypeId ?? order?.stockTypeId);
-  const inboundQty = Math.abs(Number(
-    quantity
-    ?? record?.requestQty
-    ?? record?.changeQty
-    ?? record?.outQty
-    ?? 0,
-  ));
-
-  if (!goodsId || !warehouseId || !stockTypeId || !inboundQty) {
-    notify.warning('入庫申請に必要な商品・倉庫・在庫分類・数量が不足しています');
-    return false;
-  }
-
-  try {
-    await createItem('stock/inbound', {
-      goodsId,
-      skuId,
-      sourceType: DELIVERY_SCHEDULE_INBOUND_SOURCE_TYPE,
-      warehouseId,
-      stockTypeId,
-      quantity: inboundQty,
-      saleDeadline: record?.saleDeadline ?? record?.deliveryDate ?? record?.bizDate ?? null,
-      remark: buildDeliveryScheduleInboundRemark(record),
-    });
-    notify.success('発送予定表から入庫申請を作成しました');
-    if (typeof reload === 'function') {
-      await reload();
-    }
-    return true;
-  } catch (error) {
-    notify.error(error.message || TABLE_TEXT.saveFail);
-    return false;
   }
 }
 
@@ -484,11 +353,3 @@ function buildReturnRemark(record) {
   return parts.join(' / ');
 }
 
-function buildDeliveryScheduleInboundRemark(record) {
-  const orderNo = record?.orderNo || record?.bizNo || record?.orderId || '';
-  const itemId = record?.stockOrderItemId || record?.orderItemId || record?.id || '';
-  const parts = ['発送予定表からの入庫申請'];
-  if (orderNo) parts.push(`伝票:${orderNo}`);
-  if (itemId) parts.push(`明細ID:${itemId}`);
-  return parts.join(' / ');
-}

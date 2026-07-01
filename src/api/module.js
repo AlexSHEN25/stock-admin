@@ -16,7 +16,7 @@ export async function fetchPage(modulePath, params) {
   return normalizePage(response);
 }
 
-export async function fetchPageByUrl(url, params) {
+async function fetchPageByUrl(url, params) {
   const safeParams = normalizePageParams(params);
   const response = await requestPageWithSortFallback(url, safeParams);
   return normalizePage(response);
@@ -50,10 +50,6 @@ export async function updateItem(modulePath, payload) {
     );
   }
   return http.put(`/api/${resolveModulePath(modulePath)}`, payload);
-}
-
-export async function updateItemByUrl(url, payload) {
-  return http.put(url, payload || {});
 }
 
 export async function removeItem(modulePath, id) {
@@ -94,24 +90,8 @@ export async function fetchModuleOptions(modulePath) {
   return page.records || [];
 }
 
-export async function fetchCustomerStockPage(params) {
-  return fetchPageByUrl('/api/stock/customer/page', params);
-}
-
-export async function fetchCustomerStockGoodsPage(params) {
-  return fetchPageByUrl('/api/stock/customer/goods/page', params);
-}
-
-export async function fetchCustomerStockGoodsMatrix(params) {
-  return http.get('/api/stock/customer/goods/matrix', { params: normalizePageParams(params) });
-}
-
 export async function fetchCustomerStockGoodsTreePage(params) {
   return fetchPageByUrl('/api/stock/customer/goods/tree/page', params);
-}
-
-export async function fetchCustomerStockGoodsDetailPage(params) {
-  return fetchPageByUrl('/api/stock/customer/goods/detail/page', params);
 }
 
 export async function fetchDeliverySchedulePage(params) {
@@ -127,32 +107,33 @@ export async function fetchRequestItemCartPreview(params) {
 }
 
 export async function addRequestItemsToCart(payload) {
-  return http.post('/api/requestForm/items/cart/add', payload || {});
+  return http.post('/api/requestForm/items/cart/add', payload || {}, {
+    headers: {
+      'Idempotency-Key': `request-cart-add-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    },
+  });
 }
 
 export async function removeRequestItemsFromCart(payload) {
-  return http.post('/api/requestForm/items/cart/remove', payload || {});
-}
-
-export async function fetchCustomerStockOrderPage(params) {
-  return fetchPageByUrl('/api/stockOrder/customer/page', params);
+  return http.post('/api/requestForm/items/cart/remove', payload || {}, {
+    headers: {
+      'Idempotency-Key': `request-cart-remove-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    },
+  });
 }
 
 export async function fetchCurrentUserCustomerPage(params) {
   return fetchPageByUrl('/api/customer/page', params);
 }
 
-export async function fetchCustomerStockOrderDetail(id) {
-  if (id === undefined || id === null || String(id).trim() === '') return null;
-  return http.get(`/api/stockOrder/customer/${id}`);
-}
-
-export async function updateCustomerStockOrder(payload) {
-  return updateItemByUrl('/api/stockOrder/customer', payload || {});
-}
-
 export async function fetchMyGroupStockAvailable(params) {
   return Number(await http.get('/api/stock/group/available', { params })) || 0;
+}
+
+export async function fetchStockBatchOptions(stockId, params = {}) {
+  if (stockId === undefined || stockId === null || String(stockId).trim() === '') return [];
+  const data = await http.get(`/api/stock/${stockId}/batch-options`, { params });
+  return Array.isArray(data) ? data : [];
 }
 
 export async function fetchOutboundStockOrderOptions() {
@@ -296,10 +277,6 @@ export async function importCustomerByExcel(file) {
       'Content-Type': 'multipart/form-data',
     },
   });
-}
-
-export async function upsertGoodsBatch(payload) {
-  return http.post('/api/goods/batch/upsert', payload || {});
 }
 
 export async function createRequestFormWithSelectedItems(payload) {
